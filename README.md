@@ -40,12 +40,8 @@
 
 #### 1️⃣ Clone โปรเจกต์
 ```bash
-git clone https://github.com/PantawatB/SpaceCMU
+git clone https://github.com/PantawatB/SpaceCMU_Project
 ```
 #### 2️⃣ spacecmu (frontend) Port:3000
-#### 3️⃣ spacecmu-backend (backend) Port:3000
-```bash
-docker compose up -d
-#รันที่ /spacecmu-backend
-```
+
 
