@@ -11,12 +11,12 @@ export default function FeedsMainPage() {
   const [selectedFilter, setSelectedFilter] = useState("Global");
 
   const filterOptions = [
-    { id: "Global", label: "Global", icon: "🌍" },
-    { id: "Friends", label: "Friends", icon: "👥" },
-    { id: "Announcements", label: "Announcements", icon: "📢" },
-    { id: "Events", label: "Events", icon: "🎉" },
-    { id: "Questions", label: "Questions", icon: "❓" },
-    { id: "Marketplace", label: "Marketplace", icon: "🛒" },
+    { id: "Global", label: "Global" },
+    { id: "Friends", label: "Friends" },
+    { id: "Announcements", label: "Announcements" },
+    { id: "Events", label: "Events" },
+    { id: "Questions", label: "Questions" },
+    { id: "Marketplace", label: "Marketplace" },
   ];
 
   const handleFilterSelect = (filterId: string) => {
@@ -72,10 +72,7 @@ export default function FeedsMainPage() {
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold">Feeds</h1>
             <span className="text-xl text-gray-400">|</span>
-            <span className="text-lg font-semibold text-gray-700 flex items-center gap-2">
-              <span className="text-xl">
-                {filterOptions.find((opt) => opt.id === selectedFilter)?.icon}
-              </span>
+            <span className="text-lg font-semibold text-gray-700">
               {selectedFilter}
             </span>
           </div>
@@ -118,7 +115,6 @@ export default function FeedsMainPage() {
                           : "text-gray-700"
                       }`}
                     >
-                      <span className="text-xl">{option.icon}</span>
                       <span className="text-sm font-medium">{option.label}</span>
                       {selectedFilter === option.id && (
                         <svg
