@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "../../components/Sidebar";
+import Chatbox from "../../components/Chatbox";
 import React from "react";
 import Image from "next/image";
 
@@ -230,6 +231,9 @@ export default function FriendsMainPage() {
           <HorizontalScrollSection title="People you may know" items={peopleYouMayKnow} />
         </div>
       </main>
+
+      {/* Chatbox - Bottom Right */}
+      <Chatbox />
     </div>
   );
 }

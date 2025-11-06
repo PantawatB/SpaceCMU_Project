@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
+import Chatbox from "../../components/Chatbox";
 
 // Mock Data
 const mockUsers = [
@@ -24,16 +25,18 @@ const mockActivities = [
 ];
 
 export default function AdminPage() {
-  const [activeTab, setActiveTab] = useState("users");
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedUser, setSelectedUser] = useState("");
   const [announcementText, setAnnouncementText] = useState("");
   const [announcementType, setAnnouncementType] = useState("global");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const tabs = [
-    { id: "users", name: "User Management", icon: "👥" },
-    { id: "posts", name: "Post Management", icon: "📝" },
-    { id: "announcements", name: "Announcements", icon: "📢" },
-    { id: "activities", name: "User Activities", icon: "📊" },
+    { id: "dashboard", name: "Dashboard", icon: "📊" },
+    { id: "users", name: "Users", icon: "👥" },
+    { id: "posts", name: "Posts", icon: "📝" },
+    { id: "announcements", name: "Messages", icon: "📢" },
+    { id: "activities", name: "Activities", icon: "⚡" },
   ];
 
   const handleBanUser = (userId: number) => {
@@ -67,209 +70,246 @@ export default function AdminPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-white text-gray-800">
-      {/* Sidebar */}
+    <div className="flex min-h-screen bg-gray-50">
       <Sidebar />
       
-      {/* Main Content */}
-      <div className="flex-1 min-h-screen bg-gray-50 p-6">
+      <div className="flex-1 p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Panel</h1>
-          <p className="text-gray-600">Manage SpaceCMU platform</p>
+          <h1 className="text-2xl font-bold text-gray-900">Admin</h1>
         </div>
 
         {/* Navigation Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <nav className="flex space-x-8">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                <span className="mr-2">{tab.icon}</span>
-                {tab.name}
-              </button>
-            ))}
-          </nav>
+        <div className="mb-6 flex gap-2">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
+                activeTab === tab.id
+                  ? "bg-black text-white"
+                  : "bg-white text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <span className="mr-2">{tab.icon}</span>
+              {tab.name}
+            </button>
+          ))}
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-lg shadow">
+        <div className="space-y-4">
+          {/* Dashboard */}
+          {activeTab === "dashboard" && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-2">👥</div>
+                <div className="text-2xl font-bold text-gray-900">1,234</div>
+                <div className="text-sm text-gray-500">Total Users</div>
+                <div className="text-xs text-green-600 mt-1">↑ 12%</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-2">✅</div>
+                <div className="text-2xl font-bold text-gray-900">1,180</div>
+                <div className="text-sm text-gray-500">Active Users</div>
+                <div className="text-xs text-green-600 mt-1">↑ 8%</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-2">📝</div>
+                <div className="text-2xl font-bold text-gray-900">5,678</div>
+                <div className="text-sm text-gray-500">Total Posts</div>
+                <div className="text-xs text-green-600 mt-1">↑ 15%</div>
+              </div>
+              <div className="bg-white p-6 rounded-xl border border-gray-100 hover:shadow-md transition-shadow">
+                <div className="text-3xl mb-2">🚫</div>
+                <div className="text-2xl font-bold text-gray-900">23</div>
+                <div className="text-sm text-gray-500">Banned</div>
+                <div className="text-xs text-red-600 mt-1">↑ 2 this week</div>
+              </div>
+            </div>
+          )}
+
           {/* Users Management */}
           {activeTab === "users" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">User Management</h2>
-              <div className="space-y-4">
-                {mockUsers.map((user) => (
-                  <div key={user.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <h3 className="font-medium">{user.name}</h3>
-                          <p className="text-sm text-gray-500">{user.username} • {user.email}</p>
-                          <p className="text-xs text-gray-400">Joined: {user.joinDate}</p>
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="bg-white p-4 rounded-xl border border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-xl">🔍</span>
+                  <input
+                    type="text"
+                    placeholder="Search by name or username..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              
+              {/* User List */}
+              {(() => {
+                const filteredUsers = mockUsers.filter((user) => 
+                  user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                  user.username.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+                
+                if (filteredUsers.length === 0) {
+                  return (
+                    <div className="bg-white p-8 rounded-xl border border-gray-100 text-center">
+                      <div className="text-4xl mb-3">🔍</div>
+                      <p className="text-gray-500">No users found matching &ldquo;{searchQuery}&rdquo;</p>
+                    </div>
+                  );
+                }
+                
+                return filteredUsers.map((user) => (
+                  <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                          {user.name.charAt(0)}
                         </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        <div>
+                          <h3 className="font-semibold text-gray-900">{user.name}</h3>
+                          <p className="text-xs text-gray-500">{user.username}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                           user.status === "active" 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green-50 text-green-700" 
+                            : "bg-red-50 text-red-700"
                         }`}>
-                          {user.status}
+                          {user.status === "active" ? "✓ Active" : "✕ Banned"}
                         </span>
+                        {user.status === "active" ? (
+                          <button
+                            onClick={() => handleBanUser(user.id)}
+                            className="px-4 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors"
+                          >
+                            Ban
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleUnbanUser(user.id)}
+                            className="px-4 py-1.5 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
+                          >
+                            Unban
+                          </button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      {user.status === "active" ? (
-                        <button
-                          onClick={() => handleBanUser(user.id)}
-                          className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
-                        >
-                          Ban User
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleUnbanUser(user.id)}
-                          className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
-                        >
-                          Unban User
-                        </button>
-                      )}
-                    </div>
                   </div>
-                ))}
-              </div>
+                ));
+              })()}
             </div>
           )}
 
           {/* Posts Management */}
           {activeTab === "posts" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Post Management</h2>
-              <div className="space-y-4">
-                {mockPosts.map((post) => (
-                  <div key={post.id} className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="space-y-3">
+              {mockPosts.map((post) => (
+                <div key={post.id} className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-all">
+                  <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <h3 className="font-medium">{post.author}</h3>
-                          <p className="text-sm text-gray-700 mt-1">{post.content}</p>
-                          <p className="text-xs text-gray-400 mt-1">
-                            {post.date} • Reports: {post.reports}
-                          </p>
-                        </div>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-semibold text-gray-900">{post.author}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                           post.status === "active" 
-                            ? "bg-green-100 text-green-800" 
-                            : "bg-red-100 text-red-800"
+                            ? "bg-green-50 text-green-700" 
+                            : "bg-red-50 text-red-700"
                         }`}>
-                          {post.status}
+                          {post.status === "active" ? "✓" : "✕"}
                         </span>
                       </div>
+                      <p className="text-sm text-gray-700 mb-2">{post.content}</p>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span>📅 {post.date}</span>
+                        <span>🚩 {post.reports} reports</span>
+                      </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div>
                       {post.status === "active" ? (
                         <button
                           onClick={() => handleBanPost(post.id)}
-                          className="px-3 py-1 bg-red-500 text-white rounded text-sm hover:bg-red-600"
+                          className="px-4 py-1.5 bg-red-500 text-white rounded-lg text-xs font-medium hover:bg-red-600 transition-colors"
                         >
-                          Ban Post
+                          Ban
                         </button>
                       ) : (
                         <button
                           onClick={() => handleUnbanPost(post.id)}
-                          className="px-3 py-1 bg-green-500 text-white rounded text-sm hover:bg-green-600"
+                          className="px-4 py-1.5 bg-green-500 text-white rounded-lg text-xs font-medium hover:bg-green-600 transition-colors"
                         >
-                          Unban Post
+                          Unban
                         </button>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
 
           {/* Announcements */}
           {activeTab === "announcements" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">Send Announcements</h2>
-              <div className="space-y-4">
+            <div className="bg-white p-6 rounded-xl border border-gray-100">
+              <div className="space-y-5">
                 {/* Announcement Type */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Announcement Type
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        value="global"
-                        checked={announcementType === "global"}
-                        onChange={(e) => setAnnouncementType(e.target.value)}
-                        className="mr-2"
-                      />
-                      Global Announcement
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        value="private"
-                        checked={announcementType === "private"}
-                        onChange={(e) => setAnnouncementType(e.target.value)}
-                        className="mr-2"
-                      />
-                      Private Message
-                    </label>
-                  </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setAnnouncementType("global")}
+                    className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all ${
+                      announcementType === "global"
+                        ? "bg-black text-white"
+                        : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    🌐 Global
+                  </button>
+                  <button
+                    onClick={() => setAnnouncementType("private")}
+                    className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all ${
+                      announcementType === "private"
+                        ? "bg-black text-white"
+                        : "bg-gray-50 text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    👤 Private
+                  </button>
                 </div>
 
                 {/* User Selection (for private messages) */}
                 {announcementType === "private" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Select User
-                    </label>
-                    <select
-                      value={selectedUser}
-                      onChange={(e) => setSelectedUser(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    >
-                      <option value="">Select a user...</option>
-                      {mockUsers.filter(user => user.status === "active").map((user) => (
-                        <option key={user.id} value={user.username}>
-                          {user.name} ({user.username})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={selectedUser}
+                    onChange={(e) => setSelectedUser(e.target.value)}
+                    className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 focus:ring-2 focus:ring-black focus:border-transparent"
+                  >
+                    <option value="">Select user...</option>
+                    {mockUsers.filter(user => user.status === "active").map((user) => (
+                      <option key={user.id} value={user.username}>
+                        {user.name} ({user.username})
+                      </option>
+                    ))}
+                  </select>
                 )}
 
                 {/* Message Content */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Message
-                  </label>
-                  <textarea
-                    value={announcementText}
-                    onChange={(e) => setAnnouncementText(e.target.value)}
-                    rows={4}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2"
-                    placeholder="Enter your announcement message..."
-                  />
-                </div>
+                <textarea
+                  value={announcementText}
+                  onChange={(e) => setAnnouncementText(e.target.value)}
+                  rows={5}
+                  className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-black focus:border-transparent resize-none"
+                  placeholder="Type your message..."
+                />
 
                 <button
                   onClick={handleSendAnnouncement}
                   disabled={!announcementText || (announcementType === "private" && !selectedUser)}
-                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="w-full py-3 bg-black text-white rounded-xl font-medium hover:bg-gray-800 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                 >
-                  Send {announcementType === "global" ? "Global" : "Private"} Announcement
+                  📤 Send {announcementType === "global" ? "to Everyone" : "Message"}
                 </button>
               </div>
             </div>
@@ -277,54 +317,33 @@ export default function AdminPage() {
 
           {/* User Activities */}
           {activeTab === "activities" && (
-            <div className="p-6">
-              <h2 className="text-xl font-semibold mb-4">User Activities</h2>
-              <div className="space-y-3">
-                {mockActivities.map((activity) => (
-                  <div key={activity.id} className="flex items-center justify-between p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <h3 className="font-medium">{activity.user}</h3>
-                          <p className="text-sm text-gray-600">{activity.action}</p>
-                        </div>
+            <div className="space-y-2">
+              {mockActivities.map((activity) => (
+                <div key={activity.id} className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-sm">
+                        ⚡
+                      </div>
+                      <div>
+                        <h3 className="font-semibold text-sm text-gray-900">{activity.user}</h3>
+                        <p className="text-xs text-gray-500">{activity.action}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm text-gray-500">{activity.timestamp}</p>
-                      <p className="text-xs text-gray-400">IP: {activity.ip}</p>
+                      <p className="text-xs text-gray-500">{activity.timestamp}</p>
+                      <p className="text-xs text-gray-400">{activity.ip}</p>
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-
-        {/* Statistics Cards */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Total Users</h3>
-            <p className="text-2xl font-bold text-gray-900">1,234</p>
-            <p className="text-sm text-green-600">+12% from last month</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Active Users</h3>
-            <p className="text-2xl font-bold text-gray-900">1,180</p>
-            <p className="text-sm text-green-600">+8% from last month</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Total Posts</h3>
-            <p className="text-2xl font-bold text-gray-900">5,678</p>
-            <p className="text-sm text-green-600">+15% from last month</p>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h3 className="text-sm font-medium text-gray-500">Banned Content</h3>
-            <p className="text-2xl font-bold text-gray-900">23</p>
-            <p className="text-sm text-red-600">+2 this week</p>
-          </div>
-        </div>
       </div>
+
+      {/* Chatbox - Bottom Right */}
+      <Chatbox />
     </div>
   );
 }

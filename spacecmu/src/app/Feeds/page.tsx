@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
+import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
-
-
 
 export default function FeedsMainPage() {
   const [feedMode, setFeedMode] = useState("Global");
@@ -285,6 +284,9 @@ export default function FeedsMainPage() {
           </ul>
         </div>
       </aside>
+
+      {/* Chatbox - Bottom Right */}
+      <Chatbox />
     </div>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "../../components/Sidebar";
+import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
 
 export default function ProfileMainPage() {
@@ -108,8 +109,15 @@ export default function ProfileMainPage() {
               </button>
             </div>
           </div>
+          {/* Chatbox Component - always at the bottom */}
+          <div className="bg-white rounded-2xl shadow p-6">
+            <Chatbox />
+          </div>
         </section>
       </main>
+
+      {/* Chatbox - Bottom Right */}
+      <Chatbox />
     </div>
   );
 }

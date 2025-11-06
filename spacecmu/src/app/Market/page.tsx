@@ -3,6 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import Sidebar from "../../components/Sidebar";
+import Chatbox from "../../components/Chatbox";
 
 // MarketCard component
 type MarketCardProps = {
@@ -107,6 +108,9 @@ export default function MarketMainPage() {
           ))}
         </div>
       </main>
+
+      {/* Chatbox - Bottom Right */}
+      <Chatbox />
     </div>
   );
 }
