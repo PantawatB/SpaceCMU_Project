@@ -6,8 +6,23 @@ import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
 
 export default function FeedsMainPage() {
-  const [feedMode, setFeedMode] = useState("Global");
   const [showShareBar, setShowShareBar] = useState(true);
+  const [showFeedFilter, setShowFeedFilter] = useState(false);
+  const [selectedFilter, setSelectedFilter] = useState("Global");
+
+  const filterOptions = [
+    { id: "Global", label: "Global", icon: "🌍" },
+    { id: "Friends", label: "Friends", icon: "👥" },
+    { id: "Announcements", label: "Announcements", icon: "📢" },
+    { id: "Events", label: "Events", icon: "🎉" },
+    { id: "Questions", label: "Questions", icon: "❓" },
+    { id: "Marketplace", label: "Marketplace", icon: "🛒" },
+  ];
+
+  const handleFilterSelect = (filterId: string) => {
+    setSelectedFilter(filterId);
+    setShowFeedFilter(false);
+  };
 
   return (
     <div className="flex h-screen bg-white text-gray-800">
@@ -54,28 +69,78 @@ export default function FeedsMainPage() {
         </div>
         {/* Feeds Header */}
         <div className="flex items-center justify-between mb-2">
-          <h1 className="text-2xl font-bold">Feeds</h1>
-          <div className="flex gap-8 text-gray-400 font-semibold text-lg">
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold">Feeds</h1>
+            <span className="text-xl text-gray-400">|</span>
+            <span className="text-lg font-semibold text-gray-700 flex items-center gap-2">
+              <span className="text-xl">
+                {filterOptions.find((opt) => opt.id === selectedFilter)?.icon}
+              </span>
+              {selectedFilter}
+            </span>
+          </div>
+          {/* Filter Dropdown Button - 3 lines icon */}
+          <div className="relative">
             <button
-              className={
-                feedMode === "Global"
-                  ? "text-black border-b-2 border-black pb-1"
-                  : "hover:text-black"
-              }
-              onClick={() => setFeedMode("Global")}
+              onClick={() => setShowFeedFilter(!showFeedFilter)}
+              className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-all duration-200"
             >
-              Global
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-6 h-6 text-gray-700"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              </svg>
             </button>
-            <button
-              className={
-                feedMode === "Friends"
-                  ? "text-black border-b-2 border-black pb-1"
-                  : "hover:text-black"
-              }
-              onClick={() => setFeedMode("Friends")}
-            >
-              Friends
-            </button>
+
+            {/* Dropdown Menu */}
+            {showFeedFilter && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-20">
+                <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Select Feed Type
+                </div>
+                <div className="py-1">
+                  {filterOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => handleFilterSelect(option.id)}
+                      className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition text-left ${
+                        selectedFilter === option.id
+                          ? "bg-blue-50 text-blue-700"
+                          : "text-gray-700"
+                      }`}
+                    >
+                      <span className="text-xl">{option.icon}</span>
+                      <span className="text-sm font-medium">{option.label}</span>
+                      {selectedFilter === option.id && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2.5}
+                          stroke="currentColor"
+                          className="w-4 h-4 ml-auto text-blue-600"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M4.5 12.75l6 6 9-13.5"
+                          />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {/* Feeds Section: scrollable only for posts */}
