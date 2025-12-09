@@ -33,7 +33,7 @@ export default function SettingPage() {
       username: "@cmu_official",
       avatar: "/cmulogo.png",
       bio: "Official account of Chiang Mai University",
-      followers: "51K",
+      followers: "500K",
       isFollowing: false,
     },
     {
