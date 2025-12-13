@@ -1,0 +1,47 @@
+{
+  "name": "",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "license": "AGPL-version-3.0",
+  "private": false,
+  "engines": {
+    "node": ">= 14.0.0",
+    "npm": ">= 6.0.0"
+  },
+  "homepage": "",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "bugs": "",
+  "keywords": [],
+  "author": {
+    "name": "",
+    "email": "",
+    "url": ""
+  },
+  "contributors": [],
+  "scripts": {
+    "db:generate": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit generate",
+    "db:push": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit push",
+    "db:migrate": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit migrate",
+    "db:prototype": "tsx ./db/prototype.ts",
+    "eol": "eolConverter _entrypoint/*.sh"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.45.1",
+    "postgres": "^3.4.7"
+  },
+  "devDependencies": {
+    "@tsconfig/node-lts": "^24.0.0",
+    "@tsconfig/node-ts": "^23.6.2",
+    "@types/node": "^25.0.1",
+    "cross-env": "^10.1.0",
+    "drizzle-kit": "^0.31.8",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
