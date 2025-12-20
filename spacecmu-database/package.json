@@ -24,8 +24,11 @@
   },
   "contributors": [],
   "scripts": {
-    "dev": "",
-    "test": ""
+    "db:generate": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit generate",
+    "db:push": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit push",
+    "db:migrate": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit migrate",
+    "db:prototype": "tsx ./db/prototype.ts",
+    "eol": "eolConverter _entrypoint/*.sh"
   },
   "dependencies": {
     "dotenv": "^17.2.3",
