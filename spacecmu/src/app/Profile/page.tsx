@@ -1,6 +1,7 @@
 "use client";
 
 import Sidebar from "../../components/Sidebar";
+import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
 import { useState } from "react";
 
@@ -452,6 +453,9 @@ export default function ProfileMainPage() {
           </div>
         </section>
       </main>
+
+      {/* Chatbox - Bottom Right */}
+      <Chatbox />
     </div>
   );
 }
