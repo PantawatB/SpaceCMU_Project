@@ -1,10 +1,11 @@
 "use client";
 
 import Sidebar from "../../components/Sidebar";
-import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
+import { useState } from "react";
 
 export default function ProfileMainPage() {
+  const [activeTab, setActiveTab] = useState("Posts");
 
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
@@ -67,16 +68,20 @@ export default function ProfileMainPage() {
                 />
               </div>
               {/* Stats - right of avatar, vertically centered, adjust only stats position */}
-              <div className="flex flex-col justify-center ml-6 relative" style={{ top: '25px' }}>
+              <div
+                className="flex flex-col justify-center ml-6 relative"
+                style={{ top: "25px" }}
+              >
                 <div className="flex gap-8">
                   <div className="text-center">
                     <span className="text-xl font-semibold">1.25k</span>
                     <span className="text-gray-500 ml-1">Friends</span>
                     <span className="text-gray-500 ml-4">|</span>
-                    <span className="text-black-500 ml-4 font-semibold">65</span>
+                    <span className="text-black-500 ml-4 font-semibold">
+                      65
+                    </span>
                     <span className="text-gray-500 ml-1">Engineers</span>
                   </div>
-                  
                 </div>
               </div>
             </div>
@@ -93,31 +98,360 @@ export default function ProfileMainPage() {
             </div>
             {/* Bio */}
             <div className="text-left text-gray-600 mt-2 px-8">
-              A kind-hearted Demon Slayer who fights to protect humanity while seeking a cure for his sister Nezuko.
+              A kind-hearted Demon Slayer who fights to protect humanity while
+              seeking a cure for his sister Nezuko.
             </div>
             {/* Tabs */}
             <div className="flex justify-center mt-6 border-b border-gray-200">
-              <button className="px-6 py-3 font-medium text-gray-700 bg-gray-100 rounded-t-xl">
+              <button
+                onClick={() => setActiveTab("Posts")}
+                className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  activeTab === "Posts"
+                    ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-6 h-6"
+                >
+                  {/* กระดาษ */}
+                  <path d="M6 3h9a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
+
+                  {/* เส้นข้อความด้านซ้าย */}
+                  <path d="M8 7h5" />
+                  <path d="M8 10h5" />
+                  <path d="M8 13h5" />
+                  <path d="M8 17h8" />
+                </svg>
+                Posts
+              </button>
+              <button
+                onClick={() => setActiveTab("Your Market Items")}
+                className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  activeTab === "Your Market Items"
+                    ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                  />
+                </svg>
+                Market Items
+              </button>
+              <button
+                onClick={() => setActiveTab("Friends")}
+                className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  activeTab === "Friends"
+                    ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-4 h-4"
+                >
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="3"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <circle
+                    cx="16"
+                    cy="8"
+                    r="3"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <path
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    d="M2 20c0-3 3-5 6-5s6 2 6 5"
+                    fill="none"
+                  />
+                  <path
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    d="M12 20c0-3 3-5 6-5s6 2 6 5"
+                    fill="none"
+                  />
+                </svg>
+                Friends
+              </button>
+              <button
+                onClick={() => setActiveTab("Reposts")}
+                className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  activeTab === "Reposts"
+                    ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
                 Reposts
               </button>
-              <button className="px-6 py-3 font-medium text-gray-700">Friends</button>
-              <button className="px-6 py-3 font-medium text-gray-700">
-                Likes
+              <button
+                onClick={() => setActiveTab("Liked")}
+                className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  activeTab === "Liked"
+                    ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                Liked
               </button>
-              <button className="px-6 py-3 font-medium text-gray-700">
+              <button
+                onClick={() => setActiveTab("Saved")}
+                className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  activeTab === "Saved"
+                    ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
+                }`}
+              >
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
                 Saved
               </button>
             </div>
           </div>
-          {/* Chatbox Component - always at the bottom */}
+
+          {/* Tab Content */}
           <div className="bg-white rounded-2xl shadow p-6">
-            <Chatbox />
+            {activeTab === "Posts" && (
+              <div className="text-center py-12">
+                <svg
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  {/* กระดาษ */}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 3h9a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z"
+                  />
+
+                  {/* เส้นข้อความ */}
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 7h5M8 10h5M8 13h5M8 17h8"
+                  />
+                </svg>
+
+                <p className="text-gray-500 text-lg">
+                  คุณยังไม่ได้โพสต์อะไรเลย
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  แชร์ความคิดหรือภาพของคุณให้เพื่อนๆ ได้ดู
+                </p>
+              </div>
+            )}
+
+            {activeTab === "Your Market Items" && (
+              <div className="text-center py-12">
+                <svg
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-lg">คุณยังไม่มีสินค้าในตลาด</p>
+                <p className="text-gray-400 text-sm mt-2">
+                  ลงขายสินค้าของคุณเพื่อให้เพื่อนๆ ได้เห็น
+                </p>
+              </div>
+            )}
+
+            {activeTab === "Friends" && (
+              <div className="text-center py-12">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={2}
+                  stroke="currentColor"
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                >
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="3"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <circle
+                    cx="16"
+                    cy="8"
+                    r="3"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    fill="none"
+                  />
+                  <path
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    d="M2 20c0-3 3-5 6-5s6 2 6 5"
+                    fill="none"
+                  />
+                  <path
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    d="M12 20c0-3 3-5 6-5s6 2 6 5"
+                    fill="none"
+                  />
+                </svg>
+                <p className="text-gray-500 text-lg">รายการเพื่อนของคุณ</p>
+                <p className="text-gray-400 text-sm mt-2">
+                  คุณมีเพื่อน 1.25k คน
+                </p>
+              </div>
+            )}
+
+            {activeTab === "Reposts" && (
+              <div className="text-center py-12">
+                <svg
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <p className="text-gray-500 text-lg">
+                  คุณยังไม่ได้รีโพสต์อะไรเลย
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  แชร์โพสต์ที่คุณชอบให้เพื่อนๆ ได้เห็น
+                </p>
+              </div>
+            )}
+
+            {activeTab === "Liked" && (
+              <div className="text-center py-12">
+                <svg
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-lg">
+                  คุณยังไม่ได้ไลก์โพสต์ไหนเลย
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  กดไลก์โพสต์ที่คุณชอบเพื่อเก็บไว้ดูอีกครั้ง
+                </p>
+              </div>
+            )}
+
+            {activeTab === "Saved" && (
+              <div className="text-center py-12">
+                <svg
+                  className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                  />
+                </svg>
+                <p className="text-gray-500 text-lg">
+                  คุณยังไม่ได้บันทึกอะไรไว้
+                </p>
+                <p className="text-gray-400 text-sm mt-2">
+                  บันทึกโพสต์ที่สำคัญเพื่อดูอีกครั้งในภายหลัง
+                </p>
+              </div>
+            )}
           </div>
         </section>
       </main>
-
-      {/* Chatbox - Bottom Right */}
-      <Chatbox />
     </div>
   );
 }
