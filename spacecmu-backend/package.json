@@ -1,5 +1,5 @@
 {
-  "name": "",
+  "name": "spacecmu-backend",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
@@ -17,14 +17,10 @@
   },
   "bugs": "",
   "keywords": [],
-  "author": {
-    "name": "",
-    "email": "",
-    "url": ""
-  },
+  "author": "SpaceCMU Team",
   "contributors": [],
   "scripts": {
-     "dev": "nodemon",
+    "dev": "nodemon",
     "build": "tsc && tsc-alias",
     "start": "node ./dist/src/index.js",
     "db:generate": "cross-env NODE_OPTIONS='--import tsx' drizzle-kit generate",
@@ -33,8 +29,6 @@
     "db:prototype": "tsx ./db/prototype.ts"
   },
   "dependencies": {
-    "@tsconfig/node-lts": "^24.0.0",
-    "@tsconfig/node-ts": "^23.6.2",
     "cors": "^2.8.5",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
@@ -48,6 +42,8 @@
     "typescript": "^5.9.3"
   },
   "devDependencies": {
+    "@tsconfig/node-lts": "^24.0.0",
+    "@tsconfig/node-ts": "^23.6.2",
     "@types/cors": "^2.8.19",
     "@types/debug": "^4.1.12",
     "@types/express": "^5.0.6",

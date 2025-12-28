@@ -17,9 +17,13 @@ async function queryData() {
 
 async function updateData() {
   const results = await dbClient.query.todoTable.findMany();
-  if (results.length === 0) dbConn.end();
+  if (results.length === 0) {
+    dbConn.end();
+    return;
+  }
 
   const id = results[0].id;
+  if (typeof id !== "string") throw new Error("ID not found");
   await dbClient
     .update(todoTable)
     .set({
@@ -31,9 +35,13 @@ async function updateData() {
 
 async function deleteData() {
   const results = await dbClient.query.todoTable.findMany();
-  if (results.length === 0) dbConn.end();
+  if (results.length === 0) {
+    dbConn.end();
+    return;
+  }
 
   const id = results[0].id;
+  if (typeof id !== "string") throw new Error("ID not found");
   await dbClient.delete(todoTable).where(eq(todoTable.id, id));
   dbConn.end();
 }
