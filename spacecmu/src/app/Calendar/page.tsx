@@ -477,34 +477,34 @@ export default function CalendarPage() {
                   Preview
                 </h3>
 
-                {/* Preview Card - Matching the exact design */}
-                <div className="w-fit bg-[#f2f3f7] rounded-xl cursor-pointer transition-all duration-200 shadow-[1em_1em_1em_#d8dae0b1,-0.75em_-0.75em_1em_#ffffff] border-[1.5px] border-[#f2f3f7] hover:bg-[#d3ddf1] hover:border-[#1677ff]">
-                  <div className="mt-5 mb-[1.375em] ml-[1.375em] mr-8 flex flex-row gap-3">
+                {/* Preview Card - Matching the exact design with fixed width */}
+                <div className="w-[288px] bg-[#f2f3f7] rounded-xl cursor-pointer transition-all duration-200 shadow-[0.5em_0.5em_0.5em_#d8dae0b1,-0.375em_-0.375em_0.5em_#ffffff] border-[1.5px] border-[#f2f3f7] hover:bg-[#d3ddf1] hover:border-[#1677ff]">
+                  <div className="p-3 flex flex-row gap-2">
                     {/* Left - Status Indicator */}
-                    <div className="left">
-                      <div className="w-[0.625em] h-[0.625em] bg-red-500 my-[0.375em] rounded-lg" />
+                    <div className="pt-1">
+                      <div className="w-2 h-2 bg-red-500 rounded-full" />
                     </div>
 
                     {/* Right - Content */}
-                    <div className="right flex flex-col gap-[0.875em]">
+                    <div className="flex-1 flex flex-col gap-2">
                       {/* Text Wrap */}
                       <div className="flex flex-col gap-1 text-[#333]">
-                        <p className="text-content">
+                        <p className="text-sm wrap-break-word">
                           <span className="font-medium text-black">
                             {taskTitle || "Jane Doe"}
                           </span>{" "}
                           {taskDetails || "invited you to edit the Web Design file."}
                         </p>
-                        <p className="text-[0.875em] text-[#777]">2 hours ago</p>
-                        <p className="text-[0.875em] text-[#777]">{taskTime}</p>
+                        <p className="text-xs text-[#777]">2 hours ago</p>
+                        <p className="text-xs text-[#777]">{taskTime}</p>
                       </div>
 
                       {/* Button Wrap */}
-                      <div className="flex flex-row gap-4 items-center">
-                        <button className="text-[15px] bg-transparent font-semibold text-[#1677ff] border-none rounded-[1.5em] cursor-pointer hover:underline">
+                      <div className="flex flex-row gap-3 items-center">
+                        <button className="text-xs bg-transparent font-semibold text-[#1677ff] border-none rounded-[1.5em] cursor-pointer hover:underline">
                           Success
                         </button>
-                        <button className="bg-transparent border-none text-[15px] font-normal text-[#666] cursor-pointer hover:underline">
+                        <button className="bg-transparent border-none text-xs font-normal text-[#666] cursor-pointer hover:underline">
                           Delete
                         </button>
                       </div>
