@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
+import NoteCard from "../../components/NoteCard";
 
 export default function CalendarPage() {
   const today = new Date();
@@ -78,7 +79,7 @@ export default function CalendarPage() {
       <Sidebar />
 
       {/* Main Content (Center) */}
-      <main className="flex-1 p-8 bg-white">
+      <main className="flex-1 p-8 bg-white overflow-y-auto min-h-0">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-8">
@@ -89,11 +90,11 @@ export default function CalendarPage() {
           </div>
 
           {/* Calendar Container */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 h-[calc(100vh-310px)] overflow-hidden">
             {/* Calendar Layout - Flex container */}
-            <div className="flex gap-8">
+            <div className="flex gap-8 h-full">
               {/* Calendar Grid - Left side */}
-              <div className="flex-1">
+              <div className="flex-1 flex flex-col">
                 {/* Month Header with Clickable Month/Year */}
                 <div className="flex items-center justify-between mb-8">
                   <div className="flex items-center gap-8">
@@ -188,104 +189,106 @@ export default function CalendarPage() {
                 </div>
 
                 {/* Calendar Grid */}
-                <div className="grid grid-cols-7 gap-0 border border-gray-300">
-                  {/* Day Headers */}
-                  <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      SUN
-                    </div>
-                  </div>
-                  <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      MON
-                    </div>
-                  </div>
-                  <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      TUE
-                    </div>
-                  </div>
-                  <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      WED
-                    </div>
-                  </div>
-                  <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      THU
-                    </div>
-                  </div>
-                  <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      FRI
-                    </div>
-                  </div>
-                  <div className="px-4 py-3 bg-gray-100">
-                    <div className="text-sm font-medium text-gray-600 text-center">
-                      SAT
-                    </div>
-                  </div>
-
-                  {/* Calendar Days */}
-                  {Array.from({ length: totalCells }, (_, index) => {
-                    const dayNumber = index - firstDay + 1;
-                    const isCurrentMonth =
-                      dayNumber > 0 && dayNumber <= daysInMonth;
-                    const isToday =
-                      isCurrentMonth &&
-                      dayNumber === new Date().getDate() &&
-                      currentMonth === new Date().getMonth() &&
-                      currentYear === new Date().getFullYear();
-                    const isSelected =
-                      isCurrentMonth &&
-                      dayNumber === selectedDate &&
-                      currentMonth === selectedMonth &&
-                      currentYear === selectedYear;
-
-                    return (
-                      <div
-                        key={index}
-                        className={`h-20 p-2 hover:bg-gray-50 transition-colors cursor-pointer ${
-                          isToday
-                            ? "border-2 border-gray-400 bg-gray-100"
-                            : isSelected
-                            ? "border-2 border-blue-400 bg-blue-50"
-                            : `border-r border-t border-gray-300 ${
-                                index % 7 === 6 ? "border-r-0" : ""
-                              }`
-                        }`}
-                        onClick={() => {
-                          if (isCurrentMonth) {
-                            setSelectedDate(dayNumber);
-                            setSelectedMonth(currentMonth);
-                            setSelectedYear(currentYear);
-                          }
-                          setShowMonthPicker(false);
-                          setShowYearPicker(false);
-                        }}
-                      >
-                        {isCurrentMonth && (
-                          <div
-                            className={`text-sm italic ${
-                              isToday
-                                ? "text-gray-800 font-bold"
-                                : isSelected
-                                ? "text-blue-700 font-semibold"
-                                : "text-gray-500"
-                            }`}
-                          >
-                            {dayNumber}
-                          </div>
-                        )}
+                <div className="overflow-auto min-h-0">
+                  <div className="grid grid-cols-7 gap-0 border border-gray-300">
+                    {/* Day Headers */}
+                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        SUN
                       </div>
-                    );
-                  })}
+                    </div>
+                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        MON
+                      </div>
+                    </div>
+                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        TUE
+                      </div>
+                    </div>
+                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        WED
+                      </div>
+                    </div>
+                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        THU
+                      </div>
+                    </div>
+                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        FRI
+                      </div>
+                    </div>
+                    <div className="px-4 py-3 bg-gray-100">
+                      <div className="text-sm font-medium text-gray-600 text-center">
+                        SAT
+                      </div>
+                    </div>
+
+                    {/* Calendar Days */}
+                    {Array.from({ length: totalCells }, (_, index) => {
+                      const dayNumber = index - firstDay + 1;
+                      const isCurrentMonth =
+                        dayNumber > 0 && dayNumber <= daysInMonth;
+                      const isToday =
+                        isCurrentMonth &&
+                        dayNumber === new Date().getDate() &&
+                        currentMonth === new Date().getMonth() &&
+                        currentYear === new Date().getFullYear();
+                      const isSelected =
+                        isCurrentMonth &&
+                        dayNumber === selectedDate &&
+                        currentMonth === selectedMonth &&
+                        currentYear === selectedYear;
+
+                      return (
+                        <div
+                          key={index}
+                          className={`h-20 p-2 hover:bg-gray-50 transition-colors cursor-pointer ${
+                            isToday
+                              ? "border-2 border-gray-400 bg-gray-100"
+                              : isSelected
+                              ? "border-2 border-blue-400 bg-blue-50"
+                              : `border-r border-t border-gray-300 ${
+                                  index % 7 === 6 ? "border-r-0" : ""
+                                }`
+                          }`}
+                          onClick={() => {
+                            if (isCurrentMonth) {
+                              setSelectedDate(dayNumber);
+                              setSelectedMonth(currentMonth);
+                              setSelectedYear(currentYear);
+                            }
+                            setShowMonthPicker(false);
+                            setShowYearPicker(false);
+                          }}
+                        >
+                          {isCurrentMonth && (
+                            <div
+                              className={`text-sm italic ${
+                                isToday
+                                  ? "text-gray-800 font-bold"
+                                  : isSelected
+                                  ? "text-blue-700 font-semibold"
+                                  : "text-gray-500"
+                              }`}
+                            >
+                              {dayNumber}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
               {/* Note Area - Right side */}
-              <div className="w-80">
-                <div className="border border-gray-300 h-full flex flex-col">
+              <div className="w-80 shrink-0 h-full min-h-0">
+                <div className="border border-gray-300 h-full flex flex-col overflow-hidden relative min-h-0">
                   {/* Note Header */}
                   <div className="border-b border-gray-300 px-4 py-3 bg-slate-100">
                     <div className="text-medium font-medium text-gray-800 text-center">
@@ -307,7 +310,7 @@ export default function CalendarPage() {
                   </div>
 
                   {/* Note Content Area */}
-                  <div className="p-4 flex-1 overflow-y-auto">
+                  <div className="p-4 flex-1 overflow-y-auto min-h-0">
                     {(() => {
                       const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
                       const dayTasks = tasks[dateKey] || [];
@@ -357,59 +360,24 @@ export default function CalendarPage() {
                       return (
                         <div className="space-y-3">
                           {dayTasks.map((task) => (
-                            <div
+                            <NoteCard
                               key={task.id}
-                              className="bg-[#f2f3f7] rounded-xl cursor-pointer transition-all duration-200 shadow-[0.5em_0.5em_0.5em_#d8dae0b1,-0.375em_-0.375em_0.5em_#ffffff] border-[1.5px] border-[#f2f3f7] hover:bg-[#d3ddf1] hover:border-[#1677ff]"
-                            >
-                              <div className="p-3 flex flex-row gap-2">
-                                {/* Left - Status Indicator */}
-                                <div className="pt-1">
-                                  <div className="w-2 h-2 bg-red-500 rounded-full" />
-                                </div>
-
-                                {/* Right - Content */}
-                                <div className="flex-1 flex flex-col gap-2">
-                                  {/* Text Wrap */}
-                                  <div className="flex flex-col gap-1 text-[#333]">
-                                    <p className="text-sm">
-                                      <span className="font-medium text-black">
-                                        {task.title}
-                                      </span>{" "}
-                                      {task.details}
-                                    </p>
-                                    <p className="text-xs text-[#777]">2 hours ago</p>
-                                    <p className="text-xs text-[#777]">{task.time}</p>
-                                  </div>
-
-                                  {/* Button Wrap */}
-                                  <div className="flex flex-row gap-3 items-center">
-                                    <button className="text-xs bg-transparent font-semibold text-[#1677ff] border-none rounded-[1.5em] cursor-pointer hover:underline">
-                                      Success
-                                    </button>
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setTasks(prev => ({
-                                          ...prev,
-                                          [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
-                                        }));
-                                      }}
-                                      className="bg-transparent border-none text-xs font-normal text-[#666] cursor-pointer hover:underline"
-                                    >
-                                      Delete
-                                    </button>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
+                              title={task.title}
+                              details={task.details}
+                              time={task.time}
+                              onDelete={() => setTasks(prev => ({
+                                ...prev,
+                                [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
+                              }))}
+                            />
                           ))}
                         </div>
                       );
                     })()}
                   </div>
 
-                  {/* Add Task Button */}
-                  <div className="border-t border-gray-300 p-4">
+                  {/* Add Task Button (sticky at bottom) */}
+                  <div className="border-t border-gray-300 p-4 bg-white z-10">
                     <button
                       onClick={() => setShowAddTaskPopup(true)}
                       className="w-full bg-slate-600 text-white py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors font-medium"
@@ -472,45 +440,13 @@ export default function CalendarPage() {
             {/* Modal Content */}
             <div className="flex h-full overflow-y-auto">
               {/* Left Side - Preview */}
-              <div className="w-[400px] bg-gray-50 p-8 flex flex-col">
+              <div className="w-80 bg-gray-50 p-4 flex flex-col">
                 <h3 className="text-md font-semibold text-gray-500 uppercase tracking-wide mb-6">
                   Preview
                 </h3>
 
-                {/* Preview Card - Matching the exact design with fixed width */}
-                <div className="w-[288px] bg-[#f2f3f7] rounded-xl cursor-pointer transition-all duration-200 shadow-[0.5em_0.5em_0.5em_#d8dae0b1,-0.375em_-0.375em_0.5em_#ffffff] border-[1.5px] border-[#f2f3f7] hover:bg-[#d3ddf1] hover:border-[#1677ff]">
-                  <div className="p-3 flex flex-row gap-2">
-                    {/* Left - Status Indicator */}
-                    <div className="pt-1">
-                      <div className="w-2 h-2 bg-red-500 rounded-full" />
-                    </div>
-
-                    {/* Right - Content */}
-                    <div className="flex-1 flex flex-col gap-2">
-                      {/* Text Wrap */}
-                      <div className="flex flex-col gap-1 text-[#333]">
-                        <p className="text-sm wrap-break-word">
-                          <span className="font-medium text-black">
-                            {taskTitle || "Jane Doe"}
-                          </span>{" "}
-                          {taskDetails || "invited you to edit the Web Design file."}
-                        </p>
-                        <p className="text-xs text-[#777]">2 hours ago</p>
-                        <p className="text-xs text-[#777]">{taskTime}</p>
-                      </div>
-
-                      {/* Button Wrap */}
-                      <div className="flex flex-row gap-3 items-center">
-                        <button className="text-xs bg-transparent font-semibold text-[#1677ff] border-none rounded-[1.5em] cursor-pointer hover:underline">
-                          Success
-                        </button>
-                        <button className="bg-transparent border-none text-xs font-normal text-[#666] cursor-pointer hover:underline">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Preview Card - use NoteCard component so preview and real note match exactly */}
+                <NoteCard title={taskTitle || "Jane Doe"} details={taskDetails || "invited you to edit the Web Design file."} time={taskTime} />
               </div>
 
               {/* Right Side - Form */}
