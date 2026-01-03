@@ -16,12 +16,8 @@ services:
     volumes:
       - ./logs:/app/logs
     post_start:
-      - command:
-          [
-            "sh",
-            "-c",
-            'npm run db:migrate | awk ''{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush(); }'' | tee -a /app/logs/migration.log',
-          ]
+      - command: [ "sh", "-c", 'npm run db:migrate | awk ''{ print strftime("[%Y-%m-%d %H:%M:%S]"), $0; fflush(); }'' | tee -a /app/logs/migration.log' ]
 networks:
-  spacecmu_spacecmu-net: # Check by using `docker network ls` command
+  spacecmu_spacecmu-net:
+    # Check by using `docker network ls` command
     external: true
