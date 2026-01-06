@@ -24,10 +24,10 @@ RUN npm run build
 ENV NODE_ENV production
 
 # Set environment variable PORT to 3000 (the port your app will listen on)
-ENV PORT 3000
+ENV PORT 3001
 
 # Expose port 3000 so Docker knows which port the app runs on
-EXPOSE 3000
+EXPOSE 3001
 
 # Specify the default command to run when the container starts: start the app using npm
 CMD ["npm", "run", "start"]
