@@ -1,0 +1,44 @@
+name: spacecmu
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: database
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./spacecmu-database/_entrypoint:/docker-entrypoint-initdb.d
+    environment:
+      - TZ=Asia/Bangkok
+    networks:
+      - spacecmu-net
+    env_file:
+      - ./spacecmu-database/.env
+
+  backend:
+    container_name: backend
+    build:
+      context: ./spacecmu-backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - POSTGRES_HOST=database
+      - NODE_ENV=production
+      - PORT=3001
+    volumes:
+      - ./spacecmu-backend/logs:/app/logs
+    networks:
+      - spacecmu-net
+    depends_on:
+      - postgres
+    env_file:
+      - ./spacecmu-backend/.env
+
+networks:
+  spacecmu-net:
+    driver: bridge
+
+volumes:
+  db_data:

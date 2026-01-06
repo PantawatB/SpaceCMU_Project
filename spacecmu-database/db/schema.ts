@@ -18,6 +18,7 @@ export const postStatusEnum = pgEnum("post_status", ["active", "banned"]);
 export const friendshipStatusEnum = pgEnum("friendship_status", ["pending", "accepted", "blocked"]);
 export const marketItemStatusEnum = pgEnum("market_item_status", ["available", "sold"]);
 export const announcementTypeEnum = pgEnum("announcement_type", ["global", "private"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other"]);
 
 // --- Users Table ---
 // Covers Profile, Settings, Admin User Mgmt
@@ -84,10 +85,19 @@ export const postsTable = pgTable("posts", {
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Market Categories Table ---
+export const marketCategoriesTable = pgTable("market_categories", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  name: varchar("name", { length: 100 }).unique().notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- Market Items Table ---
 // Covers Market Page
 export const marketItemsTable = pgTable("market_items", {
   id: uuid("id").primaryKey().defaultRandom(),
+  categoryId: uuid("category_id").references(() => marketCategoriesTable.id),
   sellerId: uuid("seller_id").references(() => usersTable.id).notNull(),
 
   title: varchar("title", { length: 255 }).notNull(),
@@ -166,6 +176,56 @@ export const activitiesTable = pgTable("activities", {
   action: varchar("action", { length: 255 }).notNull(), // "Created a post", "Reported a post"
   details: text("details"),
   ipAddress: varchar("ip_address", { length: 45 }),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --- Comments Table ---
+export const commentsTable = pgTable("comments", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id").references(() => postsTable.id).notNull(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+
+  content: text("content").notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+});
+
+// --- Likes Table ---
+export const likesTable = pgTable("likes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id").references(() => postsTable.id).notNull(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (t) => ({
+  unq: {
+    name: 'unique_user_post_like',
+    columns: [t.userId, t.postId],
+    unique: true
+  }
+}));
+
+// --- Saved Posts Table ---
+export const savedPostsTable = pgTable("saved_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+  postId: uuid("post_id").references(() => postsTable.id).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --- Notifications Table ---
+export const notificationsTable = pgTable("notifications", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  recipientId: uuid("recipient_id").references(() => usersTable.id).notNull(),
+  senderId: uuid("sender_id").references(() => usersTable.id),
+
+  type: notificationTypeEnum("type").notNull(),
+  referenceId: uuid("reference_id"),
+
+  isRead: boolean("is_read").default(false),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

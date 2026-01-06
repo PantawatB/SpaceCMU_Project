@@ -15,6 +15,20 @@
       "when": 1766997013837,
       "tag": "0001_huge_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767424798924,
+      "tag": "0002_brave_captain_cross",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1767425332744,
+      "tag": "0003_whole_rhino",
+      "breakpoints": true
     }
   ]
 }
