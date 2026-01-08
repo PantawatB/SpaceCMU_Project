@@ -39,6 +39,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
   const [user, setUser] = useState<any>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [reportForm, setReportForm] = useState({
     name: "",
     issue: "",
@@ -335,8 +336,83 @@ export default function Sidebar({ menuItems }: SidebarProps) {
   };
 
   return (
-    <aside className="w-64 p-6 flex flex-col justify-between h-screen bg-white">
-      <div>
+    <>
+      {/* Hamburger Menu Button for Mobile - Only shown when sidebar is closed */}
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-all"
+          aria-label="Open menu"
+        >
+          <svg
+            className="w-6 h-6 text-gray-800"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M4 6h16M4 12h16M4 18h16"
+            />
+          </svg>
+        </button>
+      )}
+
+      {/* Backdrop for Mobile */}
+      {isSidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside
+        className={`
+          fixed lg:sticky top-0 left-0 h-screen
+          w-64 min-w-[256px] max-w-[256px]
+          p-6 flex flex-col justify-between
+          bg-white
+          transition-transform duration-300 ease-in-out
+          z-40
+          ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
+        `}
+      >
+        {/* Close Button - Curved tab design (Mobile only, shown only when sidebar is open) */}
+        {isSidebarOpen && (
+          <button
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden absolute -right-12 top-4 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-800 shadow-lg border border-gray-200 transition-all duration-300 group"
+            style={{
+              width: '48px',
+              height: '80px',
+              borderTopRightRadius: '40px',
+              borderBottomRightRadius: '40px',
+              borderLeft: 'none',
+            }}
+            aria-label="Close menu"
+          >
+            <div className="flex items-center justify-center h-full pl-1">
+              <svg
+                className="w-5 h-5 transform transition-transform group-hover:scale-110"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2.5}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </div>
+          </button>
+        )}
+
+        <div>
         {/* Logo */}
         <div className="flex items-center gap-2 mb-7">
           <Image
@@ -417,7 +493,9 @@ export default function Sidebar({ menuItems }: SidebarProps) {
               <Link
                 href={item.link}
                 key={item.name}
-                className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${pathname === item.link
+                onClick={() => setIsSidebarOpen(false)}
+                className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
+                  pathname === item.link
                     ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
                     : "text-gray-500 hover:text-black hover:bg-gray-100"
                   }`}
@@ -795,5 +873,6 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </div>
       )}
     </aside>
+    </>
   );
 }
