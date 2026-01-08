@@ -355,17 +355,19 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         {isSidebarOpen && (
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden absolute -right-12 top-4 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-800 shadow-lg border border-gray-200 transition-all duration-300 group"
+            className="lg:hidden absolute -right-11 top-0 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-800 shadow-lg border border-gray-200 transition-all duration-300 group overflow-hidden"
             style={{
-              width: '48px',
-              height: '80px',
-              borderTopRightRadius: '40px',
-              borderBottomRightRadius: '40px',
+              width: '44px',
+              height: '100px',
+              borderTopRightRadius: '30px',
+              borderBottomRightRadius: '30px',
               borderLeft: 'none',
+              borderTopLeftRadius: '0',
+              borderBottomLeftRadius: '0',
             }}
             aria-label="Close menu"
           >
-            <div className="flex items-center justify-center h-full pl-1">
+            <div className="flex items-center justify-center h-full pl-2">
               <svg
                 className="w-5 h-5 transform transition-transform group-hover:scale-110"
                 fill="none"
