@@ -29,12 +29,14 @@
     "db:prototype": "tsx ./db/prototype.ts"
   },
   "dependencies": {
+    "axios": "^1.13.2",
     "cors": "^2.8.5",
     "debug": "^4.4.3",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
     "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.1",
     "postgres": "^3.4.7",
     "tsc-alias": "^1.8.16",
@@ -47,6 +49,7 @@
     "@types/cors": "^2.8.19",
     "@types/debug": "^4.1.12",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/morgan": "^1.9.10",
     "@types/node": "^25.0.3",
     "cross-env": "^10.1.0",

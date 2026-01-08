@@ -11,8 +11,10 @@ import friendRoutes from "./routes/friendRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 
 const app: Express = express();
+
 
 // Middleware
 app.use(helmet());
@@ -34,6 +36,9 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
+console.log("Registering /auth routes...");
+app.use("/auth", authRoutes);
+console.log("Routes registered.");
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
