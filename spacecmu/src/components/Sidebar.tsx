@@ -306,7 +306,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     },
     {
       title: "Market",
-      content: "ตลาดออนไลน์สำหรับซื้อขายสิ่งของระหว่างนักศึกษา",
+      content: "ตลาดออนไลน์สำหรับซื้อขายสิ่งของ",
       image: "/shoe.webp",
     },
     {
@@ -806,7 +806,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                             </span>
                           </label>
                         </div>
-                      </div>
+                      </div> 
                     ) : (
                       // Show upload area when no file selected
                       <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
