@@ -80,16 +80,16 @@ export default function SettingPage() {
   };
 
   return (
-    <div className="flex h-screen bg-white text-gray-800">
+    <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
       {/* Sidebar: keep fixed/sticky so it won't scroll with the main content */}
-      <div className="flex-none h-screen sticky top-0">
+      <div className="flex-none h-screen sticky top-0 z-30">
         <Sidebar />
       </div>
       
-      {/* Main content: make this the scrollable area only */}
-      <main className="flex-1 p-8 overflow-auto min-h-0">
-        {/* Sticky top: search, header, tabs (will not scroll) */}
-        <div className="sticky top-0 z-20 bg-white -mx-8 px-8 pt-4">
+      {/* Main content: fixed container with internal scroll */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        {/* Fixed header area (Search + Title + Tabs) */}
+        <div className="flex-none pt-8 px-8 pb-4 bg-white z-10">
           {/* Search bar */}
           <div className="mb-6">
             <div className="relative w-full">
@@ -109,7 +109,7 @@ export default function SettingPage() {
               <input
                 type="text"
                 placeholder="Search"
-                className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm text-gray-900 placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
             </div>
           </div>
@@ -120,7 +120,7 @@ export default function SettingPage() {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="mb-8 flex gap-8 border-b border-gray-200">
+          <div className="flex gap-8 border-b border-gray-200">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -138,9 +138,10 @@ export default function SettingPage() {
         </div>
 
         {/* Scrollable content area */}
-        <div className="max-w-3xl min-h-[600px]">
-          {/* Profile Settings */}
-          {activeTab === "profile" && (
+        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
+          <div className="max-w-3xl pt-8 ">
+            {/* Profile Settings */}
+            {activeTab === "profile" && (
             <div className="space-y-4">
               {/* Profile Picture Section */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
@@ -458,6 +459,7 @@ export default function SettingPage() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </main>
 

@@ -58,66 +58,71 @@ export default function MarketMainPage() {
   ];
 
   return (
-    <div className="flex h-screen bg-white text-gray-800">
+    <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
       {/* Sidebar: keep fixed/sticky so it won't scroll with the main content */}
-      <div className="flex-none h-screen sticky top-0">
+      <div className="flex-none h-screen sticky top-0 z-30">
         <Sidebar />
       </div>
 
-      {/* Main Content: make this the scrollable area only */}
-      <main className="flex-1 p-8 overflow-auto min-h-0">
-        {/* Sticky top: search and title (will not scroll) - match Setting */}
-        <div className="sticky top-0 z-20 bg-white -mx-8 px-8 pt-4 pb-1">
-           {/* Search bar */}
-           <div className="mb-6">
-             <div className="relative w-full">
-               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                 <svg
-                   xmlns="http://www.w3.org/2000/svg"
-                   fill="none"
-                   viewBox="0 0 24 24"
-                   strokeWidth={2}
-                   stroke="currentColor"
-                   className="w-5 h-5"
-                 >
-                   <circle
-                     cx="11"
-                     cy="11"
-                     r="8"
-                     stroke="currentColor"
-                     strokeWidth="2"
-                     fill="none"
-                   />
-                   <line
-                     x1="21"
-                     y1="21"
-                     x2="16.65"
-                     y2="16.65"
-                     stroke="currentColor"
-                     strokeWidth="2"
-                   />
-                 </svg>
-               </span>
-               <input
-                 type="text"
-                 placeholder="Search"
-                 className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
-               />
-             </div>
-           </div>
+      {/* Main Content: fixed container with internal scroll */}
+      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        {/* Fixed header area (Search + Title) */}
+        <div className="flex-none pt-8 px-8 pb-4 bg-white z-10">
+          {/* Search bar */}
+          <div className="mb-6">
+            <div className="relative w-full">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <circle
+                  cx="11"
+                  cy="11"
+                  r="8"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  fill="none"
+                />
+                <line
+                  x1="21"
+                  y1="21"
+                  x2="16.65"
+                  y2="16.65"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                />
+              </svg>
+            </span>
+            <input
+              type="text"
+              placeholder="Search"
+              className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
+            />
+          </div>
+          </div>
 
-          <h1 className="text-2xl font-bold mb-6">Markets</h1>
+          {/* Header */}
+          <div>
+            <h1 className="text-2xl font-bold">Markets</h1>
+          </div>
         </div>
 
-        {/* Scrollable content area: center and limit width similar to Setting */}
-        <div className="max-w-9xl min-h-[600px] mx-auto">
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+        {/* Scrollable content area */}
+        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
+          <div className="max-w-9xl pt-8 mx-auto w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
             {marketItems.map((item, idx) => (
               <MarketCard key={idx} price={item.price} title={item.title} jobTitle={item.jobTitle} image={item.image} sellerName={item.sellerName} sellerImage={item.sellerImage} />
             ))}
+            </div>
           </div>
         </div>
-       </main>
+      </main>
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />
