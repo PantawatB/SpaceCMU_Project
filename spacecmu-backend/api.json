@@ -16,7 +16,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"firstName\": \"Somchai\",\n  \"lastName\": \"CMU\",\n  \"email\": \"somchai@cmu.ac.th\",\n  \"username\": \"somchai_cmu\"\n}",
+                            "raw": "{\n  \"firstName\": \"Somchai\",\n  \"lastName\": \"CMU\",\n  \"email\": \"somchai@cmu.ac.th\",\n  \"username\": \"somchai_cmu\",\n  \"studentId\": \"650610000\",\n  \"faculty\": \"Engineering\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -99,6 +99,113 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "Update Profile (Bio and Avatar)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "bio",
+                                    "value": "This is my new bio!",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "avatar",
+                                    "type": "file",
+                                    "src": "/path/to/your/avatar.jpg"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Bio Only",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "bio",
+                                    "value": "I just updated my bio without changing my picture!",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Remove Profile Picture",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "removeAvatar",
+                                    "value": "true",
+                                    "type": "text"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/:id",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                ":id"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        }
+                    }
                 }
             ]
         },
@@ -112,7 +219,7 @@
                         "header": [],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\"\n}",
+                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\",\n  \"mediaUrl\": \"https://example.com/video.mp4\",\n  \"mediaType\": \"video\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -149,7 +256,136 @@
                     }
                 },
                 {
+                    "name": "Get Post Likes",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/:postId/likes",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                ":postId",
+                                "likes"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "postId",
+                                    "value": "post_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Share Post",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/share",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "share"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Shared Posts",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/shared/:userId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "shared",
+                                ":userId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get User Posts",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/user/:userId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "user",
+                                ":userId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
                     "name": "Like Post",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/like",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "like"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Unlike Post (Toggle)",
                     "request": {
                         "method": "POST",
                         "header": [],
@@ -198,6 +434,31 @@
                                 "api",
                                 "posts",
                                 "comment"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Comment",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/comment/:commentId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "comment",
+                                ":commentId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "commentId",
+                                    "value": "paste_comment_id_here"
+                                }
                             ]
                         }
                     }
@@ -337,6 +598,60 @@
                     }
                 },
                 {
+                    "name": "Unfriend User",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/friends/:userId/:friendId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "friends",
+                                ":userId",
+                                ":friendId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                },
+                                {
+                                    "key": "friendId",
+                                    "value": "friend_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Pending Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/friends/requests/:userId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "friends",
+                                "requests",
+                                ":userId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
                     "name": "Respond to Request",
                     "request": {
                         "method": "POST",
@@ -344,6 +659,33 @@
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"accepted\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/friends/respond",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "friends",
+                                "respond"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Reject Friend Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"rejected\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
