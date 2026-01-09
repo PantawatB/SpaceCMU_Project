@@ -1,6 +1,6 @@
 {
-  "id": "ff49b002-6e7b-49a5-8991-37ffb02396da",
-  "prevId": "5e02b585-e3c8-44f6-836a-fa945fb0c46d",
+  "id": "a28a1df2-f09c-4d6a-9e6b-c1f2bceb565a",
+  "prevId": "28d784e9-9edd-414f-954f-f24f998d1a95",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -451,6 +451,47 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.market_categories": {
+      "name": "market_categories",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "market_categories_name_unique": {
+          "name": "market_categories_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.market_items": {
       "name": "market_items",
       "schema": "",
@@ -461,6 +502,12 @@
           "primaryKey": true,
           "notNull": true,
           "default": "gen_random_uuid()"
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         },
         "seller_id": {
           "name": "seller_id",
@@ -516,6 +563,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "market_items_category_id_market_categories_id_fk": {
+          "name": "market_items_category_id_market_categories_id_fk",
+          "tableFrom": "market_items",
+          "tableTo": "market_categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "market_items_seller_id_users_id_fk": {
           "name": "market_items_seller_id_users_id_fk",
           "tableFrom": "market_items",
@@ -730,6 +790,19 @@
           "primaryKey": false,
           "notNull": false
         },
+        "media_url": {
+          "name": "media_url",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "media_type": {
+          "name": "media_type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "'image'"
+        },
         "category": {
           "name": "category",
           "type": "varchar(50)",
@@ -753,13 +826,6 @@
         },
         "share_count": {
           "name": "share_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "default": 0
-        },
-        "report_count": {
-          "name": "report_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,

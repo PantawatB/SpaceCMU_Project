@@ -1,6 +1,9 @@
 import { type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
+import { dbClient } from "../../db/client.js";
+import { usersTable } from "../../db/schema.js";
+import { eq } from "drizzle-orm";
 
 const CMU_ENTRAID_TOKEN_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/token";
 const CMU_BASIC_INFO_URL = "https://api.cmu.ac.th/mis/cmuaccount/prod/v3/me/basicinfo";
@@ -86,17 +89,63 @@ export const callback = async (req: Request, res: Response) => {
 
         const userData = infoResponse.data;
 
-        // 3. Create session JWT
+        // 3. Upsert User into Database
+        console.log("Saving user to database...");
+        let user;
+        try {
+            const email = userData.cmuitaccount + "@cmu.ac.th"; // Construct email if not provided directly, or use cmuitaccount_name
+            // Note: CMU Basic Info might vary, usually cmuitaccount_name is the email prefix or full email.
+            // We'll use cmuitaccount_name as username and construct email.
+
+            const cmuAccount = userData.cmuitaccount_name || userData.itaccount_name;
+            const studentId = userData.student_id || userData.personal_id;
+
+            const [upsertedUser] = await dbClient.insert(usersTable).values({
+                firstName: userData.firstname_TH,
+                lastName: userData.lastname_TH,
+                email: cmuAccount + "@cmu.ac.th", // Assuming cmuitaccount_name is the handle
+                username: cmuAccount,
+                studentId: studentId,
+                faculty: userData.organization_name_TH,
+                role: "user",
+                status: "active",
+                // Generate a consistent avatar URL based on student ID or name
+                avatarUrl: `https://ui-avatars.com/api/?name=${userData.firstname_TH}+${userData.lastname_TH}&background=random`,
+            }).onConflictDoUpdate({
+                target: usersTable.email,
+                set: {
+                    firstName: userData.firstname_TH,
+                    lastName: userData.lastname_TH,
+                    studentId: studentId,
+                    faculty: userData.organization_name_TH,
+                    lastActiveAt: new Date(),
+                }
+            }).returning();
+
+            user = upsertedUser;
+            console.log("User saved:", user.id);
+
+        } catch (dbError) {
+            console.error("Database save failed:", dbError);
+            return res.status(500).send("Failed to save user data");
+        }
+
+        // 4. Create session JWT
         const jwtSecret = process.env.JWT_SECRET || "fallback_secret";
         const sessionToken = jwt.sign(
             {
+                // Use the database ID and actual role
+                id: user.id,
+                role: user.role,
+                username: user.username,
+                email: user.email,
+
+                // Keep original CMU fields for reference if needed
                 itaccount_name: userData.cmuitaccount_name || userData.itaccount_name,
-                personal_id: userData.student_id || userData.personal_id,
                 prename_TH: userData.prename_TH,
                 firstname_TH: userData.firstname_TH,
                 lastname_TH: userData.lastname_TH,
                 organization_name_TH: userData.organization_name_TH,
-                itaccount_type_ID: userData.itaccounttype_id || userData.itaccount_type_ID,
             },
             jwtSecret,
             { expiresIn: "1d" }
@@ -111,8 +160,8 @@ export const callback = async (req: Request, res: Response) => {
         });
 
         // Redirect to frontend Feeds page
-        // Note: Hardcoding localhost:5173 for development
-        res.redirect("http://localhost:5173/Feeds");
+        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+        res.redirect(`${frontendUrl}/Feeds`);
 
     } catch (error: any) {
         console.error("Sign-in error:", error);

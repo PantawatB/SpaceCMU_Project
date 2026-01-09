@@ -1,7 +1,12 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 import cors from "cors";
 import morgan from "morgan";
 import helmet from "helmet";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import userRoutes from "./routes/userRoutes.js";
@@ -18,10 +23,14 @@ const app: Express = express();
 
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+    origin: ["http://localhost:3000", "http://localhost:5173"],
+    credentials: true
+}));
 app.use(morgan("dev"));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Basic Route
 app.get("/", (req: Request, res: Response) => {

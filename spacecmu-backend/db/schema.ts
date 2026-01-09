@@ -70,14 +70,15 @@ export const postsTable = pgTable("posts", {
   userId: uuid("user_id").references(() => usersTable.id).notNull(),
 
   content: text("content"),
-  imageUrl: varchar("image_url", { length: 512 }),
+  imageUrl: varchar("image_url", { length: 512 }), // Deprecated, kept for migration safety
+  mediaUrl: varchar("media_url", { length: 512 }),
+  mediaType: varchar("media_type", { length: 20 }).default("image"), // image, video
   category: varchar("category", { length: 50 }).default("Global"), // Global, Friends, Announcements, etc.
 
   // Engagement
   likeCount: integer("like_count").default(0),
   commentCount: integer("comment_count").default(0),
   shareCount: integer("share_count").default(0),
-  reportCount: integer("report_count").default(0), // For Admin
 
   status: postStatusEnum("status").default("active"), // For Admin ban
 
@@ -226,6 +227,15 @@ export const notificationsTable = pgTable("notifications", {
   referenceId: uuid("reference_id"),
 
   isRead: boolean("is_read").default(false),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --- Shares Table ---
+export const sharesTable = pgTable("shares", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+  postId: uuid("post_id").references(() => postsTable.id).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

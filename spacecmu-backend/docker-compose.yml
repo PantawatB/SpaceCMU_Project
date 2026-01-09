@@ -8,18 +8,18 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./spacecmu-database/_entrypoint:/docker-entrypoint-initdb.d
+      - ./db/_entrypoint:/docker-entrypoint-initdb.d
     environment:
       - TZ=Asia/Bangkok
     networks:
       - spacecmu-net
     env_file:
-      - ./spacecmu-database/.env
+      - ./.env
 
   backend:
     container_name: backend
     build:
-      context: ./spacecmu-backend
+      context: .
       dockerfile: Dockerfile
     ports:
       - "3001:3001"
@@ -28,15 +28,15 @@ services:
       - NODE_ENV=development
       - PORT=3001
     volumes:
-      - ./spacecmu-backend:/app
+      - .:/app
       - /app/node_modules
     networks:
       - spacecmu-net
-    command: npm run dev
+    command: /app/scripts/docker-entrypoint.sh
     depends_on:
       - postgres
     env_file:
-      - ./spacecmu-backend/.env
+      - ./.env
 
 networks:
   spacecmu-net:
