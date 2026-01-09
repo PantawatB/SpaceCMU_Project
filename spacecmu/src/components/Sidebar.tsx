@@ -306,7 +306,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     },
     {
       title: "Market",
-      content: "ตลาดออนไลน์สำหรับซื้อขายสิ่งของ",
+      content: "ตลาดออนไลน์สำหรับซื้อขายสิ่งของระหว่างนักศึกษา",
       image: "/shoe.webp",
     },
     {
