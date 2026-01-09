@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
 
@@ -306,6 +306,28 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     setReportForm({ name: "", issue: "", attachedFile: null });
   };
 
+  // Logout handler: call backend signOut endpoint and clear common token cookies
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/signOut', { method: 'POST' });
+    } catch (err) {
+      // ignore network errors but still try to clear client cookies
+      console.error('signOut request failed', err);
+    }
+
+    // Clear client-side cookies (will work for non-httpOnly cookies)
+    try {
+      document.cookie = 'token=; Max-Age=0; path=/;';
+      document.cookie = 'refreshToken=; Max-Age=0; path=/;';
+    } catch {
+      // ignore if document is not available
+    }
+
+    router.push('/');
+  };
+
   return (
     <>
       {/* Hamburger Menu Button for Mobile - Only shown when sidebar is closed */}
@@ -499,31 +521,32 @@ export default function Sidebar({ menuItems }: SidebarProps) {
             Anonymous
           </button>
         </div>
-        <Link href="/">
-          <button className="w-full flex items-center gap-3 justify-center bg-black text-white rounded-lg px-3 py-2 font-semibold hover:bg-gray-800">
-            <span className="w-5 h-5 flex items-center justify-center">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="white"
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="w-6 h-6"
-              >
-                {/* ประตู */}
-                <path d="M4 3h8a2 2 0 012 2v14a2 2 0 01-2 2H4" />
-                {/* ลูกบิด */}
-                <circle cx="10" cy="12" r="0.5" fill="white" />
-                {/* ลูกศรออก */}
-                <path d="M14 12h7" />
-                <path d="M18 9l3 3-3 3" />
-              </svg>
-            </span>
-            <span className="text-base">Logout</span>
-          </button>
-        </Link>
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 justify-center bg-black text-white rounded-lg px-3 py-2 font-semibold hover:bg-gray-800"
+        >
+          <span className="w-5 h-5 flex items-center justify-center">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="white"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="w-6 h-6"
+            >
+              {/* ประตู */}
+              <path d="M4 3h8a2 2 0 012 2v14a2 2 0 01-2 2H4" />
+              {/* ลูกบิด */}
+              <circle cx="10" cy="12" r="0.5" fill="white" />
+              {/* ลูกศรออก */}
+              <path d="M14 12h7" />
+              <path d="M18 9l3 3-3 3" />
+            </svg>
+          </span>
+          <span className="text-base">Logout</span>
+        </button>
       </div>
 
       {/* Tutorial Popup */}
