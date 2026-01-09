@@ -143,6 +143,34 @@ export const deleteComment = async (req: Request, res: Response) => {
     }
 };
 
+export const getCommentsByPostId = async (req: Request, res: Response) => {
+    try {
+        const { postId } = req.params;
+        const comments = await dbClient
+            .select({
+                id: commentsTable.id,
+                content: commentsTable.content,
+                createdAt: commentsTable.createdAt,
+                user: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                    avatarUrl: usersTable.avatarUrl,
+                    username: usersTable.username
+                }
+            })
+            .from(commentsTable)
+            .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+            .where(eq(commentsTable.postId, postId))
+            .orderBy(desc(commentsTable.createdAt));
+
+        res.json(comments);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching comments" });
+    }
+};
+
 // --- Saved Posts ---
 
 export const getPostLikes = async (req: Request, res: Response) => {

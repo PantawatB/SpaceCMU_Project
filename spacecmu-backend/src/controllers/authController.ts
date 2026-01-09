@@ -2,7 +2,7 @@ import { type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { dbClient } from "../../db/client.js";
-import { usersTable } from "../../db/schema.js";
+import { usersTable, sessionsTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 
 const CMU_ENTRAID_TOKEN_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/token";
@@ -152,12 +152,30 @@ export const callback = async (req: Request, res: Response) => {
         );
 
         // 4. Set Cookie and Redirect to Frontend
-        // Assuming frontend is on port 5173
         res.cookie("token", sessionToken, {
-            httpOnly: false, // Allow frontend JS to read it for now (since we're cross-origin) OR set domain/path carefully
+            httpOnly: true,
             secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
             maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
+
+        // 5. Record Login Session
+        try {
+            const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+            const userAgent = req.headers['user-agent'];
+
+            await dbClient.insert(sessionsTable).values({
+                userId: user.id,
+                token: sessionToken,
+                ipAddress: typeof ipAddress === 'string' ? ipAddress : JSON.stringify(ipAddress),
+                userAgent: userAgent as string,
+            });
+            console.log("Session recorded for user:", user.id);
+        } catch (sessionError) {
+            console.error("Failed to record session:", sessionError);
+            // We don't block the login if session recording fails, but we log it.
+        }
 
         // Redirect to frontend Feeds page
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";

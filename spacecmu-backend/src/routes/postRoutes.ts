@@ -11,6 +11,7 @@ import {
     getSavedPosts,
     getSharedPosts,
     getUserPosts,
+    getCommentsByPostId,
 } from "../controllers/postController.js";
 
 const router = Router();
@@ -26,5 +27,6 @@ router.post("/save", toggleSavePost);
 router.get("/saved/:userId", getSavedPosts);
 router.get("/shared/:userId", getSharedPosts);
 router.get("/user/:userId", getUserPosts);
+router.get("/:postId/comments", getCommentsByPostId);
 
 export default router;

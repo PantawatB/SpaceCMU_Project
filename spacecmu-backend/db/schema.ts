@@ -239,3 +239,14 @@ export const sharesTable = pgTable("shares", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// --- Sessions Table ---
+export const sessionsTable = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+  token: text("token").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }), // 45 for IPv6
+  userAgent: text("user_agent"),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
