@@ -21,8 +21,8 @@ export default function MarketCard({ price, title, jobTitle, image, sellerName, 
       <div className="flex-1 flex flex-col justify-between p-4 pb-3">
         <div>
           <h3 className="text-lg font-bold text-gray-900 mb-2 truncate">{title}</h3>
-          <p className="text-sm text-gray-500 mb-2 whitespace-pre-line">{jobTitle}</p>
-          <span className="text-sm font-semibold text-orange-600 block mb-3">{price}</span>
+          <p className="text-sm text-gray-500 mb-2 line-clamp-2 min-h-10 wrap-break-word">{jobTitle}</p>
+          <span className="text-sm font-semibold text-orange-600 block mb-3 truncate">{price}</span>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8">
