@@ -1,211 +1,336 @@
 {
     "info": {
         "_postman_id": "spacecmu-api-collection-v3",
-        "name": "SpaceCMU API (Full & Stable)",
-        "description": "Complete collection for testing all SpaceCMU Backend endpoints on Port 3001",
+        "name": "SpaceCMU API (Organized)",
+        "description": "Complete collection for testing all SpaceCMU Backend endpoints on Port 3001, organized with nested folders.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
         {
+            "name": "00. Auth",
+            "item": [
+                {
+                    "name": "Login",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/cmu/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "cmu",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Callback (CMU EntraID)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/cmu/callback?code=PASTE_CODE_HERE",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "cmu",
+                                "callback"
+                            ],
+                            "query": [
+                                {
+                                    "key": "code",
+                                    "value": "PASTE_CODE_HERE"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
             "name": "01. Users",
             "item": [
                 {
-                    "name": "Create User",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"firstName\": \"Somchai\",\n  \"lastName\": \"CMU\",\n  \"email\": \"somchai@cmu.ac.th\",\n  \"username\": \"somchai_cmu\",\n  \"studentId\": \"650610000\",\n  \"faculty\": \"Engineering\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                    "name": "Account Management",
+                    "item": [
+                        {
+                            "name": "Get Current User (Me)",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        "me"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get All Users",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get User By ID",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users/:id",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "user_id_here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete User",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users/:id",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "PASTE_USER_ID_HERE"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Profile (Bio and Avatar)",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "bio",
-                                    "value": "This is my new bio!",
-                                    "type": "text"
+                        {
+                            "name": "Create User",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"firstName\": \"Somchai\",\n  \"lastName\": \"CMU\",\n  \"email\": \"somchai@cmu.ac.th\",\n  \"username\": \"somchai_cmu\",\n  \"studentId\": \"650610000\",\n  \"faculty\": \"Engineering\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
                                 },
-                                {
-                                    "key": "avatar",
-                                    "type": "file",
-                                    "src": "/path/to/your/avatar.jpg"
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users"
+                                    ]
                                 }
-                            ]
+                            }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users/:id",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "user_id_here"
+                        {
+                            "name": "Get All Users",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users"
+                                    ]
                                 }
-                            ]
+                            }
+                        },
+                        {
+                            "name": "Get User By ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        ":id"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "user_id_here"
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Delete User",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        ":id"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "PASTE_USER_ID_HERE"
+                                        }
+                                    ]
+                                }
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Update Bio Only",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "bio",
-                                    "value": "I just updated my bio without changing my picture!",
-                                    "type": "text"
+                    "name": "Profile Settings",
+                    "item": [
+                        {
+                            "name": "Update Profile (Bio and Avatar)",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "bio",
+                                            "value": "This is my new bio!",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "avatar",
+                                            "type": "file",
+                                            "src": "/path/to/your/avatar.jpg"
+                                        }
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        ":id"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "user_id_here"
+                                        }
+                                    ]
                                 }
-                            ]
+                            }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users/:id",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "user_id_here"
+                        {
+                            "name": "Update Bio Only",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "bio",
+                                            "value": "I just updated my bio without changing my picture!",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        ":id"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "user_id_here"
+                                        }
+                                    ]
                                 }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Remove Profile Picture",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "removeAvatar",
-                                    "value": "true",
-                                    "type": "text"
-                                }
-                            ]
+                            }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/users/:id",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "users",
-                                ":id"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "id",
-                                    "value": "user_id_here"
+                        {
+                            "name": "Remove Profile Picture",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "removeAvatar",
+                                            "value": "true",
+                                            "type": "text"
+                                        }
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        ":id"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "user_id_here"
+                                        }
+                                    ]
                                 }
-                            ]
+                            }
                         }
-                    }
+                    ]
                 }
             ]
         },
@@ -213,307 +338,383 @@
             "name": "02. Posts",
             "item": [
                 {
-                    "name": "Create Post",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\",\n  \"mediaUrl\": \"https://example.com/video.mp4\",\n  \"mediaType\": \"video\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                    "name": "Post Feed",
+                    "item": [
+                        {
+                            "name": "Create Post",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\",\n  \"mediaUrl\": \"https://example.com/video.mp4\",\n  \"mediaType\": \"video\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get All Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Post Likes",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/:postId/likes",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                ":postId",
-                                "likes"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "postId",
-                                    "value": "post_id_here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Share Post",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                        {
+                            "name": "Get All Posts",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/share",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "share"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Shared Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/shared/:userId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "shared",
-                                ":userId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": "user_id_here"
+                        {
+                            "name": "Get User's Own Posts",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "me"
+                                    ]
                                 }
-                            ]
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Get User Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/user/:userId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "user",
-                                ":userId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": "user_id_here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Like Post",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                    "name": "Engagement (Likes)",
+                    "item": [
+                        {
+                            "name": "Like / Unlike Post (Toggle)",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/like",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "like"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/like",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "like"
-                            ]
+                        {
+                            "name": "Get Post Likes",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/:postId/likes",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        ":postId",
+                                        "likes"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "postId",
+                                            "value": "post_id_here"
+                                        }
+                                    ]
+                                }
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Unlike Post (Toggle)",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                    "name": "Comments",
+                    "item": [
+                        {
+                            "name": "Add Comment",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/comment",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "comment"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/like",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "like"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Add Comment",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                        {
+                            "name": "Get Comments",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/:postId/comments",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        ":postId",
+                                        "comments"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "postId",
+                                            "value": "post_id_here"
+                                        }
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/comment",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "comment"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Delete Comment",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/comment/:commentId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "comment",
-                                ":commentId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "commentId",
-                                    "value": "paste_comment_id_here"
+                        {
+                            "name": "Delete Comment",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/comment/:commentId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "comment",
+                                        ":commentId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "commentId",
+                                            "value": "paste_comment_id_here"
+                                        }
+                                    ]
                                 }
-                            ]
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Save Post",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                    "name": "Reposting",
+                    "item": [
+                        {
+                            "name": "Repost Post",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/repost",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "repost"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/save",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "save"
-                            ]
+                        {
+                            "name": "Get Reposted Posts",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/reposted/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "reposted",
+                                        "me"
+                                    ]
+                                }
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Get Saved Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/saved/:userId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "saved",
-                                ":userId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": "user_id_here"
+                    "name": "Social Bookmarks (Saved)",
+                    "item": [
+                        {
+                            "name": "Save / Unsave Post (Toggle)",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/save",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "save"
+                                    ]
                                 }
-                            ]
+                            }
+                        },
+                        {
+                            "name": "Get User's Saved Posts",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/saved/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "saved",
+                                        "me"
+                                    ]
+                                }
+                            }
                         }
-                    }
+                    ]
                 }
             ]
         },
@@ -521,10 +722,16 @@
             "name": "03. Market",
             "item": [
                 {
-                    "name": "Get Items",
+                    "name": "Get Market Items",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/market/items",
                             "host": [
@@ -542,7 +749,13 @@
                     "name": "Create Market Item",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"title\": \"Calculator\",\n  \"description\": \"Scientific calculator\",\n  \"price\": \"500.00\",\n  \"sellerId\": \"user_id_here\",\n  \"categoryId\": \"cat_id_here\"\n}",
@@ -568,177 +781,212 @@
             ]
         },
         {
-            "name": "04. Friends",
+            "name": "04. Friends & Social",
             "item": [
                 {
-                    "name": "Send Friend Request",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"userId1\": \"user1_id\",\n  \"userId2\": \"user2_id\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/friends/request",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "friends",
-                                "request"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Unfriend User",
-                    "request": {
-                        "method": "DELETE",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/friends/:userId/:friendId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "friends",
-                                ":userId",
-                                ":friendId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": "user_id_here"
+                    "name": "Friend Requests",
+                    "item": [
+                        {
+                            "name": "Send Friend Request",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"userId2\": \"user2_id\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
                                 },
-                                {
-                                    "key": "friendId",
-                                    "value": "friend_id_here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Pending Requests",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/friends/requests/:userId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "friends",
-                                "requests",
-                                ":userId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": "user_id_here"
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Respond to Request",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"accepted\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/request",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "request"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/friends/respond",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "friends",
-                                "respond"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Reject Friend Request",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"rejected\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
+                        {
+                            "name": "Get Pending Requests",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/requests/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "requests",
+                                        "me"
+                                    ]
                                 }
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/friends/respond",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "friends",
-                                "respond"
-                            ]
+                        {
+                            "name": "Accept Friend Request",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"accepted\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/respond",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "respond"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Reject Friend Request",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"rejected\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/respond",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "respond"
+                                    ]
+                                }
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Get Friends List",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/friends/:userId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "friends",
-                                ":userId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": "user_id_here"
+                    "name": "Friend List Management",
+                    "item": [
+                        {
+                            "name": "Get Friends List",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "me"
+                                    ]
                                 }
-                            ]
+                            }
+                        },
+                        {
+                            "name": "Unfriend User",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/:friendId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        ":friendId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "friendId",
+                                            "value": "friend_id_here"
+                                        }
+                                    ]
+                                }
+                            }
                         }
-                    }
+                    ]
                 }
             ]
         },
         {
-            "name": "05. Calendar",
+            "name": "05. Productivity (Calendar)",
             "item": [
                 {
                     "name": "Create Event",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"userId\": \"user_id_here\",\n  \"title\": \"Hackathon\",\n  \"startTime\": \"2026-03-01T09:00:00Z\"\n}",
@@ -764,7 +1012,13 @@
                     "name": "Get My Events",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/calendar/:userId",
                             "host": [
@@ -787,13 +1041,19 @@
             ]
         },
         {
-            "name": "06. Messages",
+            "name": "06. Messaging",
             "item": [
                 {
                     "name": "SendMessage",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"senderId\": \"user1_id\",\n  \"receiverId\": \"user2_id\",\n  \"content\": \"Hello!\"\n}",
@@ -819,7 +1079,13 @@
                     "name": "Get Conversation",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/messages/:u1/:u2",
                             "host": [

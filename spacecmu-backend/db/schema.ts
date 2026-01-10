@@ -9,6 +9,7 @@ import {
   decimal,
   jsonb,
   pgEnum,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // Enums for status/roles
@@ -59,6 +60,10 @@ export const usersTable = pgTable("users", {
   theme: varchar("theme", { length: 20 }).default("light"), // light, dark, auto
   language: varchar("language", { length: 20 }).default("en"), // en, th, etc.
 
+  // Dual Account System
+  isAnonymous: boolean("is_anonymous").default(false).notNull(),
+  parentUserId: uuid("parent_user_id").references((): AnyPgColumn => usersTable.id),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
@@ -78,7 +83,7 @@ export const postsTable = pgTable("posts", {
   // Engagement
   likeCount: integer("like_count").default(0),
   commentCount: integer("comment_count").default(0),
-  shareCount: integer("share_count").default(0),
+  repostCount: integer("repost_count").default(0),
 
   status: postStatusEnum("status").default("active"), // For Admin ban
 
@@ -231,11 +236,22 @@ export const notificationsTable = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// --- Shares Table ---
-export const sharesTable = pgTable("shares", {
+// --- Reposts Table ---
+export const repostsTable = pgTable("reposts", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => usersTable.id).notNull(),
   postId: uuid("post_id").references(() => postsTable.id).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// --- Sessions Table ---
+export const sessionsTable = pgTable("sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+  token: text("token").notNull(),
+  ipAddress: varchar("ip_address", { length: 45 }), // 45 for IPv6
+  userAgent: text("user_agent"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

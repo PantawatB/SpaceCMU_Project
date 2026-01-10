@@ -7,6 +7,6 @@ import {
 const router = Router();
 
 router.post("/", createEvent);
-router.get("/:userId", getUserEvents);
+router.get("/me", getUserEvents);
 
 export default router;

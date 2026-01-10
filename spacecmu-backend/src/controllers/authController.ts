@@ -2,7 +2,7 @@ import { type Request, type Response } from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { dbClient } from "../../db/client.js";
-import { usersTable } from "../../db/schema.js";
+import { usersTable, sessionsTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 
 const CMU_ENTRAID_TOKEN_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/token";
@@ -103,19 +103,19 @@ export const callback = async (req: Request, res: Response) => {
             const [upsertedUser] = await dbClient.insert(usersTable).values({
                 firstName: userData.firstname_TH,
                 lastName: userData.lastname_TH,
-                email: cmuAccount + "@cmu.ac.th", // Assuming cmuitaccount_name is the handle
-                username: cmuAccount,
+                email: cmuAccount + "@cmu.ac.th",
+                username: studentId, // Use student ID as username
                 studentId: studentId,
                 faculty: userData.organization_name_TH,
                 role: "user",
                 status: "active",
-                // Generate a consistent avatar URL based on student ID or name
                 avatarUrl: `https://ui-avatars.com/api/?name=${userData.firstname_TH}+${userData.lastname_TH}&background=random`,
             }).onConflictDoUpdate({
                 target: usersTable.email,
                 set: {
                     firstName: userData.firstname_TH,
                     lastName: userData.lastname_TH,
+                    username: studentId, // Ensure username is updated to student ID
                     studentId: studentId,
                     faculty: userData.organization_name_TH,
                     lastActiveAt: new Date(),
@@ -124,6 +124,41 @@ export const callback = async (req: Request, res: Response) => {
 
             user = upsertedUser;
             console.log("User saved:", user.id);
+
+            // 3.1 Handle Anonymous Account (Backend Only)
+            const anonEmail = cmuAccount + "@anonymous.spacecmu.com";
+
+            // Check if anonymous account exists
+            const existingAnon = await dbClient
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.email, anonEmail))
+                .limit(1);
+
+            if (existingAnon.length === 0) {
+                console.log("Creating Anonymous account for user...");
+
+                // Get current anonymous count for numbering
+                const allAnon = await dbClient
+                    .select()
+                    .from(usersTable)
+                    .where(eq(usersTable.isAnonymous, true));
+
+                const anonNumber = allAnon.length;
+
+                await dbClient.insert(usersTable).values({
+                    firstName: "Anonymous",
+                    lastName: "",
+                    email: anonEmail,
+                    username: `anonymous-${anonNumber}`,
+                    isAnonymous: true,
+                    parentUserId: user.id,
+                    avatarUrl: "/noobcat.png", // Default anonymous avatar
+                    role: "user",
+                    status: "active",
+                });
+                console.log(`Anonymous account created: anonymous-${anonNumber}`);
+            }
 
         } catch (dbError) {
             console.error("Database save failed:", dbError);
@@ -152,12 +187,30 @@ export const callback = async (req: Request, res: Response) => {
         );
 
         // 4. Set Cookie and Redirect to Frontend
-        // Assuming frontend is on port 5173
         res.cookie("token", sessionToken, {
-            httpOnly: false, // Allow frontend JS to read it for now (since we're cross-origin) OR set domain/path carefully
+            httpOnly: true,
             secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
             maxAge: 24 * 60 * 60 * 1000, // 1 day
         });
+
+        // 5. Record Login Session
+        try {
+            const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
+            const userAgent = req.headers['user-agent'];
+
+            await dbClient.insert(sessionsTable).values({
+                userId: user.id,
+                token: sessionToken,
+                ipAddress: typeof ipAddress === 'string' ? ipAddress : JSON.stringify(ipAddress),
+                userAgent: userAgent as string,
+            });
+            console.log("Session recorded for user:", user.id);
+        } catch (sessionError) {
+            console.error("Failed to record session:", sessionError);
+            // We don't block the login if session recording fails, but we log it.
+        }
 
         // Redirect to frontend Feeds page
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";

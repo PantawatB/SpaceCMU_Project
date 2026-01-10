@@ -4,6 +4,7 @@ import { usersTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
+import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 // Get all users
 export const getAllUsers = async (req: Request, res: Response) => {
@@ -61,10 +62,15 @@ export const createUser = async (req: Request, res: Response) => {
 // Delete a user
 export const deleteUser = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const deletedUser = await dbClient
             .delete(usersTable)
-            .where(eq(usersTable.id, id))
+            .where(eq(usersTable.id, userId))
             .returning();
 
         if (deletedUser.length === 0) {
@@ -82,7 +88,12 @@ export const deleteUser = async (req: Request, res: Response) => {
 // Update user profile (Bio and Avatar)
 export const updateProfile = async (req: Request, res: Response) => {
     try {
-        const { id } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const { bio, removeAvatar } = req.body;
         const file = req.file;
 
@@ -90,7 +101,7 @@ export const updateProfile = async (req: Request, res: Response) => {
         const existingUser = await dbClient
             .select()
             .from(usersTable)
-            .where(eq(usersTable.id, id))
+            .where(eq(usersTable.id, userId))
             .limit(1);
 
         if (existingUser.length === 0) {
@@ -127,12 +138,59 @@ export const updateProfile = async (req: Request, res: Response) => {
         const updatedUser = await dbClient
             .update(usersTable)
             .set(updateData)
-            .where(eq(usersTable.id, id))
+            .where(eq(usersTable.id, userId))
             .returning();
 
         res.json({ message: "Profile updated successfully", user: updatedUser[0] });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error updating profile" });
+    }
+};
+
+// Get current user (from token)
+export const getMe = async (req: Request, res: Response) => {
+    try {
+        const userId = getUserIdFromRequest(req);
+
+        if (!userId) {
+            res.status(401).json({ message: "No token provided" });
+            return;
+        }
+
+        const userRecord = await dbClient
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        if (userRecord.length === 0) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        const user = userRecord[0];
+
+        // Fetch linked Anonymous account
+        let anonymousUser = null;
+        if (!user.isAnonymous) {
+            const anonRecord = await dbClient
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.parentUserId, user.id))
+                .limit(1);
+
+            if (anonRecord.length > 0) {
+                anonymousUser = anonRecord[0];
+            }
+        }
+
+        res.json({
+            user: user,
+            anonymousUser: anonymousUser
+        });
+    } catch (error) {
+        console.error("error getMe: ", error);
+        res.status(401).json({ message: "Invalid or expired token" });
     }
 };
