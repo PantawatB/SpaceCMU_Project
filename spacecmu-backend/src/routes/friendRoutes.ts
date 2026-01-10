@@ -11,8 +11,8 @@ const router = Router();
 
 router.post("/request", sendFriendRequest);
 router.post("/respond", respondToRequest);
-router.get("/:userId", getFriendsList);
-router.get("/requests/:userId", getPendingRequests);
-router.delete("/:userId/:friendId", deleteFriend);
+router.get("/me", getFriendsList);
+router.get("/requests/me", getPendingRequests);
+router.delete("/:friendId", deleteFriend);
 
 export default router;

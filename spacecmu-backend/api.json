@@ -67,8 +67,8 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -91,8 +91,8 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -123,8 +123,8 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -146,8 +146,8 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -176,8 +176,8 @@
                                 "method": "DELETE",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -211,8 +211,8 @@
                                 "method": "PATCH",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -256,8 +256,8 @@
                                 "method": "PATCH",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -296,8 +296,8 @@
                                 "method": "PATCH",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -346,14 +346,14 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\",\n  \"mediaUrl\": \"https://example.com/video.mp4\",\n  \"mediaType\": \"video\"\n}",
+                                    "raw": "{\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\",\n  \"mediaUrl\": \"https://example.com/video.mp4\",\n  \"mediaType\": \"video\"\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"
@@ -378,8 +378,8 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -401,27 +401,20 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/posts/user/:userId",
+                                    "raw": "{{baseUrl}}/api/posts/me",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "posts",
-                                        "user",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here"
-                                        }
+                                        "me"
                                     ]
                                 }
                             }
@@ -437,8 +430,8 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -470,8 +463,8 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -506,14 +499,14 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
+                                    "raw": "{\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"
@@ -539,8 +532,8 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -570,8 +563,8 @@
                                 "method": "DELETE",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -598,16 +591,16 @@
                     ]
                 },
                 {
-                    "name": "Sharing",
+                    "name": "Reposting",
                     "item": [
                         {
-                            "name": "Share Post",
+                            "name": "Repost Post",
                             "request": {
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -621,45 +614,39 @@
                                     }
                                 },
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/posts/share",
+                                    "raw": "{{baseUrl}}/api/posts/repost",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "posts",
-                                        "share"
+                                        "repost"
                                     ]
                                 }
                             }
                         },
                         {
-                            "name": "Get Shared Posts",
+                            "name": "Get Reposted Posts",
                             "request": {
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/posts/shared/:userId",
+                                    "raw": "{{baseUrl}}/api/posts/reposted/me",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "posts",
-                                        "shared",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here"
-                                        }
+                                        "reposted",
+                                        "me"
                                     ]
                                 }
                             }
@@ -675,8 +662,8 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -708,13 +695,13 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/posts/saved/:userId",
+                                    "raw": "{{baseUrl}}/api/posts/saved/me",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
@@ -722,13 +709,7 @@
                                         "api",
                                         "posts",
                                         "saved",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here"
-                                        }
+                                        "me"
                                     ]
                                 }
                             }
@@ -811,14 +792,14 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"userId1\": \"user1_id\",\n  \"userId2\": \"user2_id\"\n}",
+                                    "raw": "{\n  \"userId2\": \"user2_id\"\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"
@@ -844,13 +825,13 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/friends/requests/:userId",
+                                    "raw": "{{baseUrl}}/api/friends/requests/me",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
@@ -858,13 +839,7 @@
                                         "api",
                                         "friends",
                                         "requests",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here"
-                                        }
+                                        "me"
                                     ]
                                 }
                             }
@@ -875,8 +850,8 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -908,8 +883,8 @@
                                 "method": "POST",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
@@ -946,26 +921,20 @@
                                 "method": "GET",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/friends/:userId",
+                                    "raw": "{{baseUrl}}/api/friends/me",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "friends",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here"
-                                        }
+                                        "me"
                                     ]
                                 }
                             }
@@ -976,27 +945,22 @@
                                 "method": "DELETE",
                                 "header": [
                                     {
-                                        "key": "Cookie",
-                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/friends/:userId/:friendId",
+                                    "raw": "{{baseUrl}}/api/friends/:friendId",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "friends",
-                                        ":userId",
                                         ":friendId"
                                     ],
                                     "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here"
-                                        },
                                         {
                                             "key": "friendId",
                                             "value": "friend_id_here"

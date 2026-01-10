@@ -2,10 +2,15 @@ import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { calendarEventsTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
+import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 export const createEvent = async (req: Request, res: Response) => {
     try {
-        const { userId, title, description, startTime, endTime, type } = req.body;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { title, description, startTime, endTime, type } = req.body;
         const newEvent = await dbClient
             .insert(calendarEventsTable)
             .values({
@@ -26,7 +31,10 @@ export const createEvent = async (req: Request, res: Response) => {
 
 export const getUserEvents = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
         const events = await dbClient
             .select()
             .from(calendarEventsTable)

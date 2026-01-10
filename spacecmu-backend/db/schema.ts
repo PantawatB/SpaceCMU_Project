@@ -83,7 +83,7 @@ export const postsTable = pgTable("posts", {
   // Engagement
   likeCount: integer("like_count").default(0),
   commentCount: integer("comment_count").default(0),
-  shareCount: integer("share_count").default(0),
+  repostCount: integer("repost_count").default(0),
 
   status: postStatusEnum("status").default("active"), // For Admin ban
 
@@ -236,8 +236,8 @@ export const notificationsTable = pgTable("notifications", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// --- Shares Table ---
-export const sharesTable = pgTable("shares", {
+// --- Reposts Table ---
+export const repostsTable = pgTable("reposts", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => usersTable.id).notNull(),
   postId: uuid("post_id").references(() => postsTable.id).notNull(),

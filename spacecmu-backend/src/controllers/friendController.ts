@@ -2,10 +2,15 @@ import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { friendshipsTable, usersTable } from "../../db/schema.js";
 import { eq, or, and, sql } from "drizzle-orm";
+import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 export const sendFriendRequest = async (req: Request, res: Response) => {
     try {
-        const { userId1, userId2 } = req.body;
+        const userId1 = getUserIdFromRequest(req);
+        if (!userId1) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { userId2 } = req.body;
         const request = await dbClient
             .insert(friendshipsTable)
             .values({ userId1, userId2, status: "pending" })
@@ -81,7 +86,10 @@ export const respondToRequest = async (req: Request, res: Response) => {
 
 export const getFriendsList = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
         const friends = await dbClient
             .select()
             .from(friendshipsTable)
@@ -100,7 +108,10 @@ export const getFriendsList = async (req: Request, res: Response) => {
 
 export const getPendingRequests = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
         // Find requests where current user is the RECEIVER (userId2) and status is pending
         const requests = await dbClient
@@ -130,7 +141,11 @@ export const getPendingRequests = async (req: Request, res: Response) => {
 };
 export const deleteFriend = async (req: Request, res: Response) => {
     try {
-        const { userId, friendId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { friendId } = req.params;
 
         // Find friendship in either direction
         const friendship = await dbClient

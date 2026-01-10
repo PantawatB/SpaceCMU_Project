@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, sharesTable } from "../../db/schema.js";
+import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, repostsTable } from "../../db/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
+import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 // --- Post Management ---
 
@@ -17,20 +18,31 @@ export const getAllPosts = async (req: Request, res: Response) => {
 
 export const createPost = async (req: Request, res: Response) => {
     try {
-        const { userId, content, imageUrl, category } = req.body;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { content, imageUrl, mediaUrl, mediaType, category } = req.body;
         const newPost = await dbClient
             .insert(postsTable)
             .values({
                 userId,
                 content,
-                imageUrl,
+                imageUrl, // Deprecated but kept for safety
+                mediaUrl,
+                mediaType: mediaType || "image",
                 category: category || "Global",
             })
             .returning();
         res.status(201).json(newPost[0]);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error creating post" });
+    } catch (error: any) {
+        console.error("DEBUG createPost Error:", error);
+        res.status(500).json({
+            message: "Error creating post",
+            error: error.message,
+            stack: error.stack
+        });
     }
 };
 
@@ -38,7 +50,11 @@ export const createPost = async (req: Request, res: Response) => {
 
 export const likePost = async (req: Request, res: Response) => {
     try {
-        const { userId, postId } = req.body;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { postId } = req.body;
 
         const existingLike = await dbClient
             .select()
@@ -92,7 +108,11 @@ export const likePost = async (req: Request, res: Response) => {
 
 export const addComment = async (req: Request, res: Response) => {
     try {
-        const { userId, postId, content } = req.body;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { postId, content } = req.body;
         const newComment = await dbClient
             .insert(commentsTable)
             .values({ userId, postId, content })
@@ -195,38 +215,42 @@ export const getPostLikes = async (req: Request, res: Response) => {
     }
 };
 
-export const sharePost = async (req: Request, res: Response) => {
+export const repostPost = async (req: Request, res: Response) => {
     try {
-        const { userId, postId } = req.body;
+        const userId = getUserIdFromRequest(req);
+        const { postId } = req.body;
 
         if (!userId) {
-            return res.status(400).json({ message: "userId is required to track sharing" });
+            return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Insert record into sharesTable
+        // Insert record into repostsTable
         await dbClient
-            .insert(sharesTable)
+            .insert(repostsTable)
             .values({ userId, postId });
 
-        // Increment share count in postsTable
+        // Increment repost count in postsTable
         await dbClient
             .update(postsTable)
-            .set({ shareCount: sql`${postsTable.shareCount} + 1` })
+            .set({ repostCount: sql`${postsTable.repostCount} + 1` })
             .where(eq(postsTable.id, postId));
 
-        res.status(200).json({ message: "Post shared" });
+        res.status(200).json({ message: "Post reposted" });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error sharing post" });
+        res.status(500).json({ message: "Error reposting post" });
     }
 };
 
-export const getSharedPosts = async (req: Request, res: Response) => {
+export const getRepostedPosts = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
-        // Fetch posts that are linked to the user via sharesTable
-        const sharedPosts = await dbClient
+        // Fetch posts that are linked to the user via repostsTable
+        const repostedPosts = await dbClient
             .select({
                 id: postsTable.id,
                 userId: postsTable.userId,
@@ -236,19 +260,53 @@ export const getSharedPosts = async (req: Request, res: Response) => {
                 category: postsTable.category,
                 likeCount: postsTable.likeCount,
                 commentCount: postsTable.commentCount,
-                shareCount: postsTable.shareCount,
+                repostCount: postsTable.repostCount,
                 createdAt: postsTable.createdAt,
-                sharedAt: sharesTable.createdAt // Optional: tracking when it was shared
+                repostedAt: repostsTable.createdAt // Optional: tracking when it was reposted
             })
-            .from(sharesTable)
-            .innerJoin(postsTable, eq(sharesTable.postId, postsTable.id))
-            .where(eq(sharesTable.userId, userId))
-            .orderBy(desc(sharesTable.createdAt));
+            .from(repostsTable)
+            .innerJoin(postsTable, eq(repostsTable.postId, postsTable.id))
+            .where(eq(repostsTable.userId, userId))
+            .orderBy(desc(repostsTable.createdAt));
 
-        res.json(sharedPosts);
+        res.json(repostedPosts);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error fetching shared posts" });
+        res.status(500).json({ message: "Error fetching reposted posts" });
+    }
+};
+
+export const getLikedPosts = async (req: Request, res: Response) => {
+    try {
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Fetch posts that are linked to the user via likesTable
+        const likedPosts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                likedAt: likesTable.createdAt
+            })
+            .from(likesTable)
+            .innerJoin(postsTable, eq(likesTable.postId, postsTable.id))
+            .where(eq(likesTable.userId, userId))
+            .orderBy(desc(likesTable.createdAt));
+
+        res.json(likedPosts);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching liked posts" });
     }
 };
 
@@ -256,7 +314,11 @@ export const getSharedPosts = async (req: Request, res: Response) => {
 
 export const toggleSavePost = async (req: Request, res: Response) => {
     try {
-        const { userId, postId } = req.body;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { postId } = req.body;
 
         const existingSave = await dbClient
             .select()
@@ -296,7 +358,10 @@ export const toggleSavePost = async (req: Request, res: Response) => {
 
 export const getSavedPosts = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
         const saved = await dbClient
             .select()
             .from(savedPostsTable)
@@ -310,7 +375,10 @@ export const getSavedPosts = async (req: Request, res: Response) => {
 
 export const getUserPosts = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
         const posts = await dbClient
             .select()
             .from(postsTable)

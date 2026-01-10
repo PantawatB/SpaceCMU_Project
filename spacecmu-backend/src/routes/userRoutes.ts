@@ -15,8 +15,8 @@ router.get("/me", getMe);
 router.get("/", getAllUsers);
 router.get("/:id", getUserById);
 router.post("/", createUser);
-router.patch("/:id", upload.single("avatar"), updateProfile);
-router.delete("/:id", deleteUser);
+router.patch("/profile", upload.single("avatar"), updateProfile);
+router.delete("/account", deleteUser);
 
 
 export default router;
