@@ -37,12 +37,12 @@ export default function HomePage() {
           />
           CONTINUE WITH CMU ACCOUNT
         </Link>
-        <Link
+        {/* <Link
           href="/Feeds"
           className="px-6 py-2 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 transition"
         >
           Dev
-        </Link>
+        </Link> */}
       </div>
     </div>
   );

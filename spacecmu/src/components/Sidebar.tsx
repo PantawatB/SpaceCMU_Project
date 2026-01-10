@@ -1,9 +1,8 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 
 export interface SidebarMenuItem {
   name: string;
@@ -33,10 +32,8 @@ const profiles = [
 ];
 
 export default function Sidebar({ menuItems }: SidebarProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const [activeProfile, setActiveProfile] = useState(0);
-  const [user, setUser] = useState<any>(null);
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -45,32 +42,6 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     issue: "",
     attachedFile: null as File | null,
   });
-
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch("/api/me");
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error("Failed to fetch user:", err);
-      }
-    };
-    fetchUser();
-  }, []);
-
-  const handleLogout = async () => {
-    try {
-      const res = await fetch("/api/signOut", { method: "POST" });
-      if (res.ok) {
-        router.push("/");
-      }
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
-  };
 
   // Default menu items ถ้าไม่ได้ส่งมา
   const defaultMenuItems: SidebarMenuItem[] = [
@@ -335,6 +306,28 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     setReportForm({ name: "", issue: "", attachedFile: null });
   };
 
+  // Logout handler: call backend signOut endpoint and clear common token cookies
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/signOut', { method: 'POST' });
+    } catch (err) {
+      // ignore network errors but still try to clear client cookies
+      console.error('signOut request failed', err);
+    }
+
+    // Clear client-side cookies (will work for non-httpOnly cookies)
+    try {
+      document.cookie = 'token=; Max-Age=0; path=/;';
+      document.cookie = 'refreshToken=; Max-Age=0; path=/;';
+    } catch {
+      // ignore if document is not available
+    }
+
+    router.push('/');
+  };
+
   return (
     <>
       {/* Hamburger Menu Button for Mobile - Only shown when sidebar is closed */}
@@ -384,17 +377,19 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         {isSidebarOpen && (
           <button
             onClick={() => setIsSidebarOpen(false)}
-            className="lg:hidden absolute -right-12 top-4 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-800 shadow-lg border border-gray-200 transition-all duration-300 group"
+            className="lg:hidden absolute -right-11 top-0 bg-white hover:bg-gray-50 text-gray-600 hover:text-gray-800 shadow-lg border border-gray-200 transition-all duration-300 group overflow-hidden"
             style={{
-              width: '48px',
-              height: '80px',
-              borderTopRightRadius: '40px',
-              borderBottomRightRadius: '40px',
+              width: '44px',
+              height: '100px',
+              borderTopRightRadius: '30px',
+              borderBottomRightRadius: '30px',
               borderLeft: 'none',
+              borderTopLeftRadius: '0',
+              borderBottomLeftRadius: '0',
             }}
             aria-label="Close menu"
           >
-            <div className="flex items-center justify-center h-full pl-1">
+            <div className="flex items-center justify-center h-full pl-2">
               <svg
                 className="w-5 h-5 transform transition-transform group-hover:scale-110"
                 fill="none"
@@ -435,55 +430,34 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </div>
         {/* Profile Section */}
         <div className="flex gap-4 items-center mb-8">
-          <div
-            className={`flex flex-col items-center transition-all duration-300 ${activeProfile === 0 ? "" : "opacity-50 grayscale"
-              }`}
-          >
+          {profiles.map((profile, idx) => (
             <div
-              className={`w-14 h-14 rounded-full flex items-center justify-center relative bg-gradient-to-tr from-purple-400 via-cyan-300 to-yellow-300 shadow-lg`}
-            >
-              <Image
-                src={user?.avatar || "/tanjiro.jpg"}
-                alt={user?.firstname_TH || "User"}
-                width={48}
-                height={48}
-                className="w-12 h-12 rounded-full object-cover border-2 border-white"
-                priority
-              />
-              {activeProfile === 0 && (
-                <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
-              )}
-            </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800 text-center truncate w-24">
-              {user ? `${user.firstname_TH} ${user.lastname_TH}` : "Loading..."}
-            </div>
-            <div className="text-xs text-gray-500">@{user?.itaccount_name || "..."}</div>
-          </div>
-
-          <div
-            className={`flex flex-col items-center transition-all duration-300 ${activeProfile === 1 ? "" : "opacity-50 grayscale"
+              key={profile.type}
+              className={`flex flex-col items-center transition-all duration-300 ${
+                activeProfile === idx ? "" : "opacity-50 grayscale"
               }`}
-          >
-            <div
-              className={`w-14 h-14 rounded-full flex items-center justify-center relative bg-gray-400 shadow-lg`}
             >
-              <Image
-                src="/noobcat.png"
-                alt="Anonymous"
-                width={48}
-                height={48}
-                className="w-12 h-12 rounded-full object-cover border-2 border-white"
-                priority
-              />
-              {activeProfile === 1 && (
-                <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
-              )}
+              <div
+                className={`w-14 h-14 rounded-full flex items-center justify-center relative ${profile.bg} shadow-lg`}
+              >
+                <Image
+                  src={profile.avatar}
+                  alt={profile.name}
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                  priority
+                />
+                {activeProfile === idx && (
+                  <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
+                )}
+              </div>
+              <div className="mt-2 text-sm font-semibold text-gray-800">
+                {profile.name}
+              </div>
+              <div className="text-xs text-gray-500">{profile.username}</div>
             </div>
-            <div className="mt-2 text-sm font-semibold text-gray-800">
-              Noobcat
-            </div>
-            <div className="text-xs text-gray-500">@anonymous</div>
-          </div>
+          ))}
         </div>
 
         {/* Menu */}
@@ -498,7 +472,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                   pathname === item.link
                     ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
                     : "text-gray-500 hover:text-black hover:bg-gray-100"
-                  }`}
+                }`}
               >
                 <span className="w-5 h-5 flex items-center justify-center">
                   {item.icon}
@@ -527,19 +501,21 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         {/* Toggle Profile Button */}
         <div className="flex mb-6 rounded-lg overflow-hidden border border-gray-200">
           <button
-            className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${activeProfile === 0
+            className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
+              activeProfile === 0
                 ? "bg-white text-black"
                 : "bg-gray-200 text-gray-500"
-              }`}
+            }`}
             onClick={() => setActiveProfile(0)}
           >
             Public
           </button>
           <button
-            className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${activeProfile === 1
+            className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
+              activeProfile === 1
                 ? "bg-white text-black"
                 : "bg-gray-200 text-gray-500"
-              }`}
+            }`}
             onClick={() => setActiveProfile(1)}
           >
             Anonymous
@@ -629,8 +605,9 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     {tutorialSteps.slice(0, -1).map((_, index) => (
                       <div
                         key={index}
-                        className={`w-2 h-2 rounded-full ${index === tutorialStep ? "bg-gray-800" : "bg-gray-300"
-                          }`}
+                        className={`w-2 h-2 rounded-full ${
+                          index === tutorialStep ? "bg-gray-800" : "bg-gray-300"
+                        }`}
                       />
                     ))}
                   </div>
@@ -642,10 +619,11 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                       setTutorialStep(Math.max(0, tutorialStep - 1))
                     }
                     disabled={tutorialStep === 0}
-                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${tutorialStep === 0
+                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                      tutorialStep === 0
                         ? "text-gray-400 cursor-not-allowed"
                         : "text-gray-800 hover:text-gray-900 hover:bg-gray-300 bg-gray-200"
-                      }`}
+                    }`}
                   >
                     ย้อนกลับ
                   </button>
