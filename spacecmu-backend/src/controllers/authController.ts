@@ -125,6 +125,32 @@ export const callback = async (req: Request, res: Response) => {
             user = upsertedUser;
             console.log("User saved:", user.id);
 
+            // 3.1 Handle Anonymous Account (Backend Only)
+            const anonEmail = cmuAccount + "@anonymous.spacecmu.com";
+
+            // Check if anonymous account exists
+            const existingAnon = await dbClient
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.email, anonEmail))
+                .limit(1);
+
+            if (existingAnon.length === 0) {
+                console.log("Creating Anonymous account for user...");
+                await dbClient.insert(usersTable).values({
+                    firstName: "Anonymous",
+                    lastName: "User",
+                    email: anonEmail,
+                    username: "noobcat_" + cmuAccount,
+                    isAnonymous: true,
+                    parentUserId: user.id,
+                    avatarUrl: "/noobcat.png", // Default anonymous avatar
+                    role: "user",
+                    status: "active",
+                });
+                console.log("Anonymous account created.");
+            }
+
         } catch (dbError) {
             console.error("Database save failed:", dbError);
             return res.status(500).send("Failed to save user data");

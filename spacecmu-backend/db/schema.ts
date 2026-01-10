@@ -9,6 +9,7 @@ import {
   decimal,
   jsonb,
   pgEnum,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 // Enums for status/roles
@@ -58,6 +59,10 @@ export const usersTable = pgTable("users", {
 
   theme: varchar("theme", { length: 20 }).default("light"), // light, dark, auto
   language: varchar("language", { length: 20 }).default("en"), // en, th, etc.
+
+  // Dual Account System
+  isAnonymous: boolean("is_anonymous").default(false).notNull(),
+  parentUserId: uuid("parent_user_id").references((): AnyPgColumn => usersTable.id),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),

@@ -136,3 +136,59 @@ export const updateProfile = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error updating profile" });
     }
 };
+
+// Get current user (from token in cookies or Authorization header)
+export const getMe = async (req: Request, res: Response) => {
+    try {
+        let token = req.cookies?.token;
+
+        // Also check Authorization header
+        const authHeader = req.headers.authorization;
+        if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.split(" ")[1];
+        }
+
+        if (!token) {
+            res.status(401).json({ message: "No token provided" });
+            return;
+        }
+
+        const jwtSecret = process.env.JWT_SECRET || "fallback_secret";
+        const decoded = (await import("jsonwebtoken")).default.verify(token, jwtSecret) as any;
+
+        const userRecord = await dbClient
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, decoded.id))
+            .limit(1);
+
+        if (userRecord.length === 0) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        const user = userRecord[0];
+
+        // Fetch linked Anonymous account
+        let anonymousUser = null;
+        if (!user.isAnonymous) {
+            const anonRecord = await dbClient
+                .select()
+                .from(usersTable)
+                .where(eq(usersTable.parentUserId, user.id))
+                .limit(1);
+
+            if (anonRecord.length > 0) {
+                anonymousUser = anonRecord[0];
+            }
+        }
+
+        res.json({
+            user: user,
+            anonymousUser: anonymousUser
+        });
+    } catch (error) {
+        console.error("error getMe: ", error);
+        res.status(401).json({ message: "Invalid or expired token" });
+    }
+};

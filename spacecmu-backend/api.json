@@ -62,10 +62,40 @@
                     "name": "Account Management",
                     "item": [
                         {
+                            "name": "Get Current User (Me)",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        "me"
+                                    ]
+                                }
+                            }
+                        },
+                        {
                             "name": "Create User",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"firstName\": \"Somchai\",\n  \"lastName\": \"CMU\",\n  \"email\": \"somchai@cmu.ac.th\",\n  \"username\": \"somchai_cmu\",\n  \"studentId\": \"650610000\",\n  \"faculty\": \"Engineering\"\n}",
@@ -91,7 +121,13 @@
                             "name": "Get All Users",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/users",
                                     "host": [
@@ -108,7 +144,13 @@
                             "name": "Get User By ID",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/users/:id",
                                     "host": [
@@ -132,7 +174,13 @@
                             "name": "Delete User",
                             "request": {
                                 "method": "DELETE",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/users/:id",
                                     "host": [
@@ -161,7 +209,13 @@
                             "name": "Update Profile (Bio and Avatar)",
                             "request": {
                                 "method": "PATCH",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "formdata",
                                     "formdata": [
@@ -200,7 +254,13 @@
                             "name": "Update Bio Only",
                             "request": {
                                 "method": "PATCH",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "formdata",
                                     "formdata": [
@@ -234,7 +294,13 @@
                             "name": "Remove Profile Picture",
                             "request": {
                                 "method": "PATCH",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "formdata",
                                     "formdata": [
@@ -278,7 +344,13 @@
                             "name": "Create Post",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"userId\": \"user_id_here\",\n  \"content\": \"Hello SpaceCMU!\",\n  \"category\": \"General\",\n  \"mediaUrl\": \"https://example.com/video.mp4\",\n  \"mediaType\": \"video\"\n}",
@@ -304,7 +376,13 @@
                             "name": "Get All Posts",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts",
                                     "host": [
@@ -321,7 +399,13 @@
                             "name": "Get User's Own Posts",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts/user/:userId",
                                     "host": [
@@ -351,7 +435,13 @@
                             "name": "Like / Unlike Post (Toggle)",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
@@ -378,7 +468,13 @@
                             "name": "Get Post Likes",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts/:postId/likes",
                                     "host": [
@@ -408,7 +504,13 @@
                             "name": "Add Comment",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
@@ -435,7 +537,13 @@
                             "name": "Get Comments",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts/:postId/comments",
                                     "host": [
@@ -460,7 +568,13 @@
                             "name": "Delete Comment",
                             "request": {
                                 "method": "DELETE",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts/comment/:commentId",
                                     "host": [
@@ -490,7 +604,13 @@
                             "name": "Share Post",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
@@ -517,7 +637,13 @@
                             "name": "Get Shared Posts",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts/shared/:userId",
                                     "host": [
@@ -547,7 +673,13 @@
                             "name": "Save / Unsave Post (Toggle)",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
@@ -574,7 +706,13 @@
                             "name": "Get User's Saved Posts",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/posts/saved/:userId",
                                     "host": [
@@ -606,7 +744,13 @@
                     "name": "Get Market Items",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/market/items",
                             "host": [
@@ -624,7 +768,13 @@
                     "name": "Create Market Item",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"title\": \"Calculator\",\n  \"description\": \"Scientific calculator\",\n  \"price\": \"500.00\",\n  \"sellerId\": \"user_id_here\",\n  \"categoryId\": \"cat_id_here\"\n}",
@@ -659,7 +809,13 @@
                             "name": "Send Friend Request",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"userId1\": \"user1_id\",\n  \"userId2\": \"user2_id\"\n}",
@@ -686,7 +842,13 @@
                             "name": "Get Pending Requests",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/friends/requests/:userId",
                                     "host": [
@@ -711,7 +873,13 @@
                             "name": "Accept Friend Request",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"accepted\"\n}",
@@ -738,7 +906,13 @@
                             "name": "Reject Friend Request",
                             "request": {
                                 "method": "POST",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "body": {
                                     "mode": "raw",
                                     "raw": "{\n  \"requestId\": \"PASTE_FRIEND_REQUEST_ID_HERE\",\n  \"status\": \"rejected\"\n}",
@@ -770,7 +944,13 @@
                             "name": "Get Friends List",
                             "request": {
                                 "method": "GET",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/friends/:userId",
                                     "host": [
@@ -794,7 +974,13 @@
                             "name": "Unfriend User",
                             "request": {
                                 "method": "DELETE",
-                                "header": [],
+                                "header": [
+                                    {
+                                        "key": "Cookie",
+                                        "value": "token=PASTE_TOKEN_HERE",
+                                        "type": "text"
+                                    }
+                                ],
                                 "url": {
                                     "raw": "{{baseUrl}}/api/friends/:userId/:friendId",
                                     "host": [
@@ -830,7 +1016,13 @@
                     "name": "Create Event",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"userId\": \"user_id_here\",\n  \"title\": \"Hackathon\",\n  \"startTime\": \"2026-03-01T09:00:00Z\"\n}",
@@ -856,7 +1048,13 @@
                     "name": "Get My Events",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/calendar/:userId",
                             "host": [
@@ -885,7 +1083,13 @@
                     "name": "SendMessage",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "body": {
                             "mode": "raw",
                             "raw": "{\n  \"senderId\": \"user1_id\",\n  \"receiverId\": \"user2_id\",\n  \"content\": \"Hello!\"\n}",
@@ -911,7 +1115,13 @@
                     "name": "Get Conversation",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "Cookie",
+                                "value": "token=PASTE_TOKEN_HERE",
+                                "type": "text"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/messages/:u1/:u2",
                             "host": [
