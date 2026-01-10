@@ -229,8 +229,13 @@ export default function MarketMainPage() {
                       value={productDescription}
                       onChange={(e) => setProductDescription(e.target.value)}
                       placeholder="อธิบายรายละเอียดของสินค้า..."
-                      rows={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                      className="w-full max-w-[292px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none wrap-break-word text-sm text-gray-500 px-3 py-2"
+                      style={{ 
+                        lineHeight: '1.25rem',
+                        height: 'auto',
+                        minHeight: '2.5rem'
+                      }}
+                      rows={2}
                       required
                     />
                   </div>
