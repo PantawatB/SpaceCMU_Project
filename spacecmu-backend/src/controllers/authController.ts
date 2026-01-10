@@ -103,19 +103,19 @@ export const callback = async (req: Request, res: Response) => {
             const [upsertedUser] = await dbClient.insert(usersTable).values({
                 firstName: userData.firstname_TH,
                 lastName: userData.lastname_TH,
-                email: cmuAccount + "@cmu.ac.th", // Assuming cmuitaccount_name is the handle
-                username: cmuAccount,
+                email: cmuAccount + "@cmu.ac.th",
+                username: studentId, // Use student ID as username
                 studentId: studentId,
                 faculty: userData.organization_name_TH,
                 role: "user",
                 status: "active",
-                // Generate a consistent avatar URL based on student ID or name
                 avatarUrl: `https://ui-avatars.com/api/?name=${userData.firstname_TH}+${userData.lastname_TH}&background=random`,
             }).onConflictDoUpdate({
                 target: usersTable.email,
                 set: {
                     firstName: userData.firstname_TH,
                     lastName: userData.lastname_TH,
+                    username: studentId, // Ensure username is updated to student ID
                     studentId: studentId,
                     faculty: userData.organization_name_TH,
                     lastActiveAt: new Date(),
@@ -137,18 +137,27 @@ export const callback = async (req: Request, res: Response) => {
 
             if (existingAnon.length === 0) {
                 console.log("Creating Anonymous account for user...");
+
+                // Get current anonymous count for numbering
+                const allAnon = await dbClient
+                    .select()
+                    .from(usersTable)
+                    .where(eq(usersTable.isAnonymous, true));
+
+                const anonNumber = allAnon.length;
+
                 await dbClient.insert(usersTable).values({
                     firstName: "Anonymous",
-                    lastName: "User",
+                    lastName: "",
                     email: anonEmail,
-                    username: "noobcat_" + cmuAccount,
+                    username: `anonymous-${anonNumber}`,
                     isAnonymous: true,
                     parentUserId: user.id,
                     avatarUrl: "/noobcat.png", // Default anonymous avatar
                     role: "user",
                     status: "active",
                 });
-                console.log("Anonymous account created.");
+                console.log(`Anonymous account created: anonymous-${anonNumber}`);
             }
 
         } catch (dbError) {
