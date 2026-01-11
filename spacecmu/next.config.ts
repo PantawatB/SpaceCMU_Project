@@ -8,7 +8,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/cmuEntraIDCallback',
-        destination: 'http://localhost:3001/auth/cmu/callback',
+        destination: 'http://localhost:3001/api/auth/cmu/callback',
       },
     ];
   },

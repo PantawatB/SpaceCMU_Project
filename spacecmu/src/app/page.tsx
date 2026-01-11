@@ -25,7 +25,7 @@ export default function HomePage() {
       <p className="mb-6 text-gray-500">Social Media For CMU</p>
       <div className="flex gap-4 items-center mb-4">
         <Link
-          href="http://localhost:3001/auth/cmu/login"
+          href="http://localhost:3001/api/auth/cmu/login"
           className="px-6 py-2 rounded-lg font-semibold flex items-center gap-2 bg-purple-600 text-white hover:bg-purple-700 transition"
         >
           <Image
