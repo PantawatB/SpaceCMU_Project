@@ -141,7 +141,7 @@ export default function MarketMainPage() {
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              เพิ่มสินค้า
+              Add Product
             </button>
           </div>
         </div>

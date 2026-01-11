@@ -15,35 +15,35 @@ interface FriendCardProps {
 }
 function FriendCard({ name, bio, followed, onFollow, onRemove }: FriendCardProps) {
   return (
-    <div className="relative rounded-xl overflow-hidden flex flex-col items-center shadow-lg bg-white font-Roboto-light mb-6">
-      <div className="h-24 w-full bg-gray-500"></div>
-      <div className="top-24 z-10 flex items-center flex-col gap-4 px-5 py-5">
-        <div className="-mt-16">
+    <div className="relative rounded-xl overflow-hidden flex flex-col items-center shadow-lg bg-white font-Roboto-light mb-6 w-full">
+      <div className="h-16 sm:h-20 md:h-24 w-full bg-gray-500"></div>
+      <div className="top-24 z-10 flex items-center flex-col gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-3 sm:py-4 md:py-5">
+        <div className="-mt-10 sm:-mt-12 md:-mt-16">
           <Image
             src="/tanjiro.jpg"
             alt="Profile Avatar"
-            width={75}
-            height={75}
-            className="rounded-full border-2 border-white shadow"
+            width={60}
+            height={60}
+            className="rounded-full border-2 border-white shadow sm:w-[65px] sm:h-[65px] md:w-[75px] md:h-[75px]"
           />
         </div>
         <div className="flex items-center flex-col">
-          <p title="name" className="text-black font-Roboto-md">
+          <p title="name" className="text-black font-Roboto-md text-sm sm:text-base">
             {name}
           </p>
-          <p title="bio" className="text-xs text-gray-500 font-medium">
+          <p title="bio" className="text-xs text-gray-500 font-medium text-center">
             {bio}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
-            className={`bg-gray-600 transition-all gradient text-[15px] text-white px-3 py-1.5 rounded-full flex items-center gap-1 ${followed ? "" : "opacity-50"}`}
+            className={`bg-gray-600 transition-all gradient text-xs sm:text-sm md:text-[15px] text-white px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-full flex items-center gap-1 ${followed ? "" : "opacity-50"}`}
             onClick={onFollow}
           >
             {followed ? "Accept" : "Friend"}
           </button>
           <button
-            className="bg-gray-200/65 hover:bg-gray-200 transition-colors p-2 rounded-full"
+            className="bg-gray-200/65 hover:bg-gray-200 transition-colors p-1.5 sm:p-2 rounded-full"
             onClick={onRemove}
           >
             <svg
@@ -52,7 +52,7 @@ function FriendCard({ name, bio, followed, onFollow, onRemove }: FriendCardProps
               viewBox="0 0 24 24"
               strokeWidth="1.5"
               stroke="currentColor"
-              className="w-5 h-5"
+              className="w-4 h-4 sm:w-5 sm:h-5"
             >
               <path
                 strokeLinecap="round"
@@ -74,29 +74,29 @@ function HorizontalScrollSection({ title, items }: { title: string; items: Frien
   const canGoNext = startIdx + visibleCount < items.length;
   const visibleItems = items.slice(startIdx, startIdx + visibleCount);
   return (
-    <section className="mb-10">
+    <section className="mb-10 relative">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <div className="flex gap-2">
+        <h2 className="text-base sm:text-lg font-semibold">{title}</h2>
+        <div className="flex gap-2 ml-auto">
           <button
             onClick={() => setStartIdx(Math.max(0, startIdx - visibleCount))}
-            className={`p-2 rounded-full bg-gray-200 hover:bg-gray-300 ${!canGoBack ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoBack ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={!canGoBack}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
           </button>
           <button
             onClick={() => setStartIdx(Math.min(items.length - visibleCount, startIdx + visibleCount))}
-            className={`p-2 rounded-full bg-gray-200 hover:bg-gray-300 ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}`}
             disabled={!canGoNext}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
           </button>
         </div>
       </div>
-      <div className="flex gap-8 ">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
         {visibleItems.map((f, idx) => (
-          <div key={idx} className="w-80">
+          <div key={idx} className="max-w-xs mx-auto sm:mx-0 w-full">
             <FriendCard {...f} />
           </div>
         ))}
