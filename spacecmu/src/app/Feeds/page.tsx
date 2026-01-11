@@ -149,7 +149,7 @@ export default function FeedsMainPage() {
             </div>
           </div>
           {/* Feeds Header */}
-          <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center justify-between ">
             <div className="flex items-center gap-4">
               <h1 className="text-2xl font-bold">Feeds</h1>
               <span className="text-xl text-gray-400">|</span>
@@ -221,7 +221,7 @@ export default function FeedsMainPage() {
             </div>
           </div>
           {/* Feeds Section: scrollable only for posts */}
-          <section className="flex-1 overflow-y-auto p-8 flex flex-col gap-6 pb-24">
+          <section className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
             {/* โพสต์ตัวอย่าง 10 โพสต์ */}
             {[...Array(10)].map((_, i) => (
               <div
@@ -278,7 +278,7 @@ export default function FeedsMainPage() {
             ))}
           </section>
           {/* Share something bar - fixed bottom with toggle */}
-          <div className="fixed bottom-4 left-4 right-4 md:left-8 md:right-8 lg:left-72 lg:right-96 z-10 flex flex-col items-center">
+          <div className="fixed bottom-4 left-8 right-22 md:left-8 md:right-22 lg:left-72 lg:right-96 z-10 flex flex-col items-center">
             {/* Toggle Button */}
             <button
               className="mb-2 text-gray-500 bg-white/95 backdrop-blur-sm rounded-full p-2 hover:bg-gray-100 shadow-lg flex items-center justify-center transition-all duration-200"
@@ -313,36 +313,36 @@ export default function FeedsMainPage() {
 
             {/* Share Bar Content */}
             {showShareBar && (
-              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-5 w-full max-w-2xl">
+              <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 sm:p-5 w-full max-w-2xl">
                 {/* Row 1: Avatar + Text Input */}
-                <div className="flex items-center gap-3 mb-3">
+                <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                   <Image
                     src="/tanjiro.jpg"
                     alt="avatar"
                     width={40}
                     height={40}
-                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0"
                   />
                   <input
                     type="text"
                     value={postText}
                     onChange={(e) => setPostText(e.target.value)}
                     placeholder="What's on your mind?"
-                    className="flex-1 px-4 py-2.5 rounded-full bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-base transition-all"
+                    className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all"
                   />
                 </div>
 
                 {/* Media Preview - Show when files selected */}
                 {(selectedImages.length > 0 || selectedVideos.length > 0) && (
-                  <div className="flex flex-wrap gap-2 mb-3 max-h-24 overflow-y-auto">
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2 mb-2 sm:mb-3 max-h-20 sm:max-h-24 overflow-y-auto">
                     {selectedImages.map((img, idx) => (
                       <div key={`img-${idx}`} className="relative">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 overflow-hidden">
-                          <span className="truncate px-1 text-center text-xs">📷 {img.name.slice(0, 4)}...</span>
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 overflow-hidden">
+                          <span className="truncate px-1 text-center text-[10px] sm:text-xs">📷 {img.name.slice(0, 3)}...</span>
                         </div>
                         <button
                           onClick={() => setSelectedImages(selectedImages.filter((_, i) => i !== idx))}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
                         >
                           ×
                         </button>
@@ -350,12 +350,12 @@ export default function FeedsMainPage() {
                     ))}
                     {selectedVideos.map((vid, idx) => (
                       <div key={`vid-${idx}`} className="relative">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 overflow-hidden">
-                          <span className="truncate px-1 text-center text-xs">🎥 {vid.name.slice(0, 4)}...</span>
+                        <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 overflow-hidden">
+                          <span className="truncate px-1 text-center text-[10px] sm:text-xs">🎥 {vid.name.slice(0, 3)}...</span>
                         </div>
                         <button
                           onClick={() => setSelectedVideos(selectedVideos.filter((_, i) => i !== idx))}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
                         >
                           ×
                         </button>
@@ -365,10 +365,10 @@ export default function FeedsMainPage() {
                 )}
 
                 {/* Row 2: Action Buttons */}
-                <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
-                  <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center justify-between gap-1 sm:gap-2 pt-2 sm:pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
                     {/* Image Upload */}
-                    <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer transition-all group">
+                    <label className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer transition-all group">
                       <input
                         type="file"
                         accept="image/*"
@@ -377,18 +377,18 @@ export default function FeedsMainPage() {
                         className="hidden"
                       />
                       <svg
-                        className="w-5 h-5 text-green-600 group-hover:scale-110 transition-transform"
+                        className="w-4 h-4 sm:w-5 sm:h-5 text-green-600 group-hover:scale-110 transition-transform"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-sm font-medium">Photo</span>
+                      <span className="text-xs sm:text-sm font-medium hidden xs:inline">Photo</span>
                     </label>
 
                     {/* Video Upload */}
-                    <label className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer transition-all group">
+                    <label className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer transition-all group">
                       <input
                         type="file"
                         accept="video/*"
@@ -397,29 +397,29 @@ export default function FeedsMainPage() {
                         className="hidden"
                       />
                       <svg
-                        className="w-5 h-5 text-red-600 group-hover:scale-110 transition-transform"
+                        className="w-4 h-4 sm:w-5 sm:h-5 text-red-600 group-hover:scale-110 transition-transform"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
                       >
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
                       </svg>
-                      <span className="text-sm font-medium">Video</span>
+                      <span className="text-xs sm:text-sm font-medium hidden xs:inline">Video</span>
                     </label>
 
                     {/* Mode Selector */}
                     <div className="relative">
                       <button
                         onClick={() => setShowModeDropdown(!showModeDropdown)}
-                        className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                        className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                           postMode
                             ? "bg-blue-50 text-blue-600 border border-blue-200"
                             : "bg-gray-50 text-gray-500 border border-gray-200 hover:border-gray-300"
                         }`}
                       >
-                        <span>{postMode || "Select Feed"}</span>
+                        <span className="truncate max-w-[80px] sm:max-w-none">{postMode || "Select Feed"}</span>
                         <svg
-                          className={`w-3 h-3 transition-transform ${showModeDropdown ? "rotate-180" : ""}`}
+                          className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform shrink-0 ${showModeDropdown ? "rotate-180" : ""}`}
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -471,7 +471,7 @@ export default function FeedsMainPage() {
                   <button
                     onClick={handleSendPost}
                     disabled={!canSendPost}
-                    className={`px-7 py-2 rounded-full font-semibold text-base transition-all whitespace-nowrap ${
+                    className={`px-4 sm:px-7 py-1.5 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all whitespace-nowrap ${
                       canSendPost
                         ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl hover:scale-105"
                         : "bg-gray-200 text-gray-400 cursor-not-allowed"
