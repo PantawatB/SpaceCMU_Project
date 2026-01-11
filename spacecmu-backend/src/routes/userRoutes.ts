@@ -4,7 +4,9 @@ import {
     getUserById,
     createUser,
     deleteUser,
-    updateProfile,
+    updateBio,
+    updateAvatar,
+    deleteAvatar,
     getMe,
 } from "../controllers/userController.js";
 import { upload } from "../middleware/uploadMiddleware.js";
@@ -15,7 +17,9 @@ router.get("/me", getMe);
 router.get("/", getAllUsers);
 router.get("/:id", getUserById);
 router.post("/", createUser);
-router.patch("/profile", upload.single("avatar"), updateProfile);
+router.patch("/profile/bio", updateBio);
+router.patch("/profile/avatar", upload.single("avatar"), updateAvatar);
+router.delete("/profile/avatar", deleteAvatar);
 router.delete("/account", deleteUser);
 
 

@@ -206,7 +206,41 @@
                     "name": "Profile Settings",
                     "item": [
                         {
-                            "name": "Update Profile (Bio and Avatar)",
+                            "name": "Update User Bio",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"bio\": \"This is my new bio!\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/profile/bio",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        "profile",
+                                        "bio"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Update User Picture (Avatar)",
                             "request": {
                                 "method": "PATCH",
                                 "header": [
@@ -219,11 +253,6 @@
                                 "body": {
                                     "mode": "formdata",
                                     "formdata": [
-                                        {
-                                            "key": "bio",
-                                            "value": "This is my new bio!",
-                                            "type": "text"
-                                        },
                                         {
                                             "key": "avatar",
                                             "type": "file",
@@ -232,28 +261,23 @@
                                     ]
                                 },
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "raw": "{{baseUrl}}/api/users/profile/avatar",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "users",
-                                        ":id"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "id",
-                                            "value": "user_id_here"
-                                        }
+                                        "profile",
+                                        "avatar"
                                     ]
                                 }
                             }
                         },
                         {
-                            "name": "Update Bio Only",
+                            "name": "Delete User Picture (Avatar)",
                             "request": {
-                                "method": "PATCH",
+                                "method": "DELETE",
                                 "header": [
                                     {
                                         "key": "Authorization",
@@ -261,71 +285,16 @@
                                         "type": "text"
                                     }
                                 ],
-                                "body": {
-                                    "mode": "formdata",
-                                    "formdata": [
-                                        {
-                                            "key": "bio",
-                                            "value": "I just updated my bio without changing my picture!",
-                                            "type": "text"
-                                        }
-                                    ]
-                                },
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/users/:id",
+                                    "raw": "{{baseUrl}}/api/users/profile/avatar",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "users",
-                                        ":id"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "id",
-                                            "value": "user_id_here"
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "Remove Profile Picture",
-                            "request": {
-                                "method": "PATCH",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "body": {
-                                    "mode": "formdata",
-                                    "formdata": [
-                                        {
-                                            "key": "removeAvatar",
-                                            "value": "true",
-                                            "type": "text"
-                                        }
-                                    ]
-                                },
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/users/:id",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "users",
-                                        ":id"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "id",
-                                            "value": "user_id_here"
-                                        }
+                                        "profile",
+                                        "avatar"
                                     ]
                                 }
                             }
@@ -727,8 +696,8 @@
                         "method": "GET",
                         "header": [
                             {
-                                "key": "Cookie",
-                                "value": "token=PASTE_TOKEN_HERE",
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
                                 "type": "text"
                             }
                         ],
@@ -751,14 +720,14 @@
                         "method": "POST",
                         "header": [
                             {
-                                "key": "Cookie",
-                                "value": "token=PASTE_TOKEN_HERE",
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
                                 "type": "text"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"title\": \"Calculator\",\n  \"description\": \"Scientific calculator\",\n  \"price\": \"500.00\",\n  \"sellerId\": \"user_id_here\",\n  \"categoryId\": \"cat_id_here\"\n}",
+                            "raw": "{\n  \"title\": \"Calculator\",\n  \"description\": \"Scientific calculator\",\n  \"price\": \"500.00\",\n  \"categoryName\": \"Electronics\",\n  \"imageUrl\": \"https://example.com/image.jpg\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
