@@ -62,7 +62,7 @@ export const createUser = async (req: Request, res: Response) => {
 // Delete a user
 export const deleteUser = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
             return;
@@ -88,7 +88,7 @@ export const deleteUser = async (req: Request, res: Response) => {
 // Update Bio
 export const updateBio = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
             return;
@@ -121,7 +121,7 @@ export const updateBio = async (req: Request, res: Response) => {
 // Update Avatar (Picture)
 export const updateAvatar = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
             return;
@@ -172,7 +172,7 @@ export const updateAvatar = async (req: Request, res: Response) => {
 // Delete Avatar (Picture)
 export const deleteAvatar = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             res.status(401).json({ message: "Unauthorized" });
             return;
@@ -213,50 +213,4 @@ export const deleteAvatar = async (req: Request, res: Response) => {
     }
 };
 
-// Get current user (from token)
-export const getMe = async (req: Request, res: Response) => {
-    try {
-        const userId = getUserIdFromRequest(req);
 
-        if (!userId) {
-            res.status(401).json({ message: "No token provided" });
-            return;
-        }
-
-        const userRecord = await dbClient
-            .select()
-            .from(usersTable)
-            .where(eq(usersTable.id, userId))
-            .limit(1);
-
-        if (userRecord.length === 0) {
-            res.status(404).json({ message: "User not found" });
-            return;
-        }
-
-        const user: any = userRecord[0];
-
-        // Fetch linked Anonymous account
-        let anonymousUser = null;
-        if (!user.isAnonymous) {
-            const anonRecord = await dbClient
-                .select()
-                .from(usersTable)
-                .where(eq(usersTable.parentUserId, user.id))
-                .limit(1);
-
-            if (anonRecord.length > 0) {
-                anonymousUser = anonRecord[0];
-                user.anonymousUserId = anonymousUser.id;
-            }
-        }
-
-        res.json({
-            user: user,
-            anonymousUser: anonymousUser
-        });
-    } catch (error) {
-        console.error("error getMe: ", error);
-        res.status(401).json({ message: "Invalid or expired token" });
-    }
-};

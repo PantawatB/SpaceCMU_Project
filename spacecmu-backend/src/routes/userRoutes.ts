@@ -7,20 +7,20 @@ import {
     updateBio,
     updateAvatar,
     deleteAvatar,
-    getMe,
 } from "../controllers/userController.js";
+import { getMe } from "../controllers/authController.js";
 import { upload } from "../middleware/uploadMiddleware.js";
+import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 
 const router = Router();
 
-router.get("/me", getMe);
+router.get("/me", sessionMiddleware, getMe);
 router.get("/", getAllUsers);
 router.get("/:id", getUserById);
 router.post("/", createUser);
-router.patch("/profile/bio", updateBio);
-router.patch("/profile/avatar", upload.single("avatar"), updateAvatar);
-router.delete("/profile/avatar", deleteAvatar);
-router.delete("/account", deleteUser);
-
+router.patch("/profile/bio", sessionMiddleware, updateBio);
+router.patch("/profile/avatar", sessionMiddleware, upload.single("avatar"), updateAvatar);
+router.delete("/profile/avatar", sessionMiddleware, deleteAvatar);
+router.delete("/account", sessionMiddleware, deleteUser);
 
 export default router;

@@ -18,7 +18,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
 
 export const createPost = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -50,11 +50,12 @@ export const createPost = async (req: Request, res: Response) => {
 
 export const likePost = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
+        const { postId } = req.body;
+
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
-        const { postId } = req.body;
 
         const existingLike = await dbClient
             .select()
@@ -108,11 +109,12 @@ export const likePost = async (req: Request, res: Response) => {
 
 export const addComment = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
+        const { postId, content } = req.body;
+
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
-        const { postId, content } = req.body;
         const newComment = await dbClient
             .insert(commentsTable)
             .values({ userId, postId, content })
@@ -217,7 +219,7 @@ export const getPostLikes = async (req: Request, res: Response) => {
 
 export const repostPost = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         const { postId } = req.body;
 
         if (!userId) {
@@ -244,7 +246,7 @@ export const repostPost = async (req: Request, res: Response) => {
 
 export const getRepostedPosts = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -278,7 +280,7 @@ export const getRepostedPosts = async (req: Request, res: Response) => {
 
 export const getLikedPosts = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -314,7 +316,7 @@ export const getLikedPosts = async (req: Request, res: Response) => {
 
 export const toggleSavePost = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -358,7 +360,7 @@ export const toggleSavePost = async (req: Request, res: Response) => {
 
 export const getSavedPosts = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -375,7 +377,7 @@ export const getSavedPosts = async (req: Request, res: Response) => {
 
 export const getUserPosts = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
