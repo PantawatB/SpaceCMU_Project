@@ -11,6 +11,52 @@ export default function MarketMainPage() {
   const [productDescription, setProductDescription] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
   const [productImage, setProductImage] = React.useState("/noobcat.png");
+  const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
+
+  // Handle multiple image uploads
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
+      const newPreviews: string[] = [];
+      let filesProcessed = 0;
+
+      fileArray.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews[index] = reader.result as string;
+          filesProcessed++;
+
+          if (filesProcessed === fileArray.length) {
+            setImagePreviews((prev) => {
+              const updated = [...prev, ...newPreviews];
+              // Set the first image as the main product image if this is the first upload
+              if (prev.length === 0 && newPreviews.length > 0) {
+                setProductImage(newPreviews[0]);
+              }
+              return updated;
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      // Reset the input value so the same file can be selected again
+      e.target.value = '';
+    }
+  };
+
+  // Remove a specific image
+  const removeImage = (index: number) => {
+    setImagePreviews((prev) => {
+      const newPreviews = prev.filter((_, i) => i !== index);
+      // Update the main product image if the first image is removed
+      if (index === 0) {
+        setProductImage(newPreviews.length > 0 ? newPreviews[0] : "/noobcat.png");
+      }
+      return newPreviews;
+    });
+  };
 
   // mock data เพิ่ม sellerName, sellerImage
   const [marketItems, setMarketItems] = React.useState([
@@ -95,7 +141,7 @@ export default function MarketMainPage() {
                   d="M12 4v16m8-8H4"
                 />
               </svg>
-              เพิ่มสินค้า
+              Add Product
             </button>
           </div>
         </div>
@@ -159,7 +205,7 @@ export default function MarketMainPage() {
                   price={productPrice ? `฿${productPrice}` : "฿0"}
                   title={productTitle || "ชื่อสินค้า"}
                   jobTitle={productDescription || "รายละเอียดสินค้า..."}
-                  image={productImage}
+                  image={imagePreviews.length > 0 ? imagePreviews[0] : productImage}
                   sellerName="Your Name"
                   sellerImage="/noobcat.png"
                 />
@@ -180,7 +226,7 @@ export default function MarketMainPage() {
                       price: `฿${productPrice}`,
                       title: productTitle,
                       jobTitle: productDescription,
-                      image: productImage,
+                      image: imagePreviews.length > 0 ? imagePreviews[0] : productImage,
                       sellerName: "Your Name",
                       sellerImage: "/noobcat.png",
                     };
@@ -194,6 +240,7 @@ export default function MarketMainPage() {
                     setProductDescription("");
                     setProductPrice("");
                     setProductImage("/noobcat.png");
+                    setImagePreviews([]);
                   }}
                   className="space-y-6"
                 >
@@ -229,8 +276,13 @@ export default function MarketMainPage() {
                       value={productDescription}
                       onChange={(e) => setProductDescription(e.target.value)}
                       placeholder="อธิบายรายละเอียดของสินค้า..."
-                      rows={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
+                      className="w-full max-w-[292px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none wrap-break-word text-sm text-gray-500 px-3 py-2"
+                      style={{ 
+                        lineHeight: '1.25rem',
+                        height: 'auto',
+                        minHeight: '2.5rem'
+                      }}
+                      rows={2}
                       required
                     />
                   </div>
@@ -268,25 +320,78 @@ export default function MarketMainPage() {
                     >
                       รูปภาพสินค้า
                     </label>
-                    <select
-                      id="productImage"
-                      value={productImage}
-                      onChange={(e) => setProductImage(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                    >
-                      <option value="/noobcat.png">Noob Cat (Default)</option>
-                      <option value="/shoe.webp">รองเท้า</option>
-                      <option value="/iphone.jpg">โทรศัพท์</option>
-                      <option value="/coffee.jpeg">กาแฟ</option>
-                      <option value="/toy.webp">ของเล่น</option>
-                      <option value="/tt.webp">ยาสีฟัน</option>
-                      <option value="/kk.jpg">กาน้ำร้อน</option>
-                      <option value="/bear.webp">ตุ๊กตาหมี</option>
-                      <option value="/fishcan.jpg">ปลากระป๋อง</option>
-                    </select>
-                    <p className="text-xs text-gray-500 mt-1">
-                      เลือกรูปภาพจากตัวอย่างที่มี
-                    </p>
+                    <div className="space-y-3">
+                      {/* Multiple Image Previews - Vertical Display */}
+                      {imagePreviews.length > 0 && (
+                        <div className="space-y-3">
+                          {imagePreviews.map((preview, index) => (
+                            <div
+                              key={index}
+                              className="relative w-full border-2 border-gray-200 rounded-lg overflow-hidden bg-gray-100"
+                            >
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={preview}
+                                alt={`Preview ${index + 1}`}
+                                className="w-full h-auto object-contain"
+                                style={{ maxHeight: '200px' }}
+                              />
+                              {/* Image Index Badge */}
+                              <div className="absolute top-2 left-2 bg-slate-600 text-white text-xs px-2 py-1 rounded-full font-medium">
+                                {index + 1}
+                                {index === 0 && " (ปก)"}
+                              </div>
+                              {/* Remove Button */}
+                              <button
+                                type="button"
+                                onClick={() => removeImage(index)}
+                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-colors shadow-lg"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Upload Button */}
+                      <div className="flex items-center justify-center w-full">
+                        <label
+                          htmlFor="productImage"
+                          className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors"
+                        >
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                            <svg
+                              className="w-8 h-8 mb-3 text-gray-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                              />
+                            </svg>
+                            <p className="mb-2 text-sm text-gray-500">
+                              <span className="font-semibold">คลิกเพื่ออัพโหลด</span> หรือลากไฟล์มาวาง
+                            </p>
+                            <p className="text-xs text-gray-500">PNG, JPG, WEBP (เลือกได้หลายไฟล์)</p>
+                          </div>
+                          <input
+                            id="productImage"
+                            type="file"
+                            className="hidden"
+                            accept="image/*"
+                            multiple
+                            onChange={handleImageUpload}
+                          />
+                        </label>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Submit Buttons */}
