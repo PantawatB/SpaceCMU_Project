@@ -2,7 +2,7 @@
     "info": {
         "_postman_id": "spacecmu-api-collection-v3",
         "name": "SpaceCMU API (Organized)",
-        "description": "Complete collection for testing all SpaceCMU Backend endpoints on Port 3001, organized with nested folders.",
+        "description": "Complete collection for testing all SpaceCMU Backend endpoints on Port 3001, organized with nested folders.\n\n## WebSocket Events (Socket.io)\n\n### Client → Server Events:\n\n**user:online**\n- Payload: `userId: string`\n- Description: User connects and announces they are online\n\n**message:send**\n- Payload: `{ senderId: string, receiverId: string, content: string, messageId: string, createdAt: string }`\n- Description: Send a real-time message to another user\n\n**typing:start**\n- Payload: `{ userId: string, otherUserId: string }`\n- Description: User starts typing in a conversation\n\n**typing:stop**\n- Payload: `{ userId: string, otherUserId: string }`\n- Description: User stops typing in a conversation\n\n**message:read**\n- Payload: `{ messageId: string, userId: string }`\n- Description: Mark a message as read\n\n### Server → Client Events:\n\n**user:status**\n- Payload: `{ userId: string, status: 'online' | 'offline' }`\n- Description: Broadcast when a user goes online or offline\n\n**message:receive**\n- Payload: `{ id: string, senderId: string, receiverId: string, content: string, isRead: boolean, createdAt: string }`\n- Description: Receive a new message in real-time\n\n**message:sent**\n- Payload: `{ messageId: string, success: boolean }`\n- Description: Confirmation that message was sent successfully\n\n**typing:status**\n- Payload: `{ userId: string, isTyping: boolean }`\n- Description: Receive typing status from another user\n\n**message:read:update**\n- Payload: `{ messageId: string, readBy: string }`\n- Description: Notification that a message was read",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
@@ -1010,74 +1010,314 @@
             ]
         },
         {
-            "name": "06. Messaging",
+            "name": "06. Messaging & Chat",
             "item": [
                 {
-                    "name": "SendMessage",
-                    "request": {
-                        "method": "POST",
-                        "header": [
-                            {
-                                "key": "Cookie",
-                                "value": "token=PASTE_TOKEN_HERE",
-                                "type": "text"
-                            }
-                        ],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n  \"senderId\": \"user1_id\",\n  \"receiverId\": \"user2_id\",\n  \"content\": \"Hello!\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
+                    "name": "Conversations",
+                    "item": [
+                        {
+                            "name": "Get All Conversations",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text",
+                                        "description": "User authentication token"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/conversations/:userId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "conversations",
+                                        ":userId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "ID of the user to get conversations for"
+                                        }
+                                    ]
+                                },
+                                "description": "Get all conversations for a user with last message preview and unread count.\n\n**Response Example:**\n```json\n[\n  {\n    \"userId\": \"uuid-123\",\n    \"userName\": \"John Doe\",\n    \"avatarUrl\": \"https://example.com/avatar.jpg\",\n    \"lastMessage\": {\n      \"content\": \"Hey! How are you?\",\n      \"createdAt\": \"2026-01-11T10:30:00Z\",\n      \"isRead\": false\n    },\n    \"unreadCount\": 3\n  }\n]\n```"
                             }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/messages",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "messages"
-                            ]
+                        {
+                            "name": "Get Conversation Between Two Users",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/conversation/:userId1/:userId2?page=1&limit=50",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "conversation",
+                                        ":userId1",
+                                        ":userId2"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "page",
+                                            "value": "1",
+                                            "description": "Page number for pagination (optional, default: 1)"
+                                        },
+                                        {
+                                            "key": "limit",
+                                            "value": "50",
+                                            "description": "Number of messages per page (optional, default: 50)"
+                                        }
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId1",
+                                            "value": "user1_id_here",
+                                            "description": "First user ID"
+                                        },
+                                        {
+                                            "key": "userId2",
+                                            "value": "user2_id_here",
+                                            "description": "Second user ID"
+                                        }
+                                    ]
+                                },
+                                "description": "Get all messages between two users with pagination.\n\n**Response Example:**\n```json\n{\n  \"messages\": [\n    {\n      \"id\": \"msg-uuid-1\",\n      \"senderId\": \"user1_id\",\n      \"receiverId\": \"user2_id\",\n      \"content\": \"Hello!\",\n      \"isRead\": true,\n      \"createdAt\": \"2026-01-11T10:30:00Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 50,\n    \"total\": 125,\n    \"totalPages\": 3\n  }\n}\n```"
+                            }
                         }
-                    }
+                    ]
                 },
                 {
-                    "name": "Get Conversation",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Cookie",
-                                "value": "token=PASTE_TOKEN_HERE",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/messages/:u1/:u2",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "messages",
-                                ":u1",
-                                ":u2"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "u1",
-                                    "value": "u1_id"
+                    "name": "Send & Manage Messages",
+                    "item": [
+                        {
+                            "name": "Send Message",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"senderId\": \"user1_id_here\",\n  \"receiverId\": \"user2_id_here\",\n  \"content\": \"Hello! How are you doing today?\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
                                 },
-                                {
-                                    "key": "u2",
-                                    "value": "u2_id"
-                                }
-                            ]
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages"
+                                    ]
+                                },
+                                "description": "Send a new message to another user.\n\n**Request Body:**\n- `senderId` (required): UUID of the sender\n- `receiverId` (required): UUID of the receiver\n- `content` (required): Message content (non-empty string)\n\n**Response Example:**\n```json\n{\n  \"id\": \"msg-uuid-123\",\n  \"senderId\": \"user1_id\",\n  \"receiverId\": \"user2_id\",\n  \"content\": \"Hello! How are you doing today?\",\n  \"isRead\": false,\n  \"createdAt\": \"2026-01-11T10:30:00Z\"\n}\n```"
+                            }
+                        },
+                        {
+                            "name": "Mark Message as Read",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/:messageId/read",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        ":messageId",
+                                        "read"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "messageId",
+                                            "value": "message_id_here",
+                                            "description": "ID of the message to mark as read"
+                                        }
+                                    ]
+                                },
+                                "description": "Mark a specific message as read.\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Message marked as read\",\n  \"messageId\": \"msg-uuid-123\"\n}\n```"
+                            }
+                        },
+                        {
+                            "name": "Mark All Messages as Read",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"userId\": \"current_user_id\",\n  \"senderId\": \"other_user_id\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/read-all",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "read-all"
+                                    ]
+                                },
+                                "description": "Mark all messages from a specific sender as read.\n\n**Request Body:**\n- `userId` (required): Current user's ID (receiver)\n- `senderId` (required): Sender's ID whose messages to mark as read\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"All messages marked as read\",\n  \"count\": 5\n}\n```"
+                            }
+                        },
+                        {
+                            "name": "Delete Message",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/:messageId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        ":messageId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "messageId",
+                                            "value": "message_id_here",
+                                            "description": "ID of the message to delete"
+                                        }
+                                    ]
+                                },
+                                "description": "Soft delete a message (sets deletedAt timestamp).\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Message deleted successfully\",\n  \"messageId\": \"msg-uuid-123\"\n}\n```"
+                            }
                         }
-                    }
+                    ]
+                },
+                {
+                    "name": "Unread & Search",
+                    "item": [
+                        {
+                            "name": "Get Unread Count",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/unread/:userId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "unread",
+                                        ":userId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "ID of the user to get unread count for"
+                                        }
+                                    ]
+                                },
+                                "description": "Get total unread message count for a user.\n\n**Response Example:**\n```json\n{\n  \"userId\": \"user-uuid-123\",\n  \"unreadCount\": 12,\n  \"conversations\": [\n    {\n      \"senderId\": \"user2_id\",\n      \"senderName\": \"John Doe\",\n      \"unreadCount\": 5\n    },\n    {\n      \"senderId\": \"user3_id\",\n      \"senderName\": \"Jane Smith\",\n      \"unreadCount\": 7\n    }\n  ]\n}\n```"
+                            }
+                        },
+                        {
+                            "name": "Search Messages",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/search?userId=user_id_here&query=hello&otherUserId=user2_id",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "search"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "Current user's ID (required)"
+                                        },
+                                        {
+                                            "key": "query",
+                                            "value": "hello",
+                                            "description": "Search query string (required)"
+                                        },
+                                        {
+                                            "key": "otherUserId",
+                                            "value": "user2_id",
+                                            "description": "Filter by specific conversation partner (optional)"
+                                        }
+                                    ]
+                                },
+                                "description": "Search messages by content. Can filter by specific conversation.\n\n**Query Parameters:**\n- `userId` (required): Current user's ID\n- `query` (required): Search term\n- `otherUserId` (optional): Filter results to conversation with this user\n\n**Response Example:**\n```json\n{\n  \"results\": [\n    {\n      \"id\": \"msg-uuid-1\",\n      \"senderId\": \"user1_id\",\n      \"senderName\": \"John Doe\",\n      \"receiverId\": \"user2_id\",\n      \"receiverName\": \"Jane Smith\",\n      \"content\": \"Hello! How are you?\",\n      \"createdAt\": \"2026-01-11T10:30:00Z\",\n      \"matchedText\": \"Hello\"\n    }\n  ],\n  \"count\": 1,\n  \"query\": \"hello\"\n}\n```"
+                            }
+                        }
+                    ]
                 }
             ]
         }

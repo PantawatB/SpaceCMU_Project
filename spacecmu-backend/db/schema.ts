@@ -139,6 +139,8 @@ export const messagesTable = pgTable("messages", {
   isRead: boolean("is_read").default(false),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  editedAt: timestamp("edited_at"), // For message editing
+  deletedAt: timestamp("deleted_at"), // For soft delete
 });
 
 // --- Calendar Events Table ---
