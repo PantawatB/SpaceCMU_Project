@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, repostsTable } from "../../db/schema.js";
+import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable } from "../../db/schema.js";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -9,7 +9,24 @@ import { getUserIdFromRequest } from "../utils/authUtils.js";
 export const getAllPosts = async (req: Request, res: Response) => {
     try {
         const posts = await dbClient.select().from(postsTable).orderBy(desc(postsTable.createdAt));
-        res.json(posts);
+
+        // Fetch media for each post
+        const postsWithMedia = await Promise.all(
+            posts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                return {
+                    ...post,
+                    media: media.length > 0 ? media : undefined, // Only include if media exists
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching posts" });
@@ -42,6 +59,63 @@ export const createPost = async (req: Request, res: Response) => {
             message: "Error creating post",
             error: error.message,
             stack: error.stack
+        });
+    }
+};
+
+// Create post with multiple media files
+export const createPostWithMedia = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { content, category } = req.body;
+        const files = req.files as Express.Multer.File[];
+
+        // 1. Create post
+        const [newPost] = await dbClient
+            .insert(postsTable)
+            .values({
+                userId,
+                content,
+                category: category || "Global",
+            })
+            .returning();
+
+        // 2. Insert media if files were uploaded
+        if (files && files.length > 0) {
+            const mediaValues = files.map((file, index) => {
+                const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+                return {
+                    postId: newPost.id,
+                    mediaUrl: `/uploads/${file.filename}`,
+                    mediaType,
+                    order: index,
+                    fileSize: file.size,
+                };
+            });
+
+            await dbClient.insert(postMediaTable).values(mediaValues);
+        }
+
+        // 3. Fetch complete post with media
+        const media = await dbClient
+            .select()
+            .from(postMediaTable)
+            .where(eq(postMediaTable.postId, newPost.id))
+            .orderBy(postMediaTable.order);
+
+        res.status(201).json({
+            ...newPost,
+            media: media,
+        });
+    } catch (error: any) {
+        console.error("createPostWithMedia Error:", error);
+        res.status(500).json({
+            message: "Error creating post",
+            error: error.message,
         });
     }
 };

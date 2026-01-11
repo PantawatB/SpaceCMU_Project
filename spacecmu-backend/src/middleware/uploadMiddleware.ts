@@ -32,3 +32,20 @@ export const upload = multer({
         fileSize: 5 * 1024 * 1024 // 5MB limit
     }
 });
+
+// Multiple files upload (for posts with multiple media)
+export const uploadMultiple = multer({
+    storage: storage,
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = /jpeg|jpg|png|gif|webp|mp4|mov|avi|mkv/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error("Only images (jpeg, jpg, png, gif, webp) and videos (mp4, mov, avi, mkv) are allowed!"));
+        }
+    }
+});

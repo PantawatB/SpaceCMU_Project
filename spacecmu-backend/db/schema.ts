@@ -89,6 +89,26 @@ export const postsTable = pgTable("posts", {
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Post Media Table ---
+// Supports multiple images/videos per post
+export const postMediaTable = pgTable("post_media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
+
+  mediaUrl: varchar("media_url", { length: 512 }).notNull(),
+  mediaType: varchar("media_type", { length: 20 }).notNull(), // image, video
+  order: integer("order").default(0).notNull(), // Display order
+
+  // Optional metadata
+  caption: text("caption"),
+  width: integer("width"),
+  height: integer("height"),
+  duration: integer("duration"), // For videos (seconds)
+  fileSize: integer("file_size"), // In bytes
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- Market Categories Table ---
 export const marketCategoriesTable = pgTable("market_categories", {
   id: uuid("id").primaryKey().defaultRandom(),
