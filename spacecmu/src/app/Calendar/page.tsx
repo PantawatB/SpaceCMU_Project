@@ -15,6 +15,7 @@ export default function CalendarPage() {
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth()); // Selected month
   const [selectedYear, setSelectedYear] = useState(today.getFullYear()); // Selected year
   const [showAddTaskPopup, setShowAddTaskPopup] = useState(false);
+  const [showDayViewPopup, setShowDayViewPopup] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDetails, setTaskDetails] = useState("");
   const [taskTime, setTaskTime] = useState("17:00");
@@ -79,30 +80,30 @@ export default function CalendarPage() {
       <Sidebar />
 
       {/* Main Content (Center) */}
-      <main className="flex-1 p-8 bg-white overflow-y-auto min-h-0">
+      <main className="flex-1 p-4 md:p-8 bg-white overflow-auto min-h-0">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Calendar</h1>
-            <p className="text-gray-600">
+          <div className="mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Calendar</h1>
+            <p className="text-sm md:text-base text-gray-600">
               จัดการตารางเรียน กิจกรรม และนัดหมายต่างๆ ของคุณ
             </p>
           </div>
 
           {/* Calendar Container */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 h-[calc(100vh-310px)] overflow-hidden">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-8 overflow-hidden" style={{ height: 'calc(100vh - 250px)', minHeight: '500px' }}>
             {/* Calendar Layout - Flex container */}
             <div className="flex gap-8 h-full">
               {/* Calendar Grid - Left side */}
-              <div className="flex-1 flex flex-col">
+              <div className="flex-1 flex flex-col min-w-0 max-w-full">
                 {/* Month Header with Clickable Month/Year */}
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex items-center justify-between mb-8 shrink-0 flex-wrap gap-4">
                   <div className="flex items-center gap-8">
                     {/* Month Name - Clickable */}
                     <div className="relative">
                       <button
                         onClick={() => setShowMonthPicker(!showMonthPicker)}
-                        className="text-4xl font-light text-gray-700 tracking-wider hover:text-gray-900 transition-colors cursor-pointer"
+                        className="text-2xl md:text-4xl font-light text-gray-700 tracking-wider hover:text-gray-900 transition-colors cursor-pointer"
                       >
                         {months[currentMonth]}
                       </button>
@@ -185,45 +186,53 @@ export default function CalendarPage() {
                     >
                       Today
                     </button>
+                    {/* Add Task Button - Visible only on small screens */}
+                    <button
+                      onClick={() => setShowAddTaskPopup(true)}
+                      className="lg:hidden border px-3 py-1 text-sm text-white bg-slate-600 hover:bg-slate-700 rounded-lg transition-colors"
+                      title="เพิ่มงาน"
+                    >
+                      + งาน
+                    </button>
                   </div>
                 </div>
 
                 {/* Calendar Grid */}
-                <div className="overflow-auto min-h-0">
-                  <div className="grid grid-cols-7 gap-0 border border-gray-300">
+                <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+                  <div className="grid grid-cols-7 gap-0 border border-gray-300 h-full">
                     {/* Day Headers */}
-                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="border-r border-gray-300 px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         SUN
                       </div>
                     </div>
-                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="border-r border-gray-300 px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         MON
                       </div>
                     </div>
-                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="border-r border-gray-300 px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         TUE
                       </div>
                     </div>
-                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="border-r border-gray-300 px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         WED
                       </div>
                     </div>
-                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="border-r border-gray-300 px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         THU
                       </div>
                     </div>
-                    <div className="border-r border-gray-300 px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="border-r border-gray-300 px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         FRI
                       </div>
                     </div>
-                    <div className="px-4 py-3 bg-gray-100">
-                      <div className="text-sm font-medium text-gray-600 text-center">
+                    <div className="px-2 md:px-4 py-3 bg-gray-100 flex items-center justify-center">
+                      <div className="text-xs sm:text-sm font-medium text-gray-600 text-center">
                         SAT
                       </div>
                     </div>
@@ -247,7 +256,7 @@ export default function CalendarPage() {
                       return (
                         <div
                           key={index}
-                          className={`h-20 p-2 hover:bg-gray-50 transition-colors cursor-pointer ${
+                          className={`flex-1 p-2 hover:bg-gray-50 transition-colors cursor-pointer ${
                             isToday
                               ? "border-2 border-gray-400 bg-gray-100"
                               : isSelected
@@ -261,6 +270,10 @@ export default function CalendarPage() {
                               setSelectedDate(dayNumber);
                               setSelectedMonth(currentMonth);
                               setSelectedYear(currentYear);
+                              // On small screens, show popup instead
+                              if (window.innerWidth < 1024) {
+                                setShowDayViewPopup(true);
+                              }
                             }
                             setShowMonthPicker(false);
                             setShowYearPicker(false);
@@ -268,7 +281,7 @@ export default function CalendarPage() {
                         >
                           {isCurrentMonth && (
                             <div
-                              className={`text-sm italic ${
+                              className={`text-xs sm:text-sm italic ${
                                 isToday
                                   ? "text-gray-800 font-bold"
                                   : isSelected
@@ -286,8 +299,8 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              {/* Note Area - Right side */}
-              <div className="w-80 shrink-0 h-full min-h-0">
+              {/* Note Area - Right side - Hidden on small screens */}
+              <div className="w-80 shrink-0 h-full min-h-0 hidden lg:block">
                 <div className="border border-gray-300 h-full flex flex-col overflow-hidden relative min-h-0">
                   {/* Note Header */}
                   <div className="border-b border-gray-300 px-4 py-3 bg-slate-100">
@@ -404,6 +417,106 @@ export default function CalendarPage() {
             setShowYearPicker(false);
           }}
         />
+      )}
+
+      {/* Day View Popup - For small screens */}
+      {showDayViewPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => setShowDayViewPopup(false)}
+          />
+
+          {/* Popup Container */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowDayViewPopup(false)}
+              className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Header */}
+            <div className="border-b border-gray-300 px-6 py-4 bg-slate-100">
+              <div className="text-xl font-bold text-gray-800 text-center">
+                {selectedDate} {monthsInThai[selectedMonth]} {selectedYear}
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 flex-1 overflow-y-auto">
+              {(() => {
+                const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+                const dayTasks = tasks[dateKey] || [];
+                
+                if (dayTasks.length === 0) {
+                  return (
+                    <div className="flex flex-col items-center justify-center h-full py-8">
+                      <svg
+                        width="100"
+                        height="100"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="text-gray-300 mb-4"
+                      >
+                        <path
+                          d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <path
+                          d="M7.5 13.5H13.5M7.5 16.5H11"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                      <p className="text-gray-400 text-sm">ไม่มีงานในวันนี้</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <div className="space-y-3">
+                    {dayTasks.map((task) => (
+                      <NoteCard
+                        key={task.id}
+                        title={task.title}
+                        details={task.details}
+                        time={task.time}
+                        onDelete={() => setTasks(prev => ({
+                          ...prev,
+                          [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
+                        }))}
+                      />
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Footer - Add Task Button */}
+            <div className="border-t border-gray-300 p-4 bg-white">
+              <button
+                onClick={() => {
+                  setShowDayViewPopup(false);
+                  setShowAddTaskPopup(true);
+                }}
+                className="w-full bg-slate-600 text-white py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors font-medium"
+              >
+                + เพิ่มงานในวันนี้
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Add Task Popup Modal */}
