@@ -31,7 +31,6 @@ export const usersTable = pgTable("users", {
   lastName: varchar("last_name", { length: 100 }).notNull(),
   username: varchar("username", { length: 50 }).unique(), // Added for Admin/Settings
   email: varchar("email", { length: 255 }).unique().notNull(),
-  passwordHash: varchar("password_hash", { length: 255 }), // For auth
   studentId: varchar("student_id", { length: 20 }),
 
   // Profile Info
@@ -40,8 +39,7 @@ export const usersTable = pgTable("users", {
   year: varchar("year", { length: 10 }),
   bio: text("bio"),
   avatarUrl: varchar("avatar_url", { length: 512 }),
-  coverUrl: varchar("cover_url", { length: 512 }),
-  isVerified: boolean("is_verified").default(false),
+  bannerUrl: varchar("banner_url", { length: 512 }),
 
   // Stats
   friendsCount: integer("friends_count").default(0),

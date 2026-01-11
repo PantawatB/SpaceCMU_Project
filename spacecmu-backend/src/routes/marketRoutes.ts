@@ -1,13 +1,13 @@
 import { Router } from "express";
 import {
-    getAllValuableItems,
+    getMarketItems,
     getAllCategories,
     createMarketItem,
 } from "../controllers/marketController.js";
 
 const router = Router();
 
-router.get("/items", getAllValuableItems);
+router.get("/items", getMarketItems);
 router.get("/categories", getAllCategories);
 router.post("/items", createMarketItem);
 

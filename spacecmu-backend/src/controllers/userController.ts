@@ -85,8 +85,8 @@ export const deleteUser = async (req: Request, res: Response) => {
     }
 };
 
-// Update user profile (Bio and Avatar)
-export const updateProfile = async (req: Request, res: Response) => {
+// Update Bio
+export const updateBio = async (req: Request, res: Response) => {
     try {
         const userId = getUserIdFromRequest(req);
         if (!userId) {
@@ -94,8 +94,44 @@ export const updateProfile = async (req: Request, res: Response) => {
             return;
         }
 
-        const { bio, removeAvatar } = req.body;
+        const { bio } = req.body;
+        if (bio === undefined) {
+            res.status(400).json({ message: "Bio is required" });
+            return;
+        }
+
+        const updatedUser = await dbClient
+            .update(usersTable)
+            .set({ bio })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        if (updatedUser.length === 0) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        res.json({ message: "Bio updated successfully", user: updatedUser[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error updating bio" });
+    }
+};
+
+// Update Avatar (Picture)
+export const updateAvatar = async (req: Request, res: Response) => {
+    try {
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
         const file = req.file;
+        if (!file) {
+            res.status(400).json({ message: "No image file provided" });
+            return;
+        }
 
         // Get existing user to check for old avatar
         const existingUser = await dbClient
@@ -110,25 +146,10 @@ export const updateProfile = async (req: Request, res: Response) => {
         }
 
         const oldAvatarUrl = existingUser[0].avatarUrl;
-        const updateData: any = {};
+        const newAvatarUrl = `/uploads/${file.filename}`;
 
-        if (bio !== undefined) updateData.bio = bio;
-
-        const shouldDeleteOldFile = (file || removeAvatar === "true") && oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/");
-
-        if (removeAvatar === "true") {
-            updateData.avatarUrl = null;
-        } else if (file) {
-            updateData.avatarUrl = `/uploads/${file.filename}`;
-        }
-
-        if (Object.keys(updateData).length === 0) {
-            res.status(400).json({ message: "No data to update" });
-            return;
-        }
-
-        // Delete old file if necessary
-        if (shouldDeleteOldFile && oldAvatarUrl) {
+        // Delete old file if it's a local upload
+        if (oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/")) {
             const oldFilePath = path.join(process.cwd(), oldAvatarUrl);
             if (fs.existsSync(oldFilePath)) {
                 fs.unlinkSync(oldFilePath);
@@ -137,14 +158,58 @@ export const updateProfile = async (req: Request, res: Response) => {
 
         const updatedUser = await dbClient
             .update(usersTable)
-            .set(updateData)
+            .set({ avatarUrl: newAvatarUrl })
             .where(eq(usersTable.id, userId))
             .returning();
 
-        res.json({ message: "Profile updated successfully", user: updatedUser[0] });
+        res.json({ message: "Avatar updated successfully", user: updatedUser[0] });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Error updating profile" });
+        res.status(500).json({ message: "Error updating avatar" });
+    }
+};
+
+// Delete Avatar (Picture)
+export const deleteAvatar = async (req: Request, res: Response) => {
+    try {
+        const userId = getUserIdFromRequest(req);
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
+        // Get existing user to check for old avatar
+        const existingUser = await dbClient
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        if (existingUser.length === 0) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        const oldAvatarUrl = existingUser[0].avatarUrl;
+
+        // Delete file if it's a local upload
+        if (oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/")) {
+            const oldFilePath = path.join(process.cwd(), oldAvatarUrl);
+            if (fs.existsSync(oldFilePath)) {
+                fs.unlinkSync(oldFilePath);
+            }
+        }
+
+        const updatedUser = await dbClient
+            .update(usersTable)
+            .set({ avatarUrl: null })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        res.json({ message: "Avatar deleted successfully", user: updatedUser[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error deleting avatar" });
     }
 };
 
@@ -169,7 +234,7 @@ export const getMe = async (req: Request, res: Response) => {
             return;
         }
 
-        const user = userRecord[0];
+        const user: any = userRecord[0];
 
         // Fetch linked Anonymous account
         let anonymousUser = null;
@@ -182,6 +247,7 @@ export const getMe = async (req: Request, res: Response) => {
 
             if (anonRecord.length > 0) {
                 anonymousUser = anonRecord[0];
+                user.anonymousUserId = anonymousUser.id;
             }
         }
 
