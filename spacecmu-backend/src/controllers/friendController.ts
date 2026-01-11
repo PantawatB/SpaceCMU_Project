@@ -6,7 +6,7 @@ import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 export const sendFriendRequest = async (req: Request, res: Response) => {
     try {
-        const userId1 = getUserIdFromRequest(req);
+        const userId1 = req.session?.activeUserId;
         if (!userId1) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -86,7 +86,7 @@ export const respondToRequest = async (req: Request, res: Response) => {
 
 export const getFriendsList = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -108,7 +108,7 @@ export const getFriendsList = async (req: Request, res: Response) => {
 
 export const getPendingRequests = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -141,7 +141,7 @@ export const getPendingRequests = async (req: Request, res: Response) => {
 };
 export const deleteFriend = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }

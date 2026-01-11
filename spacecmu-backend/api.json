@@ -52,6 +52,65 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "Get Me (Multi-Identity)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "me"
+                            ]
+                        },
+                        "description": "Returns current session information including publicUser, activeUser, and activeMode (PUBLIC or ANONYMOUS)"
+                    }
+                },
+                {
+                    "name": "Switch Mode (Public/Anonymous)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"mode\": \"ANONYMOUS\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/switch-mode",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "switch-mode"
+                            ]
+                        },
+                        "description": "Switches the active identity for the current session. Mode can be 'PUBLIC' or 'ANONYMOUS'."
+                    }
                 }
             ]
         },
@@ -745,6 +804,40 @@
                                 "items"
                             ]
                         }
+                    }
+                },
+                {
+                    "name": "Contact Seller",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"itemId\": \"market_item_id_here\",\n  \"buyerId\": \"buyer_user_id_here\",\n  \"customMessage\": \"สวัสดีครับ สนใจสินค้านี้มากเลย สามารถต่อราคาได้ไหมครับ\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/market/contact-seller",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "market",
+                                "contact-seller"
+                            ]
+                        },
+                        "description": "Send a message to the seller with product information.\n\n**Request Body:**\n- `itemId` (required): UUID of the market item\n- `buyerId` (required): UUID of the buyer (current user)\n- `customMessage` (optional): Custom message to prepend before product info\n\n**Auto-generated Message Format:**\nIf customMessage is provided:\n```\n{customMessage}\n\n---\nสินค้าที่สนใจ: {title}\nราคา: ฿{price}\nรายละเอียด: {description}\n```\n\nIf no customMessage:\n```\nสวัสดีครับ/ค่ะ สนใจสินค้าของคุณ\n\nสินค้า: {title}\nราคา: ฿{price}\nรายละเอียด: {description}\n\nสามารถติดต่อได้ไหมครับ/ค่ะ\n```\n\n**Response Example (201):**\n```json\n{\n  \"success\": true,\n  \"message\": \"Message sent to seller successfully\",\n  \"data\": {\n    \"messageId\": \"msg-uuid\",\n    \"sellerId\": \"seller-uuid\",\n    \"sellerName\": \"John Doe\",\n    \"itemTitle\": \"Calculator\",\n    \"sentMessage\": {\n      \"id\": \"msg-uuid\",\n      \"senderId\": \"buyer-uuid\",\n      \"receiverId\": \"seller-uuid\",\n      \"content\": \"...\",\n      \"isRead\": false,\n      \"createdAt\": \"2026-01-11T...\"\n    }\n  }\n}\n```\n\n**Error Responses:**\n- 400: Missing required fields or trying to contact yourself\n- 404: Market item not found\n- 500: Server error"
                     }
                 }
             ]

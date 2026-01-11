@@ -47,9 +47,7 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
-console.log("Registering /auth routes...");
-app.use("/auth", authRoutes);
-console.log("Routes registered.");
+app.use("/api/auth", authRoutes);
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

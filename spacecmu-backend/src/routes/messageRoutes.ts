@@ -9,21 +9,22 @@ import {
     deleteMessage,
     searchMessages,
 } from "../controllers/messageController.js";
+import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 
 const router = Router();
 
 // Conversation management
-router.get("/conversations/:userId", getUserConversations);
-router.get("/conversation/:userId1/:userId2", getConversation);
+router.get("/conversations/me", sessionMiddleware, getUserConversations);
+router.get("/conversation/:userId1/:userId2", sessionMiddleware, getConversation);
 
 // Send and manage messages
-router.post("/", sendMessage);
-router.patch("/:messageId/read", markAsRead);
-router.patch("/read-all", markAllAsRead);
-router.delete("/:messageId", deleteMessage);
+router.post("/", sessionMiddleware, sendMessage);
+router.patch("/:messageId/read", sessionMiddleware, markAsRead);
+router.patch("/read-all", sessionMiddleware, markAllAsRead);
+router.delete("/:messageId", sessionMiddleware, deleteMessage);
 
 // Unread and search
-router.get("/unread/:userId", getUnreadCount);
-router.get("/search", searchMessages);
+router.get("/unread/me", sessionMiddleware, getUnreadCount);
+router.get("/search", sessionMiddleware, searchMessages);
 
 export default router;

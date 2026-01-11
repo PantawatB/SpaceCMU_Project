@@ -6,11 +6,16 @@ import { eq, or, and, isNull, desc, sql, like } from "drizzle-orm";
 // Send a new message
 export const sendMessage = async (req: Request, res: Response) => {
     try {
-        const { senderId, receiverId, content } = req.body;
+        const senderId = req.session?.activeUserId;
+        const { receiverId, content } = req.body;
+
+        if (!senderId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
         // Validation
-        if (!senderId || !receiverId || !content || content.trim() === "") {
-            return res.status(400).json({ message: "senderId, receiverId, and content are required" });
+        if (!receiverId || !content || content.trim() === "") {
+            return res.status(400).json({ message: "receiverId and content are required" });
         }
 
         const newMessage = await dbClient
@@ -28,7 +33,18 @@ export const sendMessage = async (req: Request, res: Response) => {
 // Get conversation between two users with pagination
 export const getConversation = async (req: Request, res: Response) => {
     try {
+        const activeUserId = req.session?.activeUserId;
         const { userId1, userId2 } = req.params;
+
+        if (!activeUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Security: Ensure the requester is part of the conversation
+        if (activeUserId !== userId1 && activeUserId !== userId2) {
+            return res.status(403).json({ message: "Forbidden: You cannot access this conversation" });
+        }
+
         const page = parseInt(req.query.page as string) || 1;
         const limit = parseInt(req.query.limit as string) || 50;
         const offset = (page - 1) * limit;
@@ -85,7 +101,11 @@ export const getConversation = async (req: Request, res: Response) => {
 // Get all conversations for a user with last message and unread count
 export const getUserConversations = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = req.session?.activeUserId;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
         // Get all unique conversation partners
         const sentMessages = await dbClient
@@ -201,10 +221,15 @@ export const markAsRead = async (req: Request, res: Response) => {
 // Mark all messages from a sender as read
 export const markAllAsRead = async (req: Request, res: Response) => {
     try {
-        const { userId, senderId } = req.body;
+        const userId = req.session?.activeUserId;
+        const { senderId } = req.body;
 
-        if (!userId || !senderId) {
-            return res.status(400).json({ message: "userId and senderId are required" });
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!senderId) {
+            return res.status(400).json({ message: "senderId is required" });
         }
 
         const result = await dbClient
@@ -234,7 +259,11 @@ export const markAllAsRead = async (req: Request, res: Response) => {
 // Get unread message count for a user
 export const getUnreadCount = async (req: Request, res: Response) => {
     try {
-        const { userId } = req.params;
+        const userId = req.session?.activeUserId;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
 
         // Get total unread count
         const totalResult = await dbClient
@@ -321,10 +350,15 @@ export const deleteMessage = async (req: Request, res: Response) => {
 // Search messages
 export const searchMessages = async (req: Request, res: Response) => {
     try {
-        const { userId, query, otherUserId } = req.query;
+        const userId = req.session?.activeUserId;
+        const { query, otherUserId } = req.query;
 
-        if (!userId || !query) {
-            return res.status(400).json({ message: "userId and query are required" });
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!query) {
+            return res.status(400).json({ message: "query is required" });
         }
 
         let whereCondition = and(

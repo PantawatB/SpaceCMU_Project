@@ -1,6 +1,10 @@
 import type { Request } from "express";
 import jwt from "jsonwebtoken";
 
+/**
+ * @deprecated Use req.session.activeUserId from sessionMiddleware instead for secure, 
+ * backend-controlled identity management.
+ */
 export const getUserIdFromRequest = (req: Request): string | null => {
     try {
         let token = req.cookies?.token;

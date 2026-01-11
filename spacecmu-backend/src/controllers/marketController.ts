@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { marketItemsTable, marketCategoriesTable, usersTable } from "../../db/schema.js";
+import { marketItemsTable, marketCategoriesTable, usersTable, messagesTable } from "../../db/schema.js";
 import { eq, desc, and } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -68,7 +68,7 @@ export const getAllCategories = async (req: Request, res: Response) => {
 // Create a market item
 export const createMarketItem = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -141,5 +141,82 @@ export const createMarketItem = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error creating market item" });
+    }
+};
+
+// Contact seller - Send message with product info
+export const contactSeller = async (req: Request, res: Response) => {
+    try {
+        const buyerId = req.session?.activeUserId;
+        const { itemId, customMessage } = req.body;
+
+        if (!buyerId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Validation
+        if (!itemId) {
+            return res.status(400).json({ message: "itemId is required" });
+        }
+
+        // Get market item details
+        const item = await dbClient
+            .select({
+                id: marketItemsTable.id,
+                title: marketItemsTable.title,
+                description: marketItemsTable.description,
+                price: marketItemsTable.price,
+                sellerId: marketItemsTable.sellerId,
+                seller: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                }
+            })
+            .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
+            .where(eq(marketItemsTable.id, itemId))
+            .limit(1);
+
+        if (item.length === 0) {
+            return res.status(404).json({ message: "Market item not found" });
+        }
+
+        const marketItem = item[0];
+
+        // Check if buyer is trying to contact themselves
+        if (marketItem.sellerId === buyerId) {
+            return res.status(400).json({ message: "You cannot contact yourself" });
+        }
+
+        // Create auto-generated message with product info
+        const autoMessage = customMessage
+            ? `${customMessage}\n\n---\nสินค้าที่สนใจ: ${marketItem.title}\nราคา: ฿${marketItem.price}\nรายละเอียด: ${marketItem.description || "ไม่มีรายละเอียด"}`
+            : `สวัสดีครับ/ค่ะ สนใจสินค้าของคุณ\n\nสินค้า: ${marketItem.title}\nราคา: ฿${marketItem.price}\nรายละเอียด: ${marketItem.description || "ไม่มีรายละเอียด"}\n\nสามารถติดต่อได้ไหมครับ/ค่ะ`;
+
+        // Send message
+        const newMessage = await dbClient
+            .insert(messagesTable)
+            .values({
+                senderId: buyerId,
+                receiverId: marketItem.sellerId,
+                content: autoMessage
+            })
+            .returning();
+
+        res.status(201).json({
+            success: true,
+            message: "Message sent to seller successfully",
+            data: {
+                messageId: newMessage[0].id,
+                sellerId: marketItem.sellerId,
+                sellerName: `${marketItem.seller.firstName} ${marketItem.seller.lastName}`,
+                itemTitle: marketItem.title,
+                sentMessage: newMessage[0]
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error contacting seller" });
     }
 };

@@ -1,9 +1,10 @@
-import { type Request, type Response } from "express";
+import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { dbClient } from "../../db/client.js";
 import { usersTable, sessionsTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
+import { getAnonymousAccount, updateSessionActiveUser, getActiveMode, getUserById } from "../utils/sessionUtils.js";
 
 const CMU_ENTRAID_TOKEN_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/token";
 const CMU_BASIC_INFO_URL = "https://api.cmu.ac.th/mis/cmuaccount/prod/v3/me/basicinfo";
@@ -202,6 +203,7 @@ export const callback = async (req: Request, res: Response) => {
 
             await dbClient.insert(sessionsTable).values({
                 userId: user.id,
+                activeUserId: user.id, // Default to public mode on login
                 token: sessionToken,
                 ipAddress: typeof ipAddress === 'string' ? ipAddress : JSON.stringify(ipAddress),
                 userAgent: userAgent as string,
@@ -219,5 +221,116 @@ export const callback = async (req: Request, res: Response) => {
     } catch (error: any) {
         console.error("Sign-in error:", error);
         res.status(500).send("Internal server error");
+    }
+};
+
+/**
+ * GET /auth/me
+ * Get current user info with active mode
+ */
+export const getMe = async (req: Request, res: Response) => {
+    try {
+        if (!req.session || !req.activeUser) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+
+        // Get public user (owner of session)
+        const publicUser = await getUserById(req.session.userId);
+
+        if (!publicUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Get anonymous account if exists
+        const anonymousAccount = await getAnonymousAccount(publicUser.id);
+
+        // Determine active mode
+        const activeMode = getActiveMode(req.activeUser);
+
+        // Remove sensitive data
+        const { ...publicUserData } = publicUser;
+        const { ...activeUserData } = req.activeUser;
+
+        res.json({
+            user: publicUserData,
+            activeUser: activeUserData,
+            activeMode,
+            anonymousAccount: anonymousAccount ? {
+                id: anonymousAccount.id,
+                username: anonymousAccount.username,
+                firstName: anonymousAccount.firstName,
+                avatarUrl: anonymousAccount.avatarUrl,
+            } : null
+        });
+    } catch (error) {
+        console.error("getMe error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /auth/switch-mode
+ * Switch between PUBLIC and ANONYMOUS mode
+ */
+export const switchMode = async (req: Request, res: Response) => {
+    try {
+        if (!req.session) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+
+        const { mode } = req.body;
+
+        if (!mode || (mode !== "PUBLIC" && mode !== "ANONYMOUS")) {
+            return res.status(400).json({ message: "Invalid mode. Must be 'PUBLIC' or 'ANONYMOUS'" });
+        }
+
+        // Get public user
+        const publicUser = await getUserById(req.session.userId);
+
+        if (!publicUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        let newActiveUserId: string;
+
+        if (mode === "ANONYMOUS") {
+            // Switch to anonymous mode
+            const anonymousAccount = await getAnonymousAccount(publicUser.id);
+
+            if (!anonymousAccount) {
+                return res.status(404).json({ message: "Anonymous account not found" });
+            }
+
+            newActiveUserId = anonymousAccount.id;
+        } else {
+            // Switch to public mode
+            newActiveUserId = publicUser.id;
+        }
+
+        // Update session
+        await updateSessionActiveUser(req.session.sessionId, newActiveUserId);
+
+        // Get updated active user
+        const newActiveUser = await getUserById(newActiveUserId);
+
+        if (!newActiveUser) {
+            return res.status(500).json({ message: "Failed to get updated user" });
+        }
+
+        res.json({
+            success: true,
+            activeMode: mode,
+            activeUser: {
+                id: newActiveUser.id,
+                username: newActiveUser.username,
+                firstName: newActiveUser.firstName,
+                lastName: newActiveUser.lastName,
+                avatarUrl: newActiveUser.avatarUrl,
+                isAnonymous: newActiveUser.isAnonymous,
+            }
+        });
+    } catch (error) {
+        console.error("switchMode error:", error);
+        res.status(500).json({ message: "Internal server error" });
     }
 };

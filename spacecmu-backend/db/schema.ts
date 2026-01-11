@@ -248,9 +248,10 @@ export const repostsTable = pgTable("reposts", {
 // --- Sessions Table ---
 export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
-  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(), // เจ้าของ session
+  activeUserId: uuid("active_user_id").references(() => usersTable.id).notNull(), // ตัวตนที่ใช้งานปัจจุบัน
   token: text("token").notNull(),
-  ipAddress: varchar("ip_address", { length: 45 }), // 45 for IPv6
+  ipAddress: varchar("ip_address", { length: 45 }),
   userAgent: text("user_agent"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),

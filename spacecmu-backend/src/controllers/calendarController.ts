@@ -6,7 +6,7 @@ import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 export const createEvent = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
@@ -31,7 +31,7 @@ export const createEvent = async (req: Request, res: Response) => {
 
 export const getUserEvents = async (req: Request, res: Response) => {
     try {
-        const userId = getUserIdFromRequest(req);
+        const userId = req.session?.activeUserId;
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
