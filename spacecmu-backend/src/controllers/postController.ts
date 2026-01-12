@@ -1,32 +1,271 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable } from "../../db/schema.js";
-import { eq, desc, and, sql } from "drizzle-orm";
+import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable } from "../../db/schema.js";
+import { eq, desc, and, sql, lt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 // --- Post Management ---
 
 export const getAllPosts = async (req: Request, res: Response) => {
     try {
-        const posts = await dbClient.select().from(postsTable).orderBy(desc(postsTable.createdAt));
+        const { category, cursor, limit: limitParam } = req.query;
+        const userId = req.session?.activeUserId;
+
+        // Pagination settings
+        const limit = Math.min(parseInt(limitParam as string) || 20, 50); // Default 20, max 50
+        const cursorDate = cursor ? new Date(cursor as string) : null;
+
+        let postsQuery = dbClient
+            .select({
+                // Post fields
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                imageUrl: postsTable.imageUrl,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                status: postsTable.status,
+                createdAt: postsTable.createdAt,
+                updatedAt: postsTable.updatedAt,
+                // Author info
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
+            .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .orderBy(desc(postsTable.createdAt));
+
+        // Apply category filter
+        if (category && category !== 'Global') {
+            if (category === 'Friends') {
+                // Friends feed: Show only posts from friends
+                if (!userId) {
+                    return res.json([]); // Not logged in = no friends feed
+                }
+
+                // Get user's friends
+                const friendships = await dbClient
+                    .select()
+                    .from(friendshipsTable)
+                    .where(
+                        and(
+                            eq(friendshipsTable.status, 'accepted'),
+                            sql`(${friendshipsTable.userId1} = ${userId} OR ${friendshipsTable.userId2} = ${userId})`
+                        )
+                    );
+
+                const friendIds = friendships.map(f =>
+                    f.userId1 === userId ? f.userId2 : f.userId1
+                );
+
+                if (friendIds.length === 0) {
+                    return res.json([]); // No friends = empty feed
+                }
+
+                // Filter posts by friends AND category = 'Friends'
+                const posts = await dbClient
+                    .select({
+                        id: postsTable.id,
+                        userId: postsTable.userId,
+                        content: postsTable.content,
+                        imageUrl: postsTable.imageUrl,
+                        mediaUrl: postsTable.mediaUrl,
+                        mediaType: postsTable.mediaType,
+                        category: postsTable.category,
+                        likeCount: postsTable.likeCount,
+                        commentCount: postsTable.commentCount,
+                        repostCount: postsTable.repostCount,
+                        status: postsTable.status,
+                        createdAt: postsTable.createdAt,
+                        updatedAt: postsTable.updatedAt,
+                        authorFirstName: usersTable.firstName,
+                        authorLastName: usersTable.lastName,
+                        authorAvatarUrl: usersTable.avatarUrl,
+                    })
+                    .from(postsTable)
+                    .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+                    .where(
+                        and(
+                            sql`${postsTable.userId} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`,
+                            eq(postsTable.category, 'Friends')
+                        )
+                    )
+                    .orderBy(desc(postsTable.createdAt))
+                    .limit(limit + 1);
+
+                const hasMore = posts.length > limit;
+                const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
+
+                // Fetch media for each post
+                const postsWithMedia = await Promise.all(
+                    postsToReturn.map(async (post) => {
+                        const media = await dbClient
+                            .select()
+                            .from(postMediaTable)
+                            .where(eq(postMediaTable.postId, post.id))
+                            .orderBy(postMediaTable.order);
+
+                        const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                        return {
+                            ...postData,
+                            author: {
+                                firstName: authorFirstName,
+                                lastName: authorLastName,
+                                avatarUrl: authorAvatarUrl,
+                            },
+                            media: media.length > 0 ? media : undefined,
+                        };
+                    })
+                );
+
+                const nextCursor = hasMore && postsToReturn.length > 0
+                    ? postsToReturn[postsToReturn.length - 1].createdAt.toISOString()
+                    : null;
+
+                return res.json({
+                    posts: postsWithMedia,
+                    nextCursor,
+                    hasMore,
+                });
+            } else {
+                // Other categories: Announcements, Events, Questions, Marketplaces, Shops
+                const posts = await dbClient
+                    .select({
+                        id: postsTable.id,
+                        userId: postsTable.userId,
+                        content: postsTable.content,
+                        imageUrl: postsTable.imageUrl,
+                        mediaUrl: postsTable.mediaUrl,
+                        mediaType: postsTable.mediaType,
+                        category: postsTable.category,
+                        likeCount: postsTable.likeCount,
+                        commentCount: postsTable.commentCount,
+                        repostCount: postsTable.repostCount,
+                        status: postsTable.status,
+                        createdAt: postsTable.createdAt,
+                        updatedAt: postsTable.updatedAt,
+                        authorFirstName: usersTable.firstName,
+                        authorLastName: usersTable.lastName,
+                        authorAvatarUrl: usersTable.avatarUrl,
+                    })
+                    .from(postsTable)
+                    .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+                    .where(eq(postsTable.category, category as string))
+                    .orderBy(desc(postsTable.createdAt))
+                    .limit(limit + 1);
+
+                const hasMore = posts.length > limit;
+                const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
+
+                // Fetch media for each post
+                const postsWithMedia = await Promise.all(
+                    postsToReturn.map(async (post) => {
+                        const media = await dbClient
+                            .select()
+                            .from(postMediaTable)
+                            .where(eq(postMediaTable.postId, post.id))
+                            .orderBy(postMediaTable.order);
+
+                        const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                        return {
+                            ...postData,
+                            author: {
+                                firstName: authorFirstName,
+                                lastName: authorLastName,
+                                avatarUrl: authorAvatarUrl,
+                            },
+                            media: media.length > 0 ? media : undefined,
+                        };
+                    })
+                );
+
+                const nextCursor = hasMore && postsToReturn.length > 0
+                    ? postsToReturn[postsToReturn.length - 1].createdAt.toISOString()
+                    : null;
+
+                return res.json({
+                    posts: postsWithMedia,
+                    nextCursor,
+                    hasMore,
+                });
+            }
+        }
+
+        // Global feed: All posts except Friends category
+        // Build where conditions
+        const whereConditions = cursorDate
+            ? and(
+                sql`${postsTable.category} != 'Friends'`,
+                lt(postsTable.createdAt, cursorDate)
+            )
+            : sql`${postsTable.category} != 'Friends'`;
+
+        const posts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                imageUrl: postsTable.imageUrl,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                status: postsTable.status,
+                createdAt: postsTable.createdAt,
+                updatedAt: postsTable.updatedAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
+            .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(whereConditions)
+            .orderBy(desc(postsTable.createdAt))
+            .limit(limit + 1); // Fetch one extra to check if there's more
+
+        // Check if there are more posts
+        const hasMore = posts.length > limit;
+        const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
 
         // Fetch media for each post
         const postsWithMedia = await Promise.all(
-            posts.map(async (post) => {
+            postsToReturn.map(async (post) => {
                 const media = await dbClient
                     .select()
                     .from(postMediaTable)
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
+                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
                 return {
-                    ...post,
-                    media: media.length > 0 ? media : undefined, // Only include if media exists
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                    },
+                    media: media.length > 0 ? media : undefined,
                 };
             })
         );
 
-        res.json(postsWithMedia);
+        // Get next cursor from last post's createdAt
+        const nextCursor = hasMore && postsToReturn.length > 0
+            ? postsToReturn[postsToReturn.length - 1].createdAt.toISOString()
+            : null;
+
+        res.json({
+            posts: postsWithMedia,
+            nextCursor,
+            hasMore,
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching posts" });
@@ -117,6 +356,43 @@ export const createPostWithMedia = async (req: Request, res: Response) => {
             message: "Error creating post",
             error: error.message,
         });
+    }
+};
+
+// Delete post
+export const deletePost = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { postId } = req.params;
+
+        // Verify post belongs to user
+        const post = await dbClient
+            .select()
+            .from(postsTable)
+            .where(eq(postsTable.id, postId))
+            .limit(1);
+
+        if (post.length === 0) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (post[0].userId !== userId) {
+            return res.status(403).json({ message: "Forbidden: You can only delete your own posts" });
+        }
+
+        // Delete post (media will be cascade deleted due to foreign key)
+        await dbClient
+            .delete(postsTable)
+            .where(eq(postsTable.id, postId));
+
+        res.json({ message: "Post deleted successfully" });
+    } catch (error) {
+        console.error("deletePost Error:", error);
+        res.status(500).json({ message: "Error deleting post" });
     }
 };
 

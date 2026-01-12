@@ -1035,31 +1035,6 @@
                                     ]
                                 }
                             }
-                        },
-                        {
-                            "name": "Get Active Friends (Recent Activity)",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/friends/active",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "friends",
-                                        "active"
-                                    ]
-                                },
-                                "description": "Get friends with their last active status, sorted by most recently active.\n\n**Response Format:**\n```json\n[\n  {\n    \"id\": \"...\",\n    \"firstName\": \"People\",\n    \"lastName\": \"1\",\n    \"avatarUrl\": \"...\",\n    \"lastActiveAt\": \"2026-01-12T14:25:00.000Z\",\n    \"activityStatus\": \"Active now\",\n    \"minutesAgo\": 0,\n    \"isOnline\": true\n  },\n  {\n    \"activityStatus\": \"Active 2m ago\",\n    \"minutesAgo\": 2,\n    \"isOnline\": false\n  }\n]\n```\n\n**Activity Status:**\n- \"Active now\" (< 1 min)\n- \"Active Xm ago\" (< 60 min)\n- \"Active Xh ago\" (< 24 hours)\n- \"Active Xd ago\" (>= 24 hours)\n- \"Offline\" (never active)\n\n**isOnline:** true if active within 5 minutes"
-                            }
                         }
                     ]
                 },
