@@ -334,3 +334,44 @@ export const switchMode = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+/**
+ * POST /auth/logout
+ * Sign out user by deleting session and clearing cookie
+ */
+export const logout = async (req: Request, res: Response) => {
+    try {
+        // Get token from cookie or header
+        let token = req.cookies?.token;
+
+        const authHeader = req.headers.authorization;
+        if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.split(" ")[1];
+        }
+
+        if (token) {
+            // Delete session from database
+            await dbClient
+                .delete(sessionsTable)
+                .where(eq(sessionsTable.token, token));
+
+            console.log("Session deleted for token");
+        }
+
+        // Clear cookie
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+        });
+
+        res.json({
+            success: true,
+            message: "Logged out successfully"
+        });
+    } catch (error) {
+        console.error("logout error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
