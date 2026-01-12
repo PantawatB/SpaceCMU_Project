@@ -1,6 +1,9 @@
 import { type Request, type Response, type NextFunction } from "express";
 import jwt from "jsonwebtoken";
 import { getSessionByToken, getUserById } from "../utils/sessionUtils.js";
+import { dbClient } from "../../db/client.js";
+import { usersTable } from "../../db/schema.js";
+import { eq } from "drizzle-orm";
 
 // Extend Express Request type
 export interface SessionData {
@@ -21,6 +24,7 @@ declare global {
 /**
  * Middleware to verify JWT and load session data
  * Attaches session and activeUser to req object
+ * Also updates lastActiveAt for the user
  */
 export const sessionMiddleware = async (
     req: Request,
@@ -64,7 +68,15 @@ export const sessionMiddleware = async (
             return res.status(401).json({ message: "Active user not found" });
         }
 
-        // 5. Attach to request
+        // 5. Update lastActiveAt for the user (async, don't wait)
+        dbClient
+            .update(usersTable)
+            .set({ lastActiveAt: new Date() })
+            .where(eq(usersTable.id, session.activeUserId))
+            .execute()
+            .catch(err => console.error("Error updating lastActiveAt:", err));
+
+        // 6. Attach to request
         req.session = {
             userId: session.userId,
             activeUserId: session.activeUserId,

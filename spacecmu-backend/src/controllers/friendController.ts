@@ -179,3 +179,89 @@ export const deleteFriend = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error deleting friend" });
     }
 };
+
+// Get friends with their last active status
+export const getActiveFriends = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Get all accepted friendships
+        const friendships = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                and(
+                    or(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, userId)),
+                    eq(friendshipsTable.status, "accepted")
+                )
+            );
+
+        // Get friend IDs
+        const friendIds = friendships.map(f =>
+            f.userId1 === userId ? f.userId2 : f.userId1
+        );
+
+        if (friendIds.length === 0) {
+            return res.json([]);
+        }
+
+        // Fetch friend details with lastActiveAt
+        const friends = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                avatarUrl: usersTable.avatarUrl,
+                lastActiveAt: usersTable.lastActiveAt,
+            })
+            .from(usersTable)
+            .where(sql`${usersTable.id} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`)
+            .orderBy(sql`${usersTable.lastActiveAt} DESC NULLS LAST`);
+
+        // Format response with activity status
+        const activeFriends = friends.map(friend => {
+            const lastActiveAt = friend.lastActiveAt;
+            let activityStatus = "Offline";
+            let minutesAgo: number | null = null;
+
+            if (lastActiveAt) {
+                const now = new Date();
+                const diffMs = now.getTime() - new Date(lastActiveAt).getTime();
+                minutesAgo = Math.floor(diffMs / 60000);
+
+                if (minutesAgo < 1) {
+                    activityStatus = "Active now";
+                } else if (minutesAgo < 60) {
+                    activityStatus = `Active ${minutesAgo}m ago`;
+                } else if (minutesAgo < 1440) { // Less than 24 hours
+                    const hoursAgo = Math.floor(minutesAgo / 60);
+                    activityStatus = `Active ${hoursAgo}h ago`;
+                } else {
+                    const daysAgo = Math.floor(minutesAgo / 1440);
+                    activityStatus = `Active ${daysAgo}d ago`;
+                }
+            }
+
+            return {
+                id: friend.id,
+                firstName: friend.firstName,
+                lastName: friend.lastName,
+                username: friend.username,
+                avatarUrl: friend.avatarUrl,
+                lastActiveAt: friend.lastActiveAt,
+                activityStatus,
+                minutesAgo,
+                isOnline: minutesAgo !== null && minutesAgo < 5, // Online if active within 5 minutes
+            };
+        });
+
+        res.json(activeFriends);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching active friends" });
+    }
+};

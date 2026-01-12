@@ -3,6 +3,7 @@ import {
     getAllPosts,
     createPost,
     createPostWithMedia,
+    deletePost,
     likePost,
     getPostLikes,
     addComment,
@@ -23,6 +24,7 @@ const router = Router();
 router.get("/", getAllPosts);
 router.post("/", sessionMiddleware, createPost);
 router.post("/media", sessionMiddleware, uploadMultiple.array("media", 20), createPostWithMedia); // Max 20 files
+router.delete("/:postId", sessionMiddleware, deletePost);
 router.get("/:postId/likes", getPostLikes);
 router.post("/like", sessionMiddleware, likePost);
 router.post("/repost", sessionMiddleware, repostPost);
