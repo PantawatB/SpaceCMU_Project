@@ -3,9 +3,15 @@ import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
+import { useUser } from "@/contexts/UserContext";
 
 export default function SettingPage() {
+  const { activeUser } = useUser();
   const [activeTab, setActiveTab] = useState("profile");
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [showBannerModal, setShowBannerModal] = useState(false);
+  const [newPhoto, setNewPhoto] = useState<string | null>(null);
+  const [newBanner, setNewBanner] = useState<string | null>(null);
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -16,6 +22,52 @@ export default function SettingPage() {
     showEmail: false,
     allowMessages: true,
   });
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewPhoto(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewBanner(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSavePhoto = () => {
+    // TODO: Implement photo save logic
+    console.log("Saving new photo:", newPhoto);
+    setShowPhotoModal(false);
+    setNewPhoto(null);
+  };
+
+  const handleSaveBanner = () => {
+    // TODO: Implement banner save logic
+    console.log("Saving new banner:", newBanner);
+    setShowBannerModal(false);
+    setNewBanner(null);
+  };
+
+  const handleCancelPhoto = () => {
+    setShowPhotoModal(false);
+    setNewPhoto(null);
+  };
+
+  const handleCancelBanner = () => {
+    setShowBannerModal(false);
+    setNewBanner(null);
+  };
 
   const tabs = [
     { id: "profile", name: "Profile" },
@@ -139,23 +191,53 @@ export default function SettingPage() {
 
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
-          <div className="max-w-3xl pt-8 ">
-            {/* Profile Settings */}
-            {activeTab === "profile" && (
+          <div className="max-w-3xl pt-8 ">          {/* Profile Settings */}
+          {activeTab === "profile" && (
             <div className="space-y-4">
+              {/* Banner Picture Section */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <h2 className="text-lg font-bold text-gray-800 mb-6">Banner Picture</h2>
+                <div className="flex flex-col gap-4">
+                  <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-gray-200">
+                    {activeUser?.bannerUrl ? (
+                      <Image
+                        src={activeUser.bannerUrl}
+                        alt="Banner"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
+                    )}
+                  </div>
+                  <div>
+                    <button
+                      onClick={() => setShowBannerModal(true)}
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                    >
+                      Change banner
+                    </button>
+                    <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF. Max 5MB. Recommended size: 1500x500</p>
+                  </div>
+                </div>
+              </div>
+
               {/* Profile Picture Section */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Profile Picture</h2>
                 <div className="flex items-center gap-6">
                   <Image
-                    src="/tanjiro.jpg"
+                    src={activeUser?.avatarUrl || "/tanjiro.jpg"}
                     alt="Profile"
                     width={80}
                     height={80}
-                    className="rounded-full"
+                    className="rounded-full object-cover"
                   />
                   <div>
-                    <button className="text-sm font-semibold text-blue-600 hover:text-blue-700">
+                    <button 
+                      onClick={() => setShowPhotoModal(true)}
+                      className="text-sm font-semibold text-blue-600 hover:text-blue-700"
+                    >
                       Change photo
                     </button>
                     <p className="text-xs text-gray-500 mt-1">JPG, PNG or GIF. Max 5MB</p>
@@ -169,7 +251,7 @@ export default function SettingPage() {
                 <div className="relative">
                   <input
                     type="text"
-                    defaultValue="@6506xxxxx"
+                    value={`@${activeUser?.username || ""}`}
                     disabled
                     className="w-full px-4 py-3 text-gray-500 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed"
                   />
@@ -182,25 +264,97 @@ export default function SettingPage() {
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Name</h2>
                 <input
                   type="text"
-                  defaultValue="Kamado Tanjiro"
+                  defaultValue={`${activeUser?.firstName || ""} ${activeUser?.lastName || ""}`.trim()}
                   className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors"
                   placeholder="Enter your name"
                 />
               </div>
+
+              {/* Email Section (Read-only) */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <h2 className="text-lg font-bold text-gray-800 mb-4">Email</h2>
+                <div className="relative">
+                  <input
+                    type="email"
+                    value={activeUser?.email || ""}
+                    disabled
+                    className="w-full px-4 py-3 text-gray-500 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed"
+                  />
+                  <p className="text-xs text-gray-400 mt-2">Email is managed by your CMU account</p>
+                </div>
+              </div>
+
+              {/* Student ID Section (Read-only) */}
+              {activeUser?.studentId && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                  <h2 className="text-lg font-bold text-gray-800 mb-4">Student ID</h2>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeUser.studentId}
+                      disabled
+                      className="w-full px-4 py-3 text-gray-500 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Faculty Section (Read-only) */}
+              {activeUser?.faculty && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                  <h2 className="text-lg font-bold text-gray-800 mb-4">Faculty</h2>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={activeUser.faculty}
+                      disabled
+                      className="w-full px-4 py-3 text-gray-500 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Major Section */}
+              {activeUser?.major && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                  <h2 className="text-lg font-bold text-gray-800 mb-4">Major</h2>
+                  <input
+                    type="text"
+                    defaultValue={activeUser.major}
+                    className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors"
+                    placeholder="Enter your major"
+                  />
+                </div>
+              )}
+
+              {/* Year Section */}
+              {activeUser?.year && (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                  <h2 className="text-lg font-bold text-gray-800 mb-4">Year</h2>
+                  <input
+                    type="number"
+                    defaultValue={activeUser.year}
+                    className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors"
+                    placeholder="Enter your year"
+                    min="1"
+                    max="6"
+                  />
+                </div>
+              )}
 
               {/* Bio Section */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Bio</h2>
                 <textarea
                   rows={4}
-                  defaultValue="CMU Student | CPE Major"
+                  defaultValue={activeUser?.bio || ""}
                   className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors resize-none"
                   placeholder="Tell us about yourself"
                 />
               </div>
 
               {/* Save Button */}
-              <div className="flex justify-end">
+              <div className="flex justify-start">
                 <button className="px-6 py-2 bg-black text-white rounded-full text-sm font-semibold hover:bg-gray-800 transition-colors">
                   Save Changes
                 </button>
@@ -245,12 +399,12 @@ export default function SettingPage() {
                   <button
                     onClick={() => setNotifications({ ...notifications, email: !notifications.email })}
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      notifications.email ? "bg-black" : "bg-gray-300"
+                      (activeUser?.notificationSettings?.email ?? notifications.email) ? "bg-black" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        notifications.email ? "translate-x-5" : "translate-x-0"
+                        (activeUser?.notificationSettings?.email ?? notifications.email) ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -265,12 +419,12 @@ export default function SettingPage() {
                   <button
                     onClick={() => setNotifications({ ...notifications, push: !notifications.push })}
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      notifications.push ? "bg-black" : "bg-gray-300"
+                      (activeUser?.notificationSettings?.push ?? notifications.push) ? "bg-black" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        notifications.push ? "translate-x-5" : "translate-x-0"
+                        (activeUser?.notificationSettings?.push ?? notifications.push) ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -285,12 +439,12 @@ export default function SettingPage() {
                   <button
                     onClick={() => setNotifications({ ...notifications, sms: !notifications.sms })}
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      notifications.sms ? "bg-black" : "bg-gray-300"
+                      (activeUser?.notificationSettings?.sms ?? notifications.sms) ? "bg-black" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        notifications.sms ? "translate-x-5" : "translate-x-0"
+                        (activeUser?.notificationSettings?.sms ?? notifications.sms) ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -314,12 +468,12 @@ export default function SettingPage() {
                   <button
                     onClick={() => setPrivacy({ ...privacy, profileVisible: !privacy.profileVisible })}
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      privacy.profileVisible ? "bg-black" : "bg-gray-300"
+                      (activeUser?.privacySettings?.profileVisible ?? privacy.profileVisible) ? "bg-black" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        privacy.profileVisible ? "translate-x-5" : "translate-x-0"
+                        (activeUser?.privacySettings?.profileVisible ?? privacy.profileVisible) ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -334,12 +488,12 @@ export default function SettingPage() {
                   <button
                     onClick={() => setPrivacy({ ...privacy, showEmail: !privacy.showEmail })}
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      privacy.showEmail ? "bg-black" : "bg-gray-300"
+                      (activeUser?.privacySettings?.showEmail ?? privacy.showEmail) ? "bg-black" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        privacy.showEmail ? "translate-x-5" : "translate-x-0"
+                        (activeUser?.privacySettings?.showEmail ?? privacy.showEmail) ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -354,12 +508,12 @@ export default function SettingPage() {
                   <button
                     onClick={() => setPrivacy({ ...privacy, allowMessages: !privacy.allowMessages })}
                     className={`relative w-11 h-6 rounded-full transition-colors ${
-                      privacy.allowMessages ? "bg-black" : "bg-gray-300"
+                      (activeUser?.privacySettings?.allowMessages ?? privacy.allowMessages) ? "bg-black" : "bg-gray-300"
                     }`}
                   >
                     <span
                       className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        privacy.allowMessages ? "translate-x-5" : "translate-x-0"
+                        (activeUser?.privacySettings?.allowMessages ?? privacy.allowMessages) ? "translate-x-5" : "translate-x-0"
                       }`}
                     />
                   </button>
@@ -375,14 +529,15 @@ export default function SettingPage() {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Theme</h2>
                 <div className="flex gap-4">
-                  <button className="flex-1 py-3 px-4 border-2 border-black rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors">
+                  <button className={`flex-1 py-3 px-4 border-2 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors ${
+                    (activeUser?.theme || "light") === "light" ? "border-black" : "border-gray-200"
+                  }`}>
                     Light
                   </button>
-                  <button className="flex-1 py-3 px-4 border-2 border-gray-200 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors">
+                  <button className={`flex-1 py-3 px-4 border-2 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors ${
+                    activeUser?.theme === "dark" ? "border-black" : "border-gray-200"
+                  }`}>
                     Dark
-                  </button>
-                  <button className="flex-1 py-3 px-4 border-2 border-gray-200 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors">
-                    Auto
                   </button>
                 </div>
               </div>
@@ -390,11 +545,14 @@ export default function SettingPage() {
               {/* Language Section */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Language</h2>
-                <select className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors bg-white">
-                  <option>ไทย (Thai)</option>
-                  <option>English</option>
-                  <option>日本語 (Japanese)</option>
-                  <option>中文 (Chinese)</option>
+                <select 
+                  defaultValue={activeUser?.language || "en"}
+                  className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors bg-white"
+                >
+                  <option value="th">ไทย (Thai)</option>
+                  <option value="en">English</option>
+                  <option value="ja">日本語 (Japanese)</option>
+                  <option value="zh">中文 (Chinese)</option>
                 </select>
               </div>
             </div>
@@ -465,6 +623,273 @@ export default function SettingPage() {
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />
+
+      {/* Photo Change Modal */}
+      {showPhotoModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-800">Change Profile Photo</h2>
+                <button
+                  onClick={handleCancelPhoto}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                    className="w-5 h-5 text-gray-600"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-8">
+              <div className="grid grid-cols-2 gap-8">
+                {/* Left: Current Photo */}
+                <div className="flex flex-col items-center">
+                  <p className="text-sm font-semibold text-gray-600 mb-4">Current Photo</p>
+                  <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
+                    <Image
+                      src={activeUser?.avatarUrl || "/tanjiro.jpg"}
+                      alt="Current Profile"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                </div>
+
+                {/* Right: New Photo Upload */}
+                <div className="flex flex-col items-center">
+                  <p className="text-sm font-semibold text-gray-600 mb-4">New Photo</p>
+                  <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-dashed border-gray-300 shadow-lg bg-gray-50 flex items-center justify-center group hover:border-blue-400 transition-colors">
+                    {newPhoto ? (
+                      <>
+                        <Image
+                          src={newPhoto}
+                          alt="New Profile"
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          onClick={() => setNewPhoto(null)}
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-8 h-8 text-white"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <label htmlFor="photo-upload" className="cursor-pointer flex flex-col items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-12 h-12 text-gray-400 group-hover:text-blue-500 transition-colors"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                          />
+                        </svg>
+                        <span className="text-sm text-gray-500 mt-3 group-hover:text-blue-600 transition-colors">
+                          Click to upload
+                        </span>
+                      </label>
+                    )}
+                    <input
+                      id="photo-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif"
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3 text-center">
+                    JPG, PNG or GIF<br />Max 5MB
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={handleCancelPhoto}
+                className="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSavePhoto}
+                disabled={!newPhoto}
+                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-colors ${
+                  newPhoto
+                    ? "bg-black text-white hover:bg-gray-800"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Banner Change Modal */}
+      {showBannerModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className="px-8 py-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-800">Change Banner Photo</h2>
+                <button
+                  onClick={handleCancelBanner}
+                  className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="currentColor"
+                    className="w-5 h-5 text-gray-600"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-8">
+              <div className="space-y-6">
+                {/* Current Banner */}
+                <div className="flex flex-col">
+                  <p className="text-sm font-semibold text-gray-600 mb-4">Current Banner</p>
+                  <div className="relative w-full h-56 rounded-xl overflow-hidden border-4 border-gray-200 shadow-lg">
+                    {activeUser?.bannerUrl ? (
+                      <Image
+                        src={activeUser.bannerUrl}
+                        alt="Current Banner"
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
+                    )}
+                  </div>
+                </div>
+
+                {/* New Banner Upload */}
+                <div className="flex flex-col">
+                  <p className="text-sm font-semibold text-gray-600 mb-4">New Banner</p>
+                  <div className="relative w-full h-56 rounded-xl overflow-hidden border-4 border-dashed border-gray-300 shadow-lg bg-gray-50 flex items-center justify-center group hover:border-blue-400 transition-colors">
+                    {newBanner ? (
+                      <>
+                        <Image
+                          src={newBanner}
+                          alt="New Banner"
+                          fill
+                          className="object-cover"
+                        />
+                        <button
+                          onClick={() => setNewBanner(null)}
+                          className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2}
+                            stroke="currentColor"
+                            className="w-10 h-10 text-white"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </>
+                    ) : (
+                      <label htmlFor="banner-upload" className="cursor-pointer flex flex-col items-center">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-16 h-16 text-gray-400 group-hover:text-blue-500 transition-colors"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"
+                          />
+                        </svg>
+                        <span className="text-sm text-gray-500 mt-3 group-hover:text-blue-600 transition-colors">
+                          Click to upload
+                        </span>
+                        <span className="text-xs text-gray-400 mt-1">
+                          Recommended size: 1500x500
+                        </span>
+                      </label>
+                    )}
+                    <input
+                      id="banner-upload"
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif"
+                      onChange={handleBannerUpload}
+                      className="hidden"
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3 text-center">
+                    JPG, PNG or GIF • Max 5MB • Recommended size: 1500x500 pixels
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+              <button
+                onClick={handleCancelBanner}
+                className="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveBanner}
+                disabled={!newBanner}
+                className={`px-6 py-2.5 rounded-full text-sm font-semibold transition-colors ${
+                  newBanner
+                    ? "bg-black text-white hover:bg-gray-800"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
+              >
+                Save Changes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

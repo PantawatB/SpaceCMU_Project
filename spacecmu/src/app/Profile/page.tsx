@@ -7,10 +7,19 @@ import { useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 
 export default function ProfileMainPage() {
-  const { user } = useUser();
+  const { activeUser } = useUser();
   const [activeTab, setActiveTab] = useState("Posts");
 
-  if (!user) return null;
+  if (!activeUser) return null;
+
+  // Get display name
+  const displayName = `${activeUser.firstName} ${activeUser.lastName}`;
+  // Get avatar URL with fallback
+  const avatarUrl = activeUser.avatarUrl || "/tanjiro.jpg";
+  // Get bio with fallback
+  const bio = activeUser.bio || "This user has no bio yet.";
+  // Get faculty display
+  const facultyDisplay = activeUser.faculty || "Unknown";
 
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
@@ -58,18 +67,27 @@ export default function ProfileMainPage() {
           <section className="flex-1 overflow-y-auto flex flex-col gap-6">
             <div className="bg-white rounded-2xl shadow relative overflow-hidden">
               {/* Cover Image */}
-              <div className="h-40 w-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200 flex items-center justify-center relative">
-                {/* Rainbow background can be replaced with SVG or image for more accuracy */}
+              <div className="h-40 w-full relative">
+                {activeUser.bannerUrl ? (
+                  <Image
+                    src={activeUser.bannerUrl}
+                    alt="Profile Banner"
+                    fill
+                    className="object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
+                )}
               </div>
               {/* Profile Avatar - left aligned */}
               <div className="absolute left-10 top-28 flex items-center">
                 <div className="rounded-full border-4 border-white p-1 bg-white">
                   <Image
-                    src="/tanjiro.jpg"
+                    src={avatarUrl}
                     alt="Profile Avatar"
                     width={90}
                     height={90}
-                    className="rounded-full"
+                    className="rounded-full object-cover"
                   />
                 </div>
                 {/* Stats - right of avatar, vertically centered, adjust only stats position */}
@@ -79,20 +97,19 @@ export default function ProfileMainPage() {
                 >
                   <div className="flex gap-8">
                     <div className="text-center">
-                      <span className="text-xl font-semibold">1.25k</span>
+                      <span className="text-xl font-semibold">{activeUser.friendsCount}</span>
                       <span className="text-gray-500 ml-1">Friends</span>
                       <span className="text-gray-500 ml-4">|</span>
                       <span className="text-black-500 ml-4 font-semibold">
-                        65
+                        {facultyDisplay}
                       </span>
-                      <span className="text-gray-500 ml-1">Engineers</span>
                     </div>
                   </div>
                 </div>
               </div>
               {/* Name & Verified */}
               <div className="flex items-center mt-19 ml-8">
-                <span className="text-2xl font-bold">Kamado Tanjiro</span>
+                <span className="text-2xl font-bold">{displayName}</span>
                 <svg
                   className="w-6 h-6 text-blue-500 ml-2"
                   fill="currentColor"
@@ -103,8 +120,7 @@ export default function ProfileMainPage() {
               </div>
               {/* Bio */}
               <div className="text-left text-gray-600 mt-2 px-8">
-                A kind-hearted Demon Slayer who fights to protect humanity while
-                seeking a cure for his sister Nezuko.
+                {bio}
               </div>
               {/* Tabs */}
               <div className="flex justify-center mt-6 border-b border-gray-200">
@@ -378,7 +394,7 @@ export default function ProfileMainPage() {
                   </svg>
                   <p className="text-gray-500 text-lg">รายการเพื่อนของคุณ</p>
                   <p className="text-gray-400 text-sm mt-2">
-                    คุณมีเพื่อน 1.25k คน
+                    คุณมีเพื่อน {activeUser.friendsCount} คน
                   </p>
                 </div>
               )}
