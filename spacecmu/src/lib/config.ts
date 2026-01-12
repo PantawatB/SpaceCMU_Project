@@ -8,8 +8,9 @@ export const API_CONFIG = {
 export const API_ENDPOINTS = {
   AUTH: {
     LOGIN: '/auth/cmu/login',
-    LOGOUT: '/api/signOut',
+    LOGOUT: '/api/auth/logout',
     ME: '/api/users/me',
+    SWITCH_MODE: '/api/auth/switch-mode',
   },
   USERS: {
     PROFILE: (userId: string) => `/api/users/${userId}`,

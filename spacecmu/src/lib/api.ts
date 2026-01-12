@@ -117,6 +117,10 @@ class ApiService {
     return this.post<void>(API_ENDPOINTS.AUTH.LOGOUT);
   }
 
+  async switchMode(mode: 'PUBLIC' | 'ANONYMOUS'): Promise<void> {
+    return this.post<void>(API_ENDPOINTS.AUTH.SWITCH_MODE, { mode });
+  }
+
   // Add more API methods as needed
 }
 
