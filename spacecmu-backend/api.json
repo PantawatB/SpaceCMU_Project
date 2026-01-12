@@ -111,6 +111,32 @@
                         },
                         "description": "Switches the active identity for the current session. Mode can be 'PUBLIC' or 'ANONYMOUS'."
                     }
+                },
+                {
+                    "name": "Logout (Sign Out)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text",
+                                "description": "Optional - can also use cookie"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/logout",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "logout"
+                            ]
+                        },
+                        "description": "Sign out user by deleting session from database and clearing cookie.\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Logged out successfully\"\n}\n```\n\n**Note:** Works with both cookie and Bearer token authentication."
+                    }
                 }
             ]
         },
