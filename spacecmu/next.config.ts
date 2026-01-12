@@ -4,6 +4,16 @@ const nextConfig: NextConfig = {
   output: "standalone",
   /* config options here */
   reactCompiler: true,
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'ui-avatars.com',
+        port: '',
+        pathname: '/api/**',
+      },
+    ],
+  },
   async rewrites() {
     return [
       {
