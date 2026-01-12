@@ -401,6 +401,61 @@
                             }
                         },
                         {
+                            "name": "Create Post with Multiple Media",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "content",
+                                            "value": "Check out these photos and videos!",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "category",
+                                            "value": "Global",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "media",
+                                            "type": "file",
+                                            "src": "/path/to/image1.jpg"
+                                        },
+                                        {
+                                            "key": "media",
+                                            "type": "file",
+                                            "src": "/path/to/video1.mp4"
+                                        },
+                                        {
+                                            "key": "media",
+                                            "type": "file",
+                                            "src": "/path/to/image2.png"
+                                        }
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/media",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "media"
+                                    ]
+                                },
+                                "description": "Create a post with multiple images and/or videos. Supports up to 20 files per post. Each file can be up to 50MB. Supported formats: jpeg, jpg, png, gif, webp, mp4, mov, avi, mkv."
+                            }
+                        },
+                        {
                             "name": "Get All Posts",
                             "request": {
                                 "method": "GET",
@@ -1044,14 +1099,14 @@
                         "method": "POST",
                         "header": [
                             {
-                                "key": "Cookie",
-                                "value": "token=PASTE_TOKEN_HERE",
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
                                 "type": "text"
                             }
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"title\": \"Hackathon\",\n  \"startTime\": \"2026-03-01T09:00:00Z\"\n}",
+                            "raw": "{\n  \"title\": \"ประชุมทีม\",\n  \"description\": \"อธิบายรายละเอียดของงาน\",\n  \"startTime\": \"2026-01-07T17:00:00Z\",\n  \"endTime\": \"2026-01-07T18:00:00Z\",\n  \"type\": \"event\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -1076,28 +1131,95 @@
                         "method": "GET",
                         "header": [
                             {
-                                "key": "Cookie",
-                                "value": "token=PASTE_TOKEN_HERE",
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
                                 "type": "text"
                             }
                         ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/calendar/:userId",
+                            "raw": "{{baseUrl}}/api/calendar/me",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
                                 "calendar",
-                                ":userId"
+                                "me"
+                            ]
+                        },
+                        "description": "Get all calendar events for the current user. Uses session activeUserId automatically."
+                    }
+                },
+                {
+                    "name": "Update Event Status (Success)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"completed\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/calendar/:eventId/status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "calendar",
+                                ":eventId",
+                                "status"
                             ],
                             "variable": [
                                 {
-                                    "key": "userId",
-                                    "value": "user_id_here"
+                                    "key": "eventId",
+                                    "value": "event_id_here"
                                 }
                             ]
-                        }
+                        },
+                        "description": "Update event status. Status values: 'pending', 'completed', 'cancelled'. Use 'completed' for Success button."
+                    }
+                },
+                {
+                    "name": "Delete Event",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/calendar/:eventId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "calendar",
+                                ":eventId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "eventId",
+                                    "value": "event_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Delete a calendar event. Only the event owner can delete their events."
                     }
                 }
             ]
