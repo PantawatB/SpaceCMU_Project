@@ -15,6 +15,12 @@ export default function FeedsMainPage() {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
+  const [showCommentPopup, setShowCommentPopup] = useState<number | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [showPostMenu, setShowPostMenu] = useState<number | null>(null);
+  const [showReportPopup, setShowReportPopup] = useState(false);
+  const [reportText, setReportText] = useState("");
+  const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
 
   const postModes = [
     { id: "Global", label: "Global" },
@@ -23,6 +29,7 @@ export default function FeedsMainPage() {
     { id: "Events", label: "Events" },
     { id: "Questions", label: "Questions" },
     { id: "Marketplace", label: "Marketplace" },
+    { id: "Shops", label: "Shops" },
   ];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,6 +71,7 @@ export default function FeedsMainPage() {
     { id: "Events", label: "Events" },
     { id: "Questions", label: "Questions" },
     { id: "Marketplace", label: "Marketplace" },
+    { id: "Shops", label: "Shops" },
   ];
 
   const handleFilterSelect = (filterId: string) => {
@@ -266,17 +274,305 @@ export default function FeedsMainPage() {
                 </div>
 
                 {/* Post actions */}
-                <div className="flex gap-6 text-gray-500 text-base mt-6">
-                  <span className="text-pink-500 font-semibold">Like</span>
-                  <span>Comment</span>
-                  <span>Share</span>
+                <div className="flex items-center justify-between mt-6">
+                  <div className="flex gap-4 text-gray-600 text-sm items-center">
+                    {/* Like Button */}
+                    <button 
+                      onClick={(e) => {
+                        const checkbox = e.currentTarget.querySelector('input[type="checkbox"]') as HTMLInputElement;
+                        if (checkbox) checkbox.checked = !checkbox.checked;
+                      }}
+                      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
+                    >
+                      <div className="con-like relative w-5 h-5">
+                        <input 
+                          className="like-checkbox peer absolute w-full h-full opacity-0 pointer-events-none" 
+                          type="checkbox" 
+                          title="like"
+                        />
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          className="w-5 h-5 text-red-500 peer-checked:hidden transition-all" 
+                          fill="none" 
+                          viewBox="0 0 24 24" 
+                          stroke="currentColor"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                        </svg>
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          className="w-5 h-5 text-red-500 hidden peer-checked:block animate-[heartBeat_0.5s_ease-in-out]" 
+                          viewBox="0 0 24 24" 
+                          fill="currentColor"
+                        >
+                          <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                        </svg>
+                      </div>
+                      <span className="group-hover:text-gray-800">Like</span>
+                    </button>
+                    
+                    {/* Comment Button */}
+                    <button 
+                      onClick={() => setShowCommentPopup(showCommentPopup === i ? null : i)}
+                      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span>Comment</span>
+                    </button>
+                    
+                    {/* Repost Button */}
+                    <button 
+                      onClick={(e) => {
+                        const checkbox = e.currentTarget.querySelector('input[type="checkbox"]') as HTMLInputElement;
+                        if (checkbox) checkbox.checked = !checkbox.checked;
+                      }}
+                      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
+                    >
+                      <div className="relative w-5 h-5">
+                        <input 
+                          className="repost-checkbox peer absolute w-full h-full opacity-0 pointer-events-none" 
+                          type="checkbox" 
+                          title="repost"
+                        />
+                        {/* Two Curved Arrows - Always visible, changes color when checked */}
+                        <svg 
+                          className="w-5 h-5 text-gray-600 peer-checked:text-gray-600 transition-colors" 
+                          fill="none" 
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path d="M17 2l4 4-4 4"/>
+                          <path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
+                          <path d="M7 22l-4-4 4-4"/>
+                          <path d="M21 13v1a4 4 0 0 1-4 4H3"/>
+                        </svg>
+                        {/* Checkmark - Only visible when checked */}
+                        <svg 
+                          className="absolute inset-0 w-5 h-5 text-gray-600 hidden peer-checked:block animate-[repostAnimation_0.6s_ease-in-out] pointer-events-none" 
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2.5}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <circle cx="12" cy="12" r="5" fill="white" stroke="none"/>
+                          <path d="M9 12l2 2 4-4"/>
+                        </svg>
+                      </div>
+                      <span className="group-hover:text-gray-800">Repost</span>
+                    </button>
+                  </div>
+                  
+                  {/* Save Post Button */}
+                  <label htmlFor={`bookmark-${i}`} className="bookmark cursor-pointer bg-teal-600 w-[35px] h-[35px] flex items-center justify-center rounded-lg hover:bg-teal-700 transition-colors">
+                    <input type="checkbox" id={`bookmark-${i}`} className="hidden" />
+                    <svg width={13} viewBox="0 0 50 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="svgIcon">
+                      <path 
+                        d="M46 62.0085L46 3.88139L3.99609 3.88139L3.99609 62.0085L24.5 45.5L46 62.0085Z" 
+                        stroke="white" 
+                        strokeWidth={7}
+                        className="transition-all duration-500 [stroke-dasharray:200_0] [stroke-dashoffset:0] fill-transparent"
+                      />
+                    </svg>
+                  </label>
                 </div>
-                <button className="absolute top-6 right-6 text-gray-400 text-2xl">
-                  ⋮
-                </button>
+                
+                {/* Comment Popup */}
+                {showCommentPopup === i && (
+                  <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCommentPopup(null)}>
+                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col relative" onClick={(e) => e.stopPropagation()}>
+                      {/* Close Button - Circular, extends outside */}
+                      <button
+                        onClick={() => setShowCommentPopup(null)}
+                        className="absolute -top-3 -right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors shadow-lg"
+                        aria-label="Close"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                      
+                      {/* Header */}
+                      <div className="px-6 py-4 border-b border-gray-200 shrink-0">
+                        <h2 className="text-xl font-bold text-gray-800">Comments</h2>
+                      </div>
+                      
+                      {/* Comments List - Scrollable */}
+                      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
+                        {/* Sample Comments */}
+                        {[...Array(5)].map((_, idx) => (
+                          <div key={idx} className="flex gap-3">
+                            <div className="relative shrink-0">
+                              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            </div>
+                            <div className="flex-1">
+                              <div className="bg-gray-100 rounded-2xl px-4 py-3">
+                                <div className="font-semibold text-gray-900 text-sm">Yassine Zanina</div>
+                                <div className="text-xs text-gray-500 mb-2">Wednesday, March 13th at 2:45pm</div>
+                                <p className="text-gray-700 text-sm leading-relaxed">
+                                  I&apos;ve been using this product for a few days now and I&apos;m really impressed! The interface is intuitive and easy to use, and the features are exactly what I need to streamline my workflow.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Comment Input - Fixed at bottom */}
+                      <div className="px-6 py-4 border-t border-gray-200 shrink-0">
+                        <div className="flex items-end gap-3">
+                          <Image
+                            src="/tanjiro.jpg"
+                            alt="avatar"
+                            width={40}
+                            height={40}
+                            className="w-10 h-10 rounded-full object-cover shrink-0"
+                          />
+                          <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-3 flex items-center max-h-24">
+                            <textarea
+                              value={commentText}
+                              onChange={(e) => setCommentText(e.target.value)}
+                              placeholder="Write a comment..."
+                              rows={1}
+                              className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 text-sm resize-none overflow-y-auto max-h-20"
+                              style={{
+                                minHeight: '20px',
+                                maxHeight: '80px'
+                              }}
+                              onInput={(e) => {
+                                const target = e.target as HTMLTextAreaElement;
+                                target.style.height = 'auto';
+                                target.style.height = Math.min(target.scrollHeight, 80) + 'px';
+                              }}
+                            />
+                          </div>
+                          <button 
+                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 transition-colors shrink-0"
+                            onClick={() => {
+                              // TODO: Send comment to API
+                              console.log("Sending comment:", commentText);
+                              setCommentText("");
+                              // Reset textarea height
+                              const textarea = document.querySelector('textarea');
+                              if (textarea) {
+                                textarea.style.height = 'auto';
+                              }
+                            }}
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Three-dot Menu Button */}
+                <div className="absolute top-6 right-6">
+                  <button 
+                    onClick={() => setShowPostMenu(showPostMenu === i ? null : i)}
+                    className="text-gray-400 text-2xl hover:text-gray-600 transition-colors"
+                  >
+                    ⋮
+                  </button>
+                  
+                  {/* Dropdown Menu */}
+                  {showPostMenu === i && (
+                    <>
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setShowPostMenu(null)}
+                      />
+                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
+                        <button
+                          onClick={() => {
+                            setShowPostMenu(null);
+                            setShowReportPopup(true);
+                          }}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-red-600 transition text-left"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                          </svg>
+                          <span className="font-medium">Report</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             ))}
           </section>
+          
+          {/* Report Popup */}
+          {showReportPopup && (
+            <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowReportPopup(false)}>
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4" onClick={(e) => e.stopPropagation()}>
+                <h1 className="text-2xl font-bold capitalize text-slate-400 mb-4">
+                  Feedback
+                </h1>
+                
+                <textarea 
+                  value={reportText}
+                  onChange={(e) => setReportText(e.target.value)}
+                  className="w-full min-h-28 resize-none bg-slate-100 p-3 outline-none ring-2 ring-slate-200 duration-300 placeholder:text-slate-400 focus:ring-slate-400 rounded-md text-slate-600 mb-3" 
+                  placeholder="What's Your Feedback?" 
+                />
+                
+                <div className="flex gap-3 mb-3">
+                  <button 
+                    onClick={() => setReportMood('happy')}
+                    className={`flex items-center justify-center bg-slate-100 p-3 ring-2 ring-slate-200 duration-300 focus:ring-slate-400 rounded-md ${reportMood === 'happy' ? 'ring-slate-400' : ''}`}
+                  >
+                    <svg viewBox="0 0 512 512" height="20px" xmlns="http://www.w3.org/2000/svg" className="fill-slate-500">
+                      <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm177.6 62.1C192.8 334.5 218.8 352 256 352s63.2-17.5 78.4-33.9c9-9.7 24.2-10.4 33.9-1.4s10.4 24.2 1.4 33.9c-22 23.8-60 49.4-113.6 49.4s-91.7-25.5-113.6-49.4c-9-9.7-8.4-24.9 1.4-33.9s24.9-8.4 33.9 1.4zm40-89.3l0 0 0 0-.2-.2c-.2-.2-.4-.5-.7-.9c-.6-.8-1.6-2-2.8-3.4c-2.5-2.8-6-6.6-10.2-10.3c-8.8-7.8-18.8-14-27.7-14s-18.9 6.2-27.7 14c-4.2 3.7-7.7 7.5-10.2 10.3c-1.2 1.4-2.2 2.6-2.8 3.4c-.3 .4-.6 .7-.7 .9l-.2 .2 0 0 0 0 0 0c-2.1 2.8-5.7 3.9-8.9 2.8s-5.5-4.1-5.5-7.6c0-17.9 6.7-35.6 16.6-48.8c9.8-13 23.9-23.2 39.4-23.2s29.6 10.2 39.4 23.2c9.9 13.2 16.6 30.9 16.6 48.8c0 3.4-2.2 6.5-5.5 7.6s-6.9 0-8.9-2.8l0 0 0 0zm160 0l0 0-.2-.2c-.2-.2-.4-.5-.7-.9c-.6-.8-1.6-2-2.8-3.4c-2.5-2.8-6-6.6-10.2-10.3c-8.8-7.8-18.8-14-27.7-14s-18.9 6.2-27.7 14c-4.2 3.7-7.7 7.5-10.2 10.3c-1.2 1.4-2.2 2.6-2.8 3.4c-.3 .4-.6 .7-.7 .9l-.2 .2 0 0 0 0 0 0c-2.1 2.8-5.7 3.9-8.9 2.8s-5.5-4.1-5.5-7.6c0-17.9 6.7-35.6 16.6-48.8c9.8-13 23.9-23.2 39.4-23.2s29.6 10.2 39.4 23.2c9.9 13.2 16.6 30.9 16.6 48.8c0 3.4-2.2 6.5-5.5 7.6s-6.9 0-8.9-2.8l0 0 0 0 0 0z" />
+                    </svg>
+                  </button>
+                  
+                  <button 
+                    onClick={() => setReportMood('sad')}
+                    className={`flex items-center justify-center bg-slate-100 p-3 ring-2 ring-slate-200 duration-300 focus:ring-slate-400 rounded-md ${reportMood === 'sad' ? 'ring-slate-400' : ''}`}
+                  >
+                    <svg viewBox="0 0 512 512" height="20px" xmlns="http://www.w3.org/2000/svg" className="fill-slate-500">
+                      <path d="M464 256A208 208 0 1 0 48 256a208 208 0 1 0 416 0zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zM174.6 384.1c-4.5 12.5-18.2 18.9-30.7 14.4s-18.9-18.2-14.4-30.7C146.9 319.4 198.9 288 256 288s109.1 31.4 126.6 79.9c4.5 12.5-2 26.2-14.4 30.7s-26.2-2-30.7-14.4C328.2 358.5 297.2 336 256 336s-72.2 22.5-81.4 48.1zM144.4 208a32 32 0 1 1 64 0 32 32 0 1 1 -64 0zm192-32a32 32 0 1 1 0 64 32 32 0 1 1 0-64z" />
+                    </svg>
+                  </button>
+                  
+                  <div className="flex-1" />
+                  
+                  <button 
+                    onClick={() => {
+                      // TODO: Submit report
+                      console.log("Submitting report:", { text: reportText, mood: reportMood });
+                      setReportText("");
+                      setReportMood(null);
+                      setShowReportPopup(false);
+                    }}
+                    className="flex items-center justify-center bg-slate-100 px-4 py-3 ring-2 ring-slate-200 duration-300 hover:ring-slate-400 rounded-md"
+                  >
+                    <svg viewBox="0 0 512 512" height="20px" xmlns="http://www.w3.org/2000/svg" className="fill-slate-500">
+                      <path d="M16.1 260.2c-22.6 12.9-20.5 47.3 3.6 57.3L160 376V479.3c0 18.1 14.6 32.7 32.7 32.7c9.7 0 18.9-4.3 25.1-11.8l62-74.3 123.9 51.6c18.9 7.9 40.8-4.5 43.9-24.7l64-416c1.9-12.1-3.4-24.3-13.5-31.2s-23.3-7.5-34-1.4l-448 256zm52.1 25.5L409.7 90.6 190.1 336l1.2 1L68.2 285.7zM403.3 425.4L236.7 355.9 450.8 116.6 403.3 425.4z" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {/* Share something bar - fixed bottom with toggle */}
           <div className="fixed bottom-4 left-8 right-22 md:left-8 md:right-22 lg:left-72 lg:right-96 z-10 flex flex-col items-center">
             {/* Toggle Button */}
@@ -417,7 +713,7 @@ export default function FeedsMainPage() {
                             : "bg-gray-50 text-gray-500 border border-gray-200 hover:border-gray-300"
                         }`}
                       >
-                        <span className="truncate max-w-[80px] sm:max-w-none">{postMode || "Select Feed"}</span>
+                        <span className="truncate max-w-20 sm:max-w-none">{postMode || "Select Feed"}</span>
                         <svg
                           className={`w-2.5 h-2.5 sm:w-3 sm:h-3 transition-transform shrink-0 ${showModeDropdown ? "rotate-180" : ""}`}
                           fill="none"
