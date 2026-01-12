@@ -242,7 +242,13 @@ export const savedPostsTable = pgTable("saved_posts", {
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  unq: {
+    name: 'unique_user_post_save',
+    columns: [t.userId, t.postId],
+    unique: true
+  }
+}));
 
 // --- Notifications Table ---
 export const notificationsTable = pgTable("notifications", {
@@ -265,7 +271,13 @@ export const repostsTable = pgTable("reposts", {
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  unq: {
+    name: 'unique_user_post_repost',
+    columns: [t.userId, t.postId],
+    unique: true
+  }
+}));
 
 // --- Sessions Table ---
 export const sessionsTable = pgTable("sessions", {

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
 
@@ -62,6 +62,54 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const [showReportPopup, setShowReportPopup] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
+  
+  // Track user's interaction status
+  const [isLiked, setIsLiked] = useState(false);
+  const [isReposted, setIsReposted] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Check user's interaction status on mount
+  useEffect(() => {
+    const checkInteractionStatus = async () => {
+      if (!activeUser) return;
+
+      try {
+        // Check all user's liked posts
+        const likedResponse = await fetch(`${API_CONFIG.BASE_URL}/api/posts/liked/me`, {
+          credentials: 'include',
+        });
+        if (likedResponse.ok) {
+          const likedPosts = await likedResponse.json();
+          const isPostLiked = Array.isArray(likedPosts) && likedPosts.some((p: Post) => p.id === post.id);
+          setIsLiked(isPostLiked);
+        }
+
+        // Check all user's reposted posts
+        const repostedResponse = await fetch(`${API_CONFIG.BASE_URL}/api/posts/reposted/me`, {
+          credentials: 'include',
+        });
+        if (repostedResponse.ok) {
+          const repostedPosts = await repostedResponse.json();
+          const isPostReposted = Array.isArray(repostedPosts) && repostedPosts.some((p: Post) => p.id === post.id);
+          setIsReposted(isPostReposted);
+        }
+
+        // Check all user's saved posts
+        const savedResponse = await fetch(`${API_CONFIG.BASE_URL}/api/posts/saved/me`, {
+          credentials: 'include',
+        });
+        if (savedResponse.ok) {
+          const savedPosts = await savedResponse.json();
+          const isPostSaved = Array.isArray(savedPosts) && savedPosts.some((p: Post) => p.id === post.id);
+          setIsSaved(isPostSaved);
+        }
+      } catch (error) {
+        console.error('Error checking interaction status:', error);
+      }
+    };
+
+    checkInteractionStatus();
+  }, [activeUser, post.id]);
 
   // Helper function to format time ago
   const getTimeAgo = (dateString: string) => {
@@ -106,6 +154,9 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
 
       const result = await response.json();
 
+      // Toggle like status
+      setIsLiked(!isLiked);
+
       // Update parent component if callback provided
       if (onLikeUpdate && result.likeCount !== undefined) {
         onLikeUpdate(post.id, result.likeCount);
@@ -142,6 +193,9 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
 
       const result = await response.json();
 
+      // Toggle repost status
+      setIsReposted(!isReposted);
+
       // Update parent component if callback provided
       if (onRepostUpdate && result.repostCount !== undefined) {
         onRepostUpdate(post.id, result.repostCount);
@@ -177,6 +231,9 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       }
 
       await response.json();
+
+      // Toggle save status
+      setIsSaved(!isSaved);
 
       // Update parent component if callback provided
       if (onSaveUpdate) {
@@ -359,24 +416,13 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
         <div className="flex gap-4 text-gray-600 text-sm items-center">
           {/* Like Button */}
           <button 
-            onClick={async (e) => {
-              const checkbox = e.currentTarget.querySelector('input[type="checkbox"]') as HTMLInputElement;
-              if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-                await handleLikePost();
-              }
-            }}
+            onClick={handleLikePost}
             className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
           >
             <div className="con-like relative w-5 h-5">
-              <input 
-                className="like-checkbox peer absolute w-full h-full opacity-0 pointer-events-none" 
-                type="checkbox" 
-                title="like"
-              />
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
-                className="w-5 h-5 text-red-500 peer-checked:hidden transition-all" 
+                className={`w-5 h-5 text-red-500 transition-all ${isLiked ? 'hidden' : 'block'}`}
                 fill="none" 
                 viewBox="0 0 24 24" 
                 stroke="currentColor"
@@ -385,7 +431,7 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
               </svg>
               <svg 
                 xmlns="http://www.w3.org/2000/svg" 
-                className="w-5 h-5 text-red-500 hidden peer-checked:block animate-[heartBeat_0.5s_ease-in-out]" 
+                className={`w-5 h-5 text-red-500 transition-all ${isLiked ? 'block animate-[heartBeat_0.5s_ease-in-out]' : 'hidden'}`}
                 viewBox="0 0 24 24" 
                 fill="currentColor"
               >
@@ -414,23 +460,12 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
           
           {/* Repost Button */}
           <button 
-            onClick={async (e) => {
-              const checkbox = e.currentTarget.querySelector('input[type="checkbox"]') as HTMLInputElement;
-              if (checkbox) {
-                checkbox.checked = !checkbox.checked;
-                await handleRepostPost();
-              }
-            }}
+            onClick={handleRepostPost}
             className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
           >
             <div className="relative w-5 h-5">
-              <input 
-                className="repost-checkbox peer absolute w-full h-full opacity-0 pointer-events-none" 
-                type="checkbox" 
-                title="repost"
-              />
               <svg 
-                className="w-5 h-5 text-gray-600 peer-checked:text-gray-600 transition-colors" 
+                className={`w-5 h-5 transition-colors ${isReposted ? 'text-green-600' : 'text-gray-600'}`}
                 fill="none" 
                 stroke="currentColor"
                 strokeWidth={2}
@@ -444,19 +479,6 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                 <path d="M7 22l-4-4 4-4"/>
                 <path d="M21 13v1a4 4 0 0 1-4 4H3"/>
               </svg>
-              <svg 
-                className="absolute inset-0 w-5 h-5 text-gray-600 hidden peer-checked:block animate-[repostAnimation_0.6s_ease-in-out] pointer-events-none" 
-                fill="none"
-                stroke="currentColor"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <circle cx="12" cy="12" r="5" fill="white" stroke="none"/>
-                <path d="M9 12l2 2 4-4"/>
-              </svg>
             </div>
             <span className="group-hover:text-gray-800">Repost</span>
             {post.repostCount > 0 && (
@@ -468,23 +490,22 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
         {/* Save Post Button */}
         <label 
           htmlFor={`bookmark-${post.id}`} 
-          className="bookmark cursor-pointer bg-teal-600 w-[35px] h-[35px] flex items-center justify-center rounded-lg hover:bg-teal-700 transition-colors"
+          className={`bookmark cursor-pointer w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaved ? 'bg-teal-700' : 'bg-teal-600 hover:bg-teal-700'}`}
           onClick={async (e) => {
             e.preventDefault();
-            const checkbox = document.getElementById(`bookmark-${post.id}`) as HTMLInputElement;
-            if (checkbox) {
-              checkbox.checked = !checkbox.checked;
-              await handleSavePost();
-            }
+            await handleSavePost();
           }}
         >
-          <input type="checkbox" id={`bookmark-${post.id}`} className="hidden" />
           <svg width={13} viewBox="0 0 50 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="svgIcon">
             <path 
               d="M46 62.0085L46 3.88139L3.99609 3.88139L3.99609 62.0085L24.5 45.5L46 62.0085Z" 
               stroke="white" 
               strokeWidth={7}
-              className="transition-all duration-500 [stroke-dasharray:200_0] [stroke-dashoffset:0] fill-transparent"
+              className={`transition-all duration-500 ${isSaved ? 'fill-white' : 'fill-transparent'}`}
+              style={{
+                strokeDasharray: '200 0',
+                strokeDashoffset: 0
+              }}
             />
           </svg>
         </label>
