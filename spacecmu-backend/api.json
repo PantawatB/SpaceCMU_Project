@@ -536,6 +536,38 @@
                                     ]
                                 }
                             }
+                        },
+                        {
+                            "name": "Delete Post",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/:postId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        ":postId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "postId",
+                                            "value": "post-uuid-here",
+                                            "description": "UUID of the post to delete"
+                                        }
+                                    ]
+                                },
+                                "description": "Delete a post (only the post owner can delete).\n\n**Authorization:**\n- User must be authenticated\n- User must be the owner of the post\n\n**Cascade Delete:**\nWhen a post is deleted, the following related data is automatically deleted:\n- All media files in `post_media` table\n- All comments on the post\n- All likes on the post\n- All saved references to the post\n- All reposts of the post\n\n**Response:**\n```json\n{\n  \"message\": \"Post deleted successfully\"\n}\n```\n\n**Error Responses:**\n- 401: Not authenticated\n- 403: Forbidden (not the post owner)\n- 404: Post not found"
+                            }
                         }
                     ]
                 },
