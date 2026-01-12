@@ -434,10 +434,20 @@ export const likePost = async (req: Request, res: Response) => {
                 .set({ likeCount: sql`${postsTable.likeCount} - 1` })
                 .where(eq(postsTable.id, postId));
 
-            return res.status(200).json({ message: "Unliked" });
+            // Get updated post to return new like count
+            const updatedPost = await dbClient
+                .select({ likeCount: postsTable.likeCount })
+                .from(postsTable)
+                .where(eq(postsTable.id, postId))
+                .limit(1);
+
+            return res.status(200).json({ 
+                message: "Unliked",
+                likeCount: updatedPost[0]?.likeCount || 0
+            });
         } else {
             // Like
-            const newLike = await dbClient
+            await dbClient
                 .insert(likesTable)
                 .values({ userId, postId })
                 .returning();
@@ -448,7 +458,17 @@ export const likePost = async (req: Request, res: Response) => {
                 .set({ likeCount: sql`${postsTable.likeCount} + 1` })
                 .where(eq(postsTable.id, postId));
 
-            return res.status(201).json(newLike[0]);
+            // Get updated post to return new like count
+            const updatedPost = await dbClient
+                .select({ likeCount: postsTable.likeCount })
+                .from(postsTable)
+                .where(eq(postsTable.id, postId))
+                .limit(1);
+
+            return res.status(201).json({ 
+                message: "Liked",
+                likeCount: updatedPost[0]?.likeCount || 0
+            });
         }
 
     } catch (error: any) {
@@ -576,18 +596,69 @@ export const repostPost = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Insert record into repostsTable
-        await dbClient
-            .insert(repostsTable)
-            .values({ userId, postId });
+        // Check if already reposted
+        const existingRepost = await dbClient
+            .select()
+            .from(repostsTable)
+            .where(
+                and(
+                    eq(repostsTable.userId, userId),
+                    eq(repostsTable.postId, postId)
+                )
+            );
 
-        // Increment repost count in postsTable
-        await dbClient
-            .update(postsTable)
-            .set({ repostCount: sql`${postsTable.repostCount} + 1` })
-            .where(eq(postsTable.id, postId));
+        if (existingRepost.length > 0) {
+            // Un-repost
+            await dbClient
+                .delete(repostsTable)
+                .where(
+                    and(
+                        eq(repostsTable.userId, userId),
+                        eq(repostsTable.postId, postId)
+                    )
+                );
 
-        res.status(200).json({ message: "Post reposted" });
+            // Decrement repost count in postsTable
+            await dbClient
+                .update(postsTable)
+                .set({ repostCount: sql`${postsTable.repostCount} - 1` })
+                .where(eq(postsTable.id, postId));
+
+            // Get updated post to return new repost count
+            const updatedPost = await dbClient
+                .select({ repostCount: postsTable.repostCount })
+                .from(postsTable)
+                .where(eq(postsTable.id, postId))
+                .limit(1);
+
+            return res.status(200).json({ 
+                message: "Post unreposted",
+                repostCount: updatedPost[0]?.repostCount || 0
+            });
+        } else {
+            // Repost
+            await dbClient
+                .insert(repostsTable)
+                .values({ userId, postId });
+
+            // Increment repost count in postsTable
+            await dbClient
+                .update(postsTable)
+                .set({ repostCount: sql`${postsTable.repostCount} + 1` })
+                .where(eq(postsTable.id, postId));
+
+            // Get updated post to return new repost count
+            const updatedPost = await dbClient
+                .select({ repostCount: postsTable.repostCount })
+                .from(postsTable)
+                .where(eq(postsTable.id, postId))
+                .limit(1);
+
+            return res.status(200).json({ 
+                message: "Post reposted",
+                repostCount: updatedPost[0]?.repostCount || 0
+            });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error reposting post" });
@@ -614,14 +685,40 @@ export const getRepostedPosts = async (req: Request, res: Response) => {
                 commentCount: postsTable.commentCount,
                 repostCount: postsTable.repostCount,
                 createdAt: postsTable.createdAt,
-                repostedAt: repostsTable.createdAt // Optional: tracking when it was reposted
+                repostedAt: repostsTable.createdAt, // Optional: tracking when it was reposted
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
             })
             .from(repostsTable)
             .innerJoin(postsTable, eq(repostsTable.postId, postsTable.id))
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
             .where(eq(repostsTable.userId, userId))
             .orderBy(desc(repostsTable.createdAt));
 
-        res.json(repostedPosts);
+        // Fetch media for each post and format author
+        const postsWithMedia = await Promise.all(
+            repostedPosts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                return {
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                    },
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching reposted posts" });
@@ -648,14 +745,40 @@ export const getLikedPosts = async (req: Request, res: Response) => {
                 commentCount: postsTable.commentCount,
                 repostCount: postsTable.repostCount,
                 createdAt: postsTable.createdAt,
-                likedAt: likesTable.createdAt
+                likedAt: likesTable.createdAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
             })
             .from(likesTable)
             .innerJoin(postsTable, eq(likesTable.postId, postsTable.id))
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
             .where(eq(likesTable.userId, userId))
             .orderBy(desc(likesTable.createdAt));
 
-        res.json(likedPosts);
+        // Fetch media for each post and format author
+        const postsWithMedia = await Promise.all(
+            likedPosts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                return {
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                    },
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching liked posts" });
@@ -714,11 +837,54 @@ export const getSavedPosts = async (req: Request, res: Response) => {
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
-        const saved = await dbClient
-            .select()
+        
+        // Fetch posts that are linked to the user via savedPostsTable
+        const savedPosts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                savedAt: savedPostsTable.createdAt, // Optional: tracking when it was saved
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
             .from(savedPostsTable)
-            .where(eq(savedPostsTable.userId, userId));
-        res.json(saved);
+            .innerJoin(postsTable, eq(savedPostsTable.postId, postsTable.id))
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(eq(savedPostsTable.userId, userId))
+            .orderBy(desc(savedPostsTable.createdAt));
+
+        // Fetch media for each post and format author
+        const postsWithMedia = await Promise.all(
+            savedPosts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                return {
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                    },
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching saved posts" });
