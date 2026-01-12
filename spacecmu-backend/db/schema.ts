@@ -176,8 +176,10 @@ export const calendarEventsTable = pgTable("calendar_events", {
   endTime: timestamp("end_time"),
 
   type: varchar("type", { length: 50 }).default("event"), // class, activity, appointment
+  status: varchar("status", { length: 20 }).default("pending"), // pending, completed, cancelled
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Announcements Table ---
