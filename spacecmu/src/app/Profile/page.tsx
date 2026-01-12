@@ -2,13 +2,202 @@
 
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
+import PostCard from "../../components/PostCard";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
+import { API_CONFIG } from "@/lib/config";
+
+interface PostMedia {
+  id: number;
+  postId: number;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  order: number;
+  fileSize: number | null;
+}
+
+interface Post {
+  id: number;
+  userId: number;
+  content: string;
+  category: string;
+  likeCount: number;
+  commentCount: number;
+  repostCount: number;
+  createdAt: string;
+  author?: {
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl: string | null;
+  };
+  media?: PostMedia[];
+}
 
 export default function ProfileMainPage() {
   const { activeUser } = useUser();
   const [activeTab, setActiveTab] = useState("Posts");
+  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
+  const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
+  const [savedPosts, setSavedPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch liked posts when "Liked" tab is active
+  useEffect(() => {
+    const fetchLikedPosts = async () => {
+      if (activeTab !== 'Liked' || !activeUser) return;
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/posts/liked/me`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Liked posts raw response:', data);
+        console.log('First post structure:', data[0]);
+        
+        // The response might be an array of posts or an object with posts property
+        let postsData = Array.isArray(data) ? data : (data.posts || []);
+        
+        // Make sure each post has the author property
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        postsData = postsData.map((post: any) => ({
+          ...post,
+          author: post.author || {
+            firstName: null,
+            lastName: null,
+            avatarUrl: null
+          }
+        }));
+        
+        console.log('Processed posts:', postsData);
+        setLikedPosts(postsData);
+      } catch (err) {
+        console.error('Error fetching liked posts:', err);
+        setError('Failed to load liked posts');
+        setLikedPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLikedPosts();
+  }, [activeTab, activeUser]);
+
+  // Fetch reposted posts when "Reposts" tab is active
+  useEffect(() => {
+    const fetchRepostedPosts = async () => {
+      if (activeTab !== 'Reposts' || !activeUser) return;
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/posts/reposted/me`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Reposted posts raw response:', data);
+        console.log('First reposted post structure:', data[0]);
+        
+        // The response might be an array of posts or an object with posts property
+        let postsData = Array.isArray(data) ? data : (data.posts || []);
+        
+        // Make sure each post has the author property
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        postsData = postsData.map((post: any) => ({
+          ...post,
+          author: post.author || {
+            firstName: null,
+            lastName: null,
+            avatarUrl: null
+          }
+        }));
+        
+        console.log('Processed reposted posts:', postsData);
+        setRepostedPosts(postsData);
+      } catch (err) {
+        console.error('Error fetching reposted posts:', err);
+        setError('Failed to load reposted posts');
+        setRepostedPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRepostedPosts();
+  }, [activeTab, activeUser]);
+
+  // Fetch saved posts when "Saved" tab is active
+  useEffect(() => {
+    const fetchSavedPosts = async () => {
+      if (activeTab !== 'Saved' || !activeUser) return;
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/posts/saved/me`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Saved posts raw response:', data);
+        console.log('First saved post structure:', data[0]);
+        
+        // The response might be an array of posts or an object with posts property
+        let postsData = Array.isArray(data) ? data : (data.posts || []);
+        
+        // Make sure each post has the author property
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        postsData = postsData.map((post: any) => ({
+          ...post,
+          author: post.author || {
+            firstName: null,
+            lastName: null,
+            avatarUrl: null
+          }
+        }));
+        
+        console.log('Processed saved posts:', postsData);
+        setSavedPosts(postsData);
+      } catch (err) {
+        console.error('Error fetching saved posts:', err);
+        setError('Failed to load saved posts');
+        setSavedPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSavedPosts();
+  }, [activeTab, activeUser]);
 
   if (!activeUser) return null;
 
@@ -20,6 +209,65 @@ export default function ProfileMainPage() {
   const bio = activeUser.bio || "This user has no bio yet.";
   // Get faculty display
   const facultyDisplay = activeUser.faculty || "Unknown";
+
+  // Handle like count update
+  const handleLikeUpdate = (postId: number, newLikeCount: number) => {
+    setLikedPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, likeCount: newLikeCount }
+          : post
+      )
+    );
+    setRepostedPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, likeCount: newLikeCount }
+          : post
+      )
+    );
+    setSavedPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, likeCount: newLikeCount }
+          : post
+      )
+    );
+  };
+
+  // Handle repost count update
+  const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+    setLikedPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, repostCount: newRepostCount }
+          : post
+      )
+    );
+    setRepostedPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, repostCount: newRepostCount }
+          : post
+      )
+    );
+    setSavedPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, repostCount: newRepostCount }
+          : post
+      )
+    );
+  };
+
+  // Handle save update (refresh saved posts list)
+  const handleSaveUpdate = () => {
+    // Optionally refresh the saved posts list
+    if (activeTab === 'Saved' && activeUser) {
+      // Trigger a re-fetch by toggling state or calling fetch directly
+      console.log('Post save status updated');
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
@@ -400,74 +648,176 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Reposts" && (
-                <div className="text-center py-12">
-                  <svg
-                    className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  <p className="text-gray-500 text-lg">
-                    คุณยังไม่ได้รีโพสต์อะไรเลย
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    แชร์โพสต์ที่คุณชอบให้เพื่อนๆ ได้เห็น
-                  </p>
+                <div>
+                  {/* Loading State */}
+                  {loading && (
+                    <div className="text-center py-12">
+                      <div className="text-gray-500">Loading reposted posts...</div>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {error && (
+                    <div className="text-center py-12">
+                      <div className="text-red-500">{error}</div>
+                    </div>
+                  )}
+
+                  {/* No Reposted Posts */}
+                  {!loading && !error && repostedPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg
+                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        คุณยังไม่ได้รีโพสต์อะไรเลย
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        แชร์โพสต์ที่คุณชอบให้เพื่อนๆ ได้เห็น
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Display Reposted Posts */}
+                  {!loading && !error && repostedPosts.length > 0 && (
+                    <div className="space-y-4">
+                      {repostedPosts.map((post) => (
+                        <PostCard 
+                          key={post.id} 
+                          post={post} 
+                          onLikeUpdate={handleLikeUpdate}
+                          onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {activeTab === "Liked" && (
-                <div className="text-center py-12">
-                  <svg
-                    className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                    />
-                  </svg>
-                  <p className="text-gray-500 text-lg">
-                    คุณยังไม่ได้ไลก์โพสต์ไหนเลย
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    กดไลก์โพสต์ที่คุณชอบเพื่อเก็บไว้ดูอีกครั้ง
-                  </p>
+                <div>
+                  {/* Loading State */}
+                  {loading && (
+                    <div className="text-center py-12">
+                      <div className="text-gray-500">Loading liked posts...</div>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {error && (
+                    <div className="text-center py-12">
+                      <div className="text-red-500">{error}</div>
+                    </div>
+                  )}
+
+                  {/* No Liked Posts */}
+                  {!loading && !error && likedPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg
+                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+                        />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        คุณยังไม่ได้ไลก์โพสต์ไหนเลย
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        กดไลก์โพสต์ที่คุณชอบเพื่อเก็บไว้ดูอีกครั้ง
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Display Liked Posts */}
+                  {!loading && !error && likedPosts.length > 0 && (
+                    <div className="space-y-4">
+                      {likedPosts.map((post) => (
+                        <PostCard 
+                          key={post.id} 
+                          post={post} 
+                          onLikeUpdate={handleLikeUpdate}
+                          onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
               {activeTab === "Saved" && (
-                <div className="text-center py-12">
-                  <svg
-                    className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                    />
-                  </svg>
-                  <p className="text-gray-500 text-lg">
-                    คุณยังไม่ได้บันทึกอะไรไว้
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    บันทึกโพสต์ที่สำคัญเพื่อดูอีกครั้งในภายหลัง
-                  </p>
+                <div>
+                  {/* Loading State */}
+                  {loading && (
+                    <div className="text-center py-12">
+                      <div className="text-gray-500">Loading saved posts...</div>
+                    </div>
+                  )}
+
+                  {/* Error State */}
+                  {error && (
+                    <div className="text-center py-12">
+                      <div className="text-red-500">{error}</div>
+                    </div>
+                  )}
+
+                  {/* No Saved Posts */}
+                  {!loading && !error && savedPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg
+                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                        />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        คุณยังไม่ได้บันทึกอะไรไว้
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        บันทึกโพสต์ที่สำคัญเพื่อดูอีกครั้งในภายหลัง
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Display Saved Posts */}
+                  {!loading && !error && savedPosts.length > 0 && (
+                    <div className="space-y-4">
+                      {savedPosts.map((post) => (
+                        <PostCard 
+                          key={post.id} 
+                          post={post} 
+                          onLikeUpdate={handleLikeUpdate}
+                          onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

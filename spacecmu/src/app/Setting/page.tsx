@@ -4,6 +4,7 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import Image from "next/image";
 import { useUser } from "@/contexts/UserContext";
+import { apiService } from "@/lib/api";
 
 export default function SettingPage() {
   const { activeUser } = useUser();
@@ -12,6 +13,7 @@ export default function SettingPage() {
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
   const [newBanner, setNewBanner] = useState<string | null>(null);
+  const [bio, setBio] = useState(activeUser?.bio || "");
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -67,6 +69,16 @@ export default function SettingPage() {
   const handleCancelBanner = () => {
     setShowBannerModal(false);
     setNewBanner(null);
+  };
+
+  const handleSaveBio = async () => {
+    try {
+      await apiService.patch('/api/users/profile/bio', { bio });
+      alert('Bio updated successfully!');
+    } catch (error) {
+      console.error('Error updating bio:', error);
+      alert('Failed to update bio. Please try again.');
+    }
   };
 
   const tabs = [
@@ -268,19 +280,10 @@ export default function SettingPage() {
                   className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors"
                   placeholder="Enter your name"
                 />
-              </div>
-
-              {/* Email Section (Read-only) */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">Email</h2>
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={activeUser?.email || ""}
-                    disabled
-                    className="w-full px-4 py-3 text-gray-500 bg-gray-50 border border-gray-200 rounded-lg cursor-not-allowed"
-                  />
-                  <p className="text-xs text-gray-400 mt-2">Email is managed by your CMU account</p>
+                <div className="flex justify-start mt-4">
+                  <button className="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors">
+                    Save Name
+                  </button>
                 </div>
               </div>
 
@@ -347,18 +350,22 @@ export default function SettingPage() {
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Bio</h2>
                 <textarea
                   rows={4}
-                  defaultValue={activeUser?.bio || ""}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
                   className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors resize-none"
                   placeholder="Tell us about yourself"
                 />
+                <div className="flex justify-start mt-4">
+                  <button 
+                    onClick={handleSaveBio}
+                    className="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors"
+                  >
+                    Save Bio
+                  </button>
+                </div>
               </div>
 
-              {/* Save Button */}
-              <div className="flex justify-start">
-                <button className="px-6 py-2 bg-black text-white rounded-full text-sm font-semibold hover:bg-gray-800 transition-colors">
-                  Save Changes
-                </button>
-              </div>
+              
             </div>
           )}
 
@@ -747,7 +754,7 @@ export default function SettingPage() {
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                Save Changes
+                Update Profile
               </button>
             </div>
           </div>
@@ -884,7 +891,7 @@ export default function SettingPage() {
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 }`}
               >
-                Save Changes
+                Update Banner
               </button>
             </div>
           </div>
