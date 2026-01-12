@@ -1,11 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
+import PostCard from "../../components/PostCard";
 import Image from "next/image";
+import { API_CONFIG } from "@/lib/config";
+import { useUser } from "@/contexts/UserContext";
+
+interface PostMedia {
+  id: number;
+  postId: number;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  order: number;
+  fileSize: number | null;
+}
+
+interface Post {
+  id: number;
+  userId: number;
+  content: string;
+  category: string;
+  likeCount: number;
+  commentCount: number;
+  repostCount: number;
+  createdAt: string;
+  author?: {
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl: string | null;
+  };
+  media?: PostMedia[];
+}
 
 export default function FeedsMainPage() {
+  const { activeUser } = useUser();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("Global");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -15,12 +45,53 @@ export default function FeedsMainPage() {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
-  const [showCommentPopup, setShowCommentPopup] = useState<number | null>(null);
-  const [commentText, setCommentText] = useState("");
-  const [showPostMenu, setShowPostMenu] = useState<number | null>(null);
   const [showReportPopup, setShowReportPopup] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch posts when selectedFilter changes
+  useEffect(() => {
+    const fetchPosts = async () => {
+      // Only fetch for Global category
+      if (selectedFilter !== 'Global') {
+        setPosts([]);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        // Handle both array response and object with posts property
+        const postsArray = Array.isArray(data) ? data : data.posts || [];
+        setPosts(postsArray);
+      } catch (err) {
+        console.error('Error fetching posts:', err);
+        setError('Failed to load posts');
+        setPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPosts();
+  }, [selectedFilter]);
 
   const postModes = [
     { id: "Global", label: "Global" },
@@ -44,22 +115,69 @@ export default function FeedsMainPage() {
     }
   };
 
-  const handleSendPost = () => {
+  const handleSendPost = async () => {
     if (!postMode) return;
     
-    // TODO: Send post to API
-    console.log("Sending post:", {
-      text: postText,
-      mode: postMode,
-      images: selectedImages,
-      videos: selectedVideos,
-    });
-    
-    // Reset form
-    setPostText("");
-    setPostMode(null);
-    setSelectedImages([]);
-    setSelectedVideos([]);
+    try {
+      // Create FormData for multipart/form-data
+      const formData = new FormData();
+      
+      // Add text content and category
+      formData.append('content', postText);
+      formData.append('category', postMode);
+      
+      // Add all images
+      selectedImages.forEach((image) => {
+        formData.append('media', image);
+      });
+      
+      // Add all videos
+      selectedVideos.forEach((video) => {
+        formData.append('media', video);
+      });
+      
+      // Send to API
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/media`, {
+        method: 'POST',
+        credentials: 'include', // Important: Include cookies for authentication
+        body: formData,
+        // Don't set Content-Type header - browser will set it automatically with boundary
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log('Post created successfully:', result);
+      alert('Post created successfully!');
+      
+      // Reset form
+      setPostText("");
+      setPostMode(null);
+      setSelectedImages([]);
+      setSelectedVideos([]);
+      
+      // Refresh feed to show new post
+      if (selectedFilter === 'Global') {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20`,
+          {
+            credentials: 'include',
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          const postsArray = Array.isArray(data) ? data : data.posts || [];
+          setPosts(postsArray);
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error creating post:', error);
+      alert('Failed to create post. Please try again.');
+    }
   };
 
   const canSendPost = postMode !== null && (postText.trim() !== "" || selectedImages.length > 0 || selectedVideos.length > 0);
@@ -78,6 +196,47 @@ export default function FeedsMainPage() {
     setSelectedFilter(filterId);
     setShowFeedFilter(false);
   };
+
+  // Handle like count update
+  const handleLikeUpdate = (postId: number, newLikeCount: number) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, likeCount: newLikeCount }
+          : post
+      )
+    );
+  };
+
+  // Handle repost count update
+  const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+    setPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, repostCount: newRepostCount }
+          : post
+      )
+    );
+  };
+
+  // Handle save update
+  const handleSaveUpdate = () => {
+    console.log('Post save status updated');
+  };
+
+  // Mock posts (เก็บไว้สำหรับ reference)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const mockPosts = [...Array(10)].map((_, i) => ({
+    id: i,
+    author: {
+      name: i % 2 === 0 ? "Kamado Tanjiro" : "Noobcat",
+      info: i % 2 === 0 ? "65,Engineering" : "Anonymous",
+      avatar: i % 2 === 0 ? "/tanjiro.jpg" : "/noobcat.png",
+    },
+    content: i % 2 === 0 ? "I love my family so much!" : "Just chilling and enjoying life.",
+    image: i % 2 === 0 ? "/tanjiro_with_family.webp" : "/cat-post.jpg",
+    timeAgo: `${i + 1} hours ago`,
+  }));
 
   return (
     <div className="flex h-screen bg-white text-gray-800 overflow-hidden min-w-[375px]">
@@ -230,291 +389,43 @@ export default function FeedsMainPage() {
           </div>
           {/* Feeds Section: scrollable only for posts */}
           <section className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
-            {/* โพสต์ตัวอย่าง 10 โพสต์ */}
-            {[...Array(10)].map((_, i) => (
-              <div
-                key={i}
-                className={"bg-gray-50 rounded-2xl p-6 shadow relative"}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <Image
-                    src={i % 2 === 0 ? "/tanjiro.jpg" : "/noobcat.png"}
-                    alt="avatar"
-                    width={40}
-                    height={40}
-                    className="rounded-full object-cover"
-                  />
-                  <div>
-                    <div className="font-bold">
-                      {i % 2 === 0 ? "Kamado Tanjiro" : "Noobcat"}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {i % 2 === 0 ? "65,Engineering" : "Anonymous"}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {i + 1} hours ago
-                    </div>
-                  </div>
-                </div>
-                <div className="mb-2 text-base font-semibold">
-                  {i % 2 === 0
-                    ? "I love my family so much!"
-                    : "Just chilling and enjoying life."}
-                </div>
-                <div className="flex gap-3 mb-2">
-                  <Image
-                    src={
-                      i % 2 === 0 ? "/tanjiro_with_family.webp" : "/cat-post.jpg"
-                    }
-                    alt="avatar"
-                    width={480}
-                    height={40}
-                    className="object-cover"
-                  />
-                </div>
-
-                {/* Post actions */}
-                <div className="flex items-center justify-between mt-6">
-                  <div className="flex gap-4 text-gray-600 text-sm items-center">
-                    {/* Like Button */}
-                    <button 
-                      onClick={(e) => {
-                        const checkbox = e.currentTarget.querySelector('input[type="checkbox"]') as HTMLInputElement;
-                        if (checkbox) checkbox.checked = !checkbox.checked;
-                      }}
-                      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
-                    >
-                      <div className="con-like relative w-5 h-5">
-                        <input 
-                          className="like-checkbox peer absolute w-full h-full opacity-0 pointer-events-none" 
-                          type="checkbox" 
-                          title="like"
-                        />
-                        <svg 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          className="w-5 h-5 text-red-500 peer-checked:hidden transition-all" 
-                          fill="none" 
-                          viewBox="0 0 24 24" 
-                          stroke="currentColor"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
-                        <svg 
-                          xmlns="http://www.w3.org/2000/svg" 
-                          className="w-5 h-5 text-red-500 hidden peer-checked:block animate-[heartBeat_0.5s_ease-in-out]" 
-                          viewBox="0 0 24 24" 
-                          fill="currentColor"
-                        >
-                          <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                        </svg>
-                      </div>
-                      <span className="group-hover:text-gray-800">Like</span>
-                    </button>
-                    
-                    {/* Comment Button */}
-                    <button 
-                      onClick={() => setShowCommentPopup(showCommentPopup === i ? null : i)}
-                      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                      <span>Comment</span>
-                    </button>
-                    
-                    {/* Repost Button */}
-                    <button 
-                      onClick={(e) => {
-                        const checkbox = e.currentTarget.querySelector('input[type="checkbox"]') as HTMLInputElement;
-                        if (checkbox) checkbox.checked = !checkbox.checked;
-                      }}
-                      className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
-                    >
-                      <div className="relative w-5 h-5">
-                        <input 
-                          className="repost-checkbox peer absolute w-full h-full opacity-0 pointer-events-none" 
-                          type="checkbox" 
-                          title="repost"
-                        />
-                        {/* Two Curved Arrows - Always visible, changes color when checked */}
-                        <svg 
-                          className="w-5 h-5 text-gray-600 peer-checked:text-gray-600 transition-colors" 
-                          fill="none" 
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path d="M17 2l4 4-4 4"/>
-                          <path d="M3 11v-1a4 4 0 0 1 4-4h14"/>
-                          <path d="M7 22l-4-4 4-4"/>
-                          <path d="M21 13v1a4 4 0 0 1-4 4H3"/>
-                        </svg>
-                        {/* Checkmark - Only visible when checked */}
-                        <svg 
-                          className="absolute inset-0 w-5 h-5 text-gray-600 hidden peer-checked:block animate-[repostAnimation_0.6s_ease-in-out] pointer-events-none" 
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2.5}
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <circle cx="12" cy="12" r="5" fill="white" stroke="none"/>
-                          <path d="M9 12l2 2 4-4"/>
-                        </svg>
-                      </div>
-                      <span className="group-hover:text-gray-800">Repost</span>
-                    </button>
-                  </div>
-                  
-                  {/* Save Post Button */}
-                  <label htmlFor={`bookmark-${i}`} className="bookmark cursor-pointer bg-teal-600 w-[35px] h-[35px] flex items-center justify-center rounded-lg hover:bg-teal-700 transition-colors">
-                    <input type="checkbox" id={`bookmark-${i}`} className="hidden" />
-                    <svg width={13} viewBox="0 0 50 70" fill="none" xmlns="http://www.w3.org/2000/svg" className="svgIcon">
-                      <path 
-                        d="M46 62.0085L46 3.88139L3.99609 3.88139L3.99609 62.0085L24.5 45.5L46 62.0085Z" 
-                        stroke="white" 
-                        strokeWidth={7}
-                        className="transition-all duration-500 [stroke-dasharray:200_0] [stroke-dashoffset:0] fill-transparent"
-                      />
-                    </svg>
-                  </label>
-                </div>
-                
-                {/* Comment Popup */}
-                {showCommentPopup === i && (
-                  <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowCommentPopup(null)}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl h-[85vh] flex flex-col relative" onClick={(e) => e.stopPropagation()}>
-                      {/* Close Button - Circular, extends outside */}
-                      <button
-                        onClick={() => setShowCommentPopup(null)}
-                        className="absolute -top-3 -right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors shadow-lg"
-                        aria-label="Close"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                      </button>
-                      
-                      {/* Header */}
-                      <div className="px-6 py-4 border-b border-gray-200 shrink-0">
-                        <h2 className="text-xl font-bold text-gray-800">Comments</h2>
-                      </div>
-                      
-                      {/* Comments List - Scrollable */}
-                      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
-                        {/* Sample Comments */}
-                        {[...Array(5)].map((_, idx) => (
-                          <div key={idx} className="flex gap-3">
-                            <div className="relative shrink-0">
-                              <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                <svg className="w-6 h-6 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-                                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                                </svg>
-                              </div>
-                            </div>
-                            <div className="flex-1">
-                              <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                                <div className="font-semibold text-gray-900 text-sm">Yassine Zanina</div>
-                                <div className="text-xs text-gray-500 mb-2">Wednesday, March 13th at 2:45pm</div>
-                                <p className="text-gray-700 text-sm leading-relaxed">
-                                  I&apos;ve been using this product for a few days now and I&apos;m really impressed! The interface is intuitive and easy to use, and the features are exactly what I need to streamline my workflow.
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {/* Comment Input - Fixed at bottom */}
-                      <div className="px-6 py-4 border-t border-gray-200 shrink-0">
-                        <div className="flex items-end gap-3">
-                          <Image
-                            src="/tanjiro.jpg"
-                            alt="avatar"
-                            width={40}
-                            height={40}
-                            className="w-10 h-10 rounded-full object-cover shrink-0"
-                          />
-                          <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-3 flex items-center max-h-24">
-                            <textarea
-                              value={commentText}
-                              onChange={(e) => setCommentText(e.target.value)}
-                              placeholder="Write a comment..."
-                              rows={1}
-                              className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 text-sm resize-none overflow-y-auto max-h-20"
-                              style={{
-                                minHeight: '20px',
-                                maxHeight: '80px'
-                              }}
-                              onInput={(e) => {
-                                const target = e.target as HTMLTextAreaElement;
-                                target.style.height = 'auto';
-                                target.style.height = Math.min(target.scrollHeight, 80) + 'px';
-                              }}
-                            />
-                          </div>
-                          <button 
-                            className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 transition-colors shrink-0"
-                            onClick={() => {
-                              // TODO: Send comment to API
-                              console.log("Sending comment:", commentText);
-                              setCommentText("");
-                              // Reset textarea height
-                              const textarea = document.querySelector('textarea');
-                              if (textarea) {
-                                textarea.style.height = 'auto';
-                              }
-                            }}
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
-                {/* Three-dot Menu Button */}
-                <div className="absolute top-6 right-6">
-                  <button 
-                    onClick={() => setShowPostMenu(showPostMenu === i ? null : i)}
-                    className="text-gray-400 text-2xl hover:text-gray-600 transition-colors"
-                  >
-                    ⋮
-                  </button>
-                  
-                  {/* Dropdown Menu */}
-                  {showPostMenu === i && (
-                    <>
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setShowPostMenu(null)}
-                      />
-                      <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
-                        <button
-                          onClick={() => {
-                            setShowPostMenu(null);
-                            setShowReportPopup(true);
-                          }}
-                          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-red-50 text-red-600 transition text-left"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                          </svg>
-                          <span className="font-medium">Report</span>
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
+            {/* Loading State */}
+            {loading && (
+              <div className="flex justify-center items-center py-12">
+                <div className="text-gray-500">Loading posts...</div>
               </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="flex justify-center items-center py-12">
+                <div className="text-red-500">{error}</div>
+              </div>
+            )}
+
+            {/* No Posts Message */}
+            {!loading && !error && posts.length === 0 && selectedFilter === 'Global' && (
+              <div className="flex justify-center items-center py-12">
+                <div className="text-gray-500">No posts available</div>
+              </div>
+            )}
+
+            {/* Other Categories Message */}
+            {!loading && selectedFilter !== 'Global' && (
+              <div className="flex justify-center items-center py-12">
+                <div className="text-gray-500">Feature coming soon for {selectedFilter} category</div>
+              </div>
+            )}
+
+            {/* Real Posts from API (for Global category) */}
+            {!loading && !error && selectedFilter === 'Global' && posts.map((post) => (
+              <PostCard 
+                key={post.id} 
+                post={post} 
+                onLikeUpdate={handleLikeUpdate}
+                onRepostUpdate={handleRepostUpdate}
+                onSaveUpdate={handleSaveUpdate}
+              />
             ))}
           </section>
           
@@ -613,7 +524,7 @@ export default function FeedsMainPage() {
                 {/* Row 1: Avatar + Text Input */}
                 <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
                   <Image
-                    src="/tanjiro.jpg"
+                    src={activeUser?.avatarUrl || "/noobcat.png"}
                     alt="avatar"
                     width={40}
                     height={40}
