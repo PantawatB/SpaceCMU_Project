@@ -38,7 +38,16 @@ export interface User {
   anonymousUserId?: string;
 }
 
+export interface AnonymousAccount {
+  id: string;
+  username: string;
+  firstName: string;
+  avatarUrl: string;
+}
+
 export interface UserMeResponse {
   user: User;
-  anonymousUser: User;
+  activeUser: User;
+  activeMode: 'PUBLIC' | 'ANONYMOUS';
+  anonymousAccount: AnonymousAccount;
 }

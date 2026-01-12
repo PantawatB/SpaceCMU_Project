@@ -1,15 +1,17 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, UserMeResponse } from '@/types/user';
+import { User, UserMeResponse, AnonymousAccount } from '@/types/user';
 import { apiService } from '@/lib/api';
 
 interface UserContextType {
   user: User | null;
-  anonymousUser: User | null;
+  activeUser: User | null;
+  activeMode: 'PUBLIC' | 'ANONYMOUS' | null;
+  anonymousAccount: AnonymousAccount | null;
   isLoading: boolean;
   error: string | null;
-  refreshUser: () => Promise<void>;
+  refreshUser: (silent?: boolean) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -17,24 +19,34 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [anonymousUser, setAnonymousUser] = useState<User | null>(null);
+  const [activeUser, setActiveUser] = useState<User | null>(null);
+  const [activeMode, setActiveMode] = useState<'PUBLIC' | 'ANONYMOUS' | null>(null);
+  const [anonymousAccount, setAnonymousAccount] = useState<AnonymousAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchUser = async () => {
+  const fetchUser = async (silent: boolean = false) => {
     try {
-      setIsLoading(true);
+      if (!silent) {
+        setIsLoading(true);
+      }
       setError(null);
       const data: UserMeResponse = await apiService.getCurrentUser();
       setUser(data.user);
-      setAnonymousUser(data.anonymousUser);
+      setActiveUser(data.activeUser);
+      setActiveMode(data.activeMode);
+      setAnonymousAccount(data.anonymousAccount);
     } catch (err) {
       console.error('Failed to fetch user:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch user');
       setUser(null);
-      setAnonymousUser(null);
+      setActiveUser(null);
+      setActiveMode(null);
+      setAnonymousAccount(null);
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -42,7 +54,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     try {
       await apiService.logout();
       setUser(null);
-      setAnonymousUser(null);
+      setActiveUser(null);
+      setActiveMode(null);
+      setAnonymousAccount(null);
       // Redirect to home page
       window.location.href = '/';
     } catch (err) {
@@ -57,7 +71,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const value: UserContextType = {
     user,
-    anonymousUser,
+    activeUser,
+    activeMode,
+    anonymousAccount,
     isLoading,
     error,
     refreshUser: fetchUser,

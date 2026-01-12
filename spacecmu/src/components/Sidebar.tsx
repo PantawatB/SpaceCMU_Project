@@ -1,8 +1,10 @@
 "use client";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Image from "next/image";
+import { useUser } from "@/contexts/UserContext";
+import { apiService } from "@/lib/api";
 
 export interface SidebarMenuItem {
   name: string;
@@ -16,14 +18,14 @@ interface SidebarProps {
 
 const profiles = [
   {
-    type: "Public",
+    type: "PUBLIC" as const,
     name: "Kamado Tanjiro",
     username: "@6506xxxxx",
     avatar: "/tanjiro.jpg",
     bg: "bg-gradient-to-tr from-purple-400 via-cyan-300 to-yellow-300",
   },
   {
-    type: "Anonymous",
+    type: "ANONYMOUS" as const,
     name: "Noobcat",
     username: "@anonymous",
     avatar: "/noobcat.png",
@@ -33,15 +35,22 @@ const profiles = [
 
 export default function Sidebar({ menuItems }: SidebarProps) {
   const pathname = usePathname();
-  const [activeProfile, setActiveProfile] = useState(0);
+  const { user, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext } = useUser();
+  
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSwitchingMode, setIsSwitchingMode] = useState(false);
+  const [showErrorToast, setShowErrorToast] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [reportForm, setReportForm] = useState({
     name: "",
     issue: "",
     attachedFile: null as File | null,
   });
+
+  // Determine active profile index based on activeMode
+  const activeProfile = activeMode === "ANONYMOUS" ? 1 : 0;
 
   // Default menu items ถ้าไม่ได้ส่งมา
   const defaultMenuItems: SidebarMenuItem[] = [
@@ -306,26 +315,39 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     setReportForm({ name: "", issue: "", attachedFile: null });
   };
 
-  // Logout handler: call backend signOut endpoint and clear common token cookies
-  const router = useRouter();
+  // Switch mode handler
+  const handleSwitchMode = async (newMode: "PUBLIC" | "ANONYMOUS") => {
+    if (isSwitchingMode || activeMode === newMode) return;
 
-  const handleLogout = async () => {
+    setIsSwitchingMode(true);
+    
     try {
-      await fetch('/api/signOut', { method: 'POST' });
+      await apiService.switchMode(newMode);
+      // Refresh user data silently (without showing loading screen)
+      await refreshUser(true);
     } catch (err) {
-      // ignore network errors but still try to clear client cookies
-      console.error('signOut request failed', err);
+      console.error('Failed to switch mode:', err);
+      
+      // Show error toast
+      const message = err instanceof Error ? err.message : 'ไม่สามารถเปลี่ยนโหมดได้ กรุณาลองใหม่อีกครั้ง';
+      setErrorMessage(message);
+      setShowErrorToast(true);
+      
+      // Auto hide toast after 3 seconds
+      setTimeout(() => {
+        setShowErrorToast(false);
+      }, 3000);
+      
+      // UI will automatically revert because refreshUser() was not successful
+      // The activeMode state remains unchanged
+    } finally {
+      setIsSwitchingMode(false);
     }
+  };
 
-    // Clear client-side cookies (will work for non-httpOnly cookies)
-    try {
-      document.cookie = 'token=; Max-Age=0; path=/;';
-      document.cookie = 'refreshToken=; Max-Age=0; path=/;';
-    } catch {
-      // ignore if document is not available
-    }
-
-    router.push('/');
+  // Logout handler
+  const handleLogout = async () => {
+    await logoutFromContext();
   };
 
   return (
@@ -430,34 +452,49 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </div>
         {/* Profile Section */}
         <div className="flex gap-4 items-center mb-8">
-          {profiles.map((profile, idx) => (
-            <div
-              key={profile.type}
-              className={`flex flex-col items-center transition-all duration-300 ${
-                activeProfile === idx ? "" : "opacity-50 grayscale"
-              }`}
-            >
+          {profiles.map((profile, idx) => {
+            const isPublic = idx === 0;
+            const displayData = isPublic 
+              ? { 
+                  name: user ? `${user.firstName} ${user.lastName}` : profile.name,
+                  username: user?.username ? `@${user.username}` : profile.username,
+                  avatar: user?.avatarUrl || profile.avatar
+                }
+              : {
+                  name: anonymousAccount?.firstName || profile.name,
+                  username: anonymousAccount?.username ? `@${anonymousAccount.username}` : profile.username,
+                  avatar: anonymousAccount?.avatarUrl || profile.avatar
+                };
+
+            return (
               <div
-                className={`w-14 h-14 rounded-full flex items-center justify-center relative ${profile.bg} shadow-lg`}
+                key={profile.type}
+                className={`flex flex-col items-center transition-all duration-300 ${
+                  activeProfile === idx ? "" : "opacity-50 grayscale"
+                }`}
               >
-                <Image
-                  src={profile.avatar}
-                  alt={profile.name}
-                  width={48}
-                  height={48}
-                  className="w-12 h-12 rounded-full object-cover border-2 border-white"
-                  priority
-                />
-                {activeProfile === idx && (
-                  <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
-                )}
+                <div
+                  className={`w-14 h-14 rounded-full flex items-center justify-center relative ${profile.bg} shadow-lg`}
+                >
+                  <Image
+                    src={displayData.avatar}
+                    alt={displayData.name}
+                    width={48}
+                    height={48}
+                    className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                    priority
+                  />
+                  {activeProfile === idx && (
+                    <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
+                  )}
+                </div>
+                <div className="mt-2 text-sm font-semibold text-gray-800">
+                  {displayData.name}
+                </div>
+                <div className="text-xs text-gray-500">{displayData.username}</div>
               </div>
-              <div className="mt-2 text-sm font-semibold text-gray-800">
-                {profile.name}
-              </div>
-              <div className="text-xs text-gray-500">{profile.username}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Menu */}
@@ -505,20 +542,30 @@ export default function Sidebar({ menuItems }: SidebarProps) {
               activeProfile === 0
                 ? "bg-white text-black"
                 : "bg-gray-200 text-gray-500"
-            }`}
-            onClick={() => setActiveProfile(0)}
+            } ${isSwitchingMode ? "opacity-50 cursor-not-allowed" : ""}`}
+            onClick={() => handleSwitchMode("PUBLIC")}
+            disabled={isSwitchingMode || activeMode === "PUBLIC"}
           >
-            Public
+            {isSwitchingMode && activeMode !== "PUBLIC" ? (
+              <span className="inline-block animate-spin">⏳</span>
+            ) : (
+              "Public"
+            )}
           </button>
           <button
             className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
               activeProfile === 1
                 ? "bg-white text-black"
                 : "bg-gray-200 text-gray-500"
-            }`}
-            onClick={() => setActiveProfile(1)}
+            } ${isSwitchingMode ? "opacity-50 cursor-not-allowed" : ""}`}
+            onClick={() => handleSwitchMode("ANONYMOUS")}
+            disabled={isSwitchingMode || activeMode === "ANONYMOUS"}
           >
-            Anonymous
+            {isSwitchingMode && activeMode !== "ANONYMOUS" ? (
+              <span className="inline-block animate-spin">⏳</span>
+            ) : (
+              "Anonymous"
+            )}
           </button>
         </div>
         <button
@@ -851,6 +898,49 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </div>
       )}
     </aside>
+
+    {/* Error Toast */}
+    {showErrorToast && (
+      <div className="fixed bottom-4 right-4 z-50 animate-slide-up">
+        <div className="bg-red-500 text-white px-6 py-4 rounded-lg shadow-2xl flex items-center gap-3 min-w-[300px] max-w-md">
+          <svg
+            className="w-6 h-6 shrink-0"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+            />
+          </svg>
+          <div className="flex-1">
+            <p className="font-semibold">เกิดข้อผิดพลาด</p>
+            <p className="text-sm opacity-90">{errorMessage}</p>
+          </div>
+          <button
+            onClick={() => setShowErrorToast(false)}
+            className="shrink-0 hover:bg-red-600 rounded p-1 transition-colors"
+          >
+            <svg
+              className="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </button>
+        </div>
+      </div>
+    )}
     </>
   );
 }
