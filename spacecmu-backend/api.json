@@ -833,6 +833,32 @@
                             }
                         }
                     ]
+                },
+                {
+                    "name": "Get Liked Posts",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/liked/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "liked",
+                                "me"
+                            ]
+                        },
+                        "description": "Get all posts that the current user has liked.\n\n**Response includes:**\n- Post details with author info\n- `likedAt`: Timestamp when user liked the post\n- Sorted by most recently liked\n\n**Use case:** Display user's liked posts history in their profile"
+                    }
                 }
             ]
         },
