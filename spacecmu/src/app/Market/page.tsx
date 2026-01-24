@@ -1,9 +1,29 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
+import { API_CONFIG } from "@/lib/config";
+
+interface MarketItemSeller {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
+
+interface MarketItemAPI {
+  id: string;
+  title: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
+  status: string;
+  createdAt: string;
+  seller: MarketItemSeller;
+  category: string | null;
+}
 
 export default function MarketMainPage() {
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
@@ -12,6 +32,43 @@ export default function MarketMainPage() {
   const [productPrice, setProductPrice] = React.useState("");
   const [productImage, setProductImage] = React.useState("/noobcat.png");
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
+  const [apiMarketItems, setApiMarketItems] = useState<MarketItemAPI[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch market items from API
+  useEffect(() => {
+    const fetchMarketItems = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/market/items`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Market items raw response:', data);
+        
+        setApiMarketItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching market items:', err);
+        setError('Failed to load market items');
+        setApiMarketItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMarketItems();
+  }, []);
 
   // Handle multiple image uploads
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -149,11 +206,50 @@ export default function MarketMainPage() {
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
           <div className="max-w-9xl pt-8 mx-auto w-full">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {marketItems.map((item, idx) => (
-              <MarketCard key={idx} price={item.price} title={item.title} jobTitle={item.jobTitle} image={item.image} sellerName={item.sellerName} sellerImage={item.sellerImage} />
-            ))}
-            </div>
+            {/* Loading State */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className="text-gray-500">Loading market items...</div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="text-center py-12">
+                <div className="text-red-500">{error}</div>
+              </div>
+            )}
+
+            {/* Market Items Grid */}
+            {!loading && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                {/* API Market Items */}
+                {apiMarketItems.map((item) => (
+                  <MarketCard 
+                    key={item.id} 
+                    price={`฿${parseFloat(item.price).toFixed(0)}`}
+                    title={item.title} 
+                    jobTitle={item.description} 
+                    image={item.imageUrl || "/noobcat.png"} 
+                    sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
+                    sellerImage={item.seller.avatarUrl || "/noobcat.png"} 
+                  />
+                ))}
+                
+                {/* Mock Market Items */}
+                {marketItems.map((item, idx) => (
+                  <MarketCard 
+                    key={`mock-${idx}`} 
+                    price={item.price} 
+                    title={item.title} 
+                    jobTitle={item.jobTitle} 
+                    image={item.image} 
+                    sellerName={item.sellerName} 
+                    sellerImage={item.sellerImage} 
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -218,29 +314,58 @@ export default function MarketMainPage() {
                 </h2>
 
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     
-                    // Create new product
-                    const newProduct = {
-                      price: `฿${productPrice}`,
-                      title: productTitle,
-                      jobTitle: productDescription,
-                      image: imagePreviews.length > 0 ? imagePreviews[0] : productImage,
-                      sellerName: "Your Name",
-                      sellerImage: "/noobcat.png",
-                    };
-                    
-                    // Add product to the list
-                    setMarketItems(prev => [newProduct, ...prev]);
-                    
-                    setShowAddProductPopup(false);
-                    // Reset form
-                    setProductTitle("");
-                    setProductDescription("");
-                    setProductPrice("");
-                    setProductImage("/noobcat.png");
-                    setImagePreviews([]);
+                    try {
+                      // Prepare the request body
+                      const requestBody = {
+                        title: productTitle,
+                        description: productDescription,
+                        price: productPrice,
+                        categoryName: "Electronics", // You can modify this or add a category selector
+                        imageUrl: imagePreviews.length > 0 ? imagePreviews[0] : "https://example.com/image.jpg",
+                      };
+
+                      console.log('Creating market item:', requestBody);
+
+                      // Call the API
+                      const response = await fetch(
+                        `${API_CONFIG.BASE_URL}/api/market/items`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                          },
+                          credentials: 'include',
+                          body: JSON.stringify(requestBody),
+                        }
+                      );
+
+                      if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                      }
+
+                      const newItem = await response.json();
+                      console.log('Market item created successfully:', newItem);
+
+                      // Add the new item to the API items list
+                      setApiMarketItems(prev => [newItem, ...prev]);
+
+                      // Close popup and reset form
+                      setShowAddProductPopup(false);
+                      setProductTitle("");
+                      setProductDescription("");
+                      setProductPrice("");
+                      setProductImage("/noobcat.png");
+                      setImagePreviews([]);
+
+                      // Show success message (optional)
+                      alert('สินค้าถูกเพิ่มเรียบร้อยแล้ว!');
+                    } catch (err) {
+                      console.error('Error creating market item:', err);
+                      alert('เกิดข้อผิดพลาดในการเพิ่มสินค้า กรุณาลองใหม่อีกครั้ง');
+                    }
                   }}
                   className="space-y-6"
                 >
