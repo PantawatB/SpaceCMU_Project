@@ -37,11 +37,64 @@ interface Post {
 export default function ProfileMainPage() {
   const { activeUser } = useUser();
   const [activeTab, setActiveTab] = useState("Posts");
+  const [myPosts, setMyPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch user's posts when "Posts" tab is active
+  useEffect(() => {
+    const fetchMyPosts = async () => {
+      if (activeTab !== 'Posts' || !activeUser) return;
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/posts/me`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('My posts raw response:', data);
+        console.log('First post structure:', data[0]);
+        
+        // The response might be an array of posts or an object with posts property
+        let postsData = Array.isArray(data) ? data : (data.posts || []);
+        
+        // Make sure each post has the author property
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        postsData = postsData.map((post: any) => ({
+          ...post,
+          author: post.author || {
+            firstName: null,
+            lastName: null,
+            avatarUrl: null
+          }
+        }));
+        
+        console.log('Processed my posts:', postsData);
+        setMyPosts(postsData);
+      } catch (err) {
+        console.error('Error fetching my posts:', err);
+        setError('Failed to load posts');
+        setMyPosts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMyPosts();
+  }, [activeTab, activeUser]);
 
   // Fetch liked posts when "Liked" tab is active
   useEffect(() => {
@@ -212,6 +265,13 @@ export default function ProfileMainPage() {
 
   // Handle like count update
   const handleLikeUpdate = (postId: number, newLikeCount: number) => {
+    setMyPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, likeCount: newLikeCount }
+          : post
+      )
+    );
     setLikedPosts(prevPosts => 
       prevPosts.map(post => 
         post.id === postId 
@@ -237,6 +297,13 @@ export default function ProfileMainPage() {
 
   // Handle repost count update
   const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+    setMyPosts(prevPosts => 
+      prevPosts.map(post => 
+        post.id === postId 
+          ? { ...post, repostCount: newRepostCount }
+          : post
+      )
+    );
     setLikedPosts(prevPosts => 
       prevPosts.map(post => 
         post.id === postId 
@@ -546,36 +613,70 @@ export default function ProfileMainPage() {
             {/* Tab Content */}
             <div className="bg-white rounded-2xl shadow p-6">
               {activeTab === "Posts" && (
-                <div className="text-center py-12">
-                  <svg
-                    className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    {/* กระดาษ */}
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 3h9a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z"
-                    />
+                <div>
+                  {/* Loading State */}
+                  {loading && (
+                    <div className="text-center py-12">
+                      <div className="text-gray-500">Loading posts...</div>
+                    </div>
+                  )}
 
-                    {/* เส้นข้อความ */}
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M8 7h5M8 10h5M8 13h5M8 17h8"
-                    />
-                  </svg>
+                  {/* Error State */}
+                  {error && (
+                    <div className="text-center py-12">
+                      <div className="text-red-500">{error}</div>
+                    </div>
+                  )}
 
-                  <p className="text-gray-500 text-lg">
-                    คุณยังไม่ได้โพสต์อะไรเลย
-                  </p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    แชร์ความคิดหรือภาพของคุณให้เพื่อนๆ ได้ดู
-                  </p>
+                  {/* No Posts */}
+                  {!loading && !error && myPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg
+                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        {/* กระดาษ */}
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 3h9a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z"
+                        />
+
+                        {/* เส้นข้อความ */}
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M8 7h5M8 10h5M8 13h5M8 17h8"
+                        />
+                      </svg>
+
+                      <p className="text-gray-500 text-lg">
+                        คุณยังไม่ได้โพสต์อะไรเลย
+                      </p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        แชร์ความคิดหรือภาพของคุณให้เพื่อนๆ ได้ดู
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Display Posts */}
+                  {!loading && !error && myPosts.length > 0 && (
+                    <div className="space-y-4">
+                      {myPosts.map((post) => (
+                        <PostCard 
+                          key={post.id} 
+                          post={post} 
+                          onLikeUpdate={handleLikeUpdate}
+                          onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate}
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
