@@ -897,12 +897,66 @@ export const getUserPosts = async (req: Request, res: Response) => {
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
+
+        // Fetch user's posts with author info
         const posts = await dbClient
-            .select()
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                updatedAt: postsTable.updatedAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
             .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
             .where(eq(postsTable.userId, userId))
             .orderBy(desc(postsTable.createdAt));
-        res.json(posts);
+
+        // Fetch media for all posts
+        const postIds = posts.map(p => p.id);
+        const mediaMap: Record<string, any[]> = {};
+
+        if (postIds.length > 0) {
+            const mediaRecords = await dbClient
+                .select()
+                .from(postMediaTable)
+                .where(sql`${postMediaTable.postId} IN (${sql.join(postIds.map(id => sql`${id}`), sql`, `)})`);
+
+            mediaRecords.reduce((acc, media) => {
+                const postId = String(media.postId);
+                if (!acc[postId]) acc[postId] = [];
+                acc[postId].push(media);
+                return acc;
+            }, mediaMap);
+        }
+
+        // Format the response
+        const formattedPosts = posts.map(post => ({
+            id: post.id,
+            userId: post.userId,
+            content: post.content,
+            category: post.category,
+            likeCount: post.likeCount,
+            commentCount: post.commentCount,
+            repostCount: post.repostCount,
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+            author: {
+                firstName: post.authorFirstName,
+                lastName: post.authorLastName,
+                avatarUrl: post.authorAvatarUrl,
+            },
+            media: (mediaMap[String(post.id)] || []).sort((a: any, b: any) => a.order - b.order),
+        }));
+
+        res.json(formattedPosts);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching user posts" });
