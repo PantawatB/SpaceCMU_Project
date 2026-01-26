@@ -23,7 +23,15 @@ const app: Express = express();
 
 
 // Middleware
-app.use(Helmet());
+app.use(Helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow images to be loaded from different origins
+    contentSecurityPolicy: {
+        directives: {
+            ...Helmet.contentSecurityPolicy.getDefaultDirectives(),
+            "img-src": ["'self'", "data:", "http://localhost:3000", "http://localhost:5173"],
+        },
+    },
+}));
 app.use(cors({
     origin: ["http://localhost:3000", "http://localhost:5173"],
     credentials: true

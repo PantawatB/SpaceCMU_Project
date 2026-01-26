@@ -32,6 +32,7 @@ export default function MarketMainPage() {
   const [productPrice, setProductPrice] = React.useState("");
   const [productImage, setProductImage] = React.useState("/noobcat.png");
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]); // Store actual files
   const [apiMarketItems, setApiMarketItems] = useState<MarketItemAPI[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +79,9 @@ export default function MarketMainPage() {
       const newPreviews: string[] = [];
       let filesProcessed = 0;
 
+      // Store the actual files
+      setUploadedFiles((prev) => [...prev, ...fileArray]);
+
       fileArray.forEach((file, index) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -113,6 +117,8 @@ export default function MarketMainPage() {
       }
       return newPreviews;
     });
+    // Also remove from uploaded files
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // mock data เพิ่ม sellerName, sellerImage
@@ -224,17 +230,40 @@ export default function MarketMainPage() {
             {!loading && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
                 {/* API Market Items */}
-                {apiMarketItems.map((item) => (
-                  <MarketCard 
-                    key={item.id} 
-                    price={`฿${parseFloat(item.price).toFixed(0)}`}
-                    title={item.title} 
-                    jobTitle={item.description} 
-                    image={item.imageUrl || "/noobcat.png"} 
-                    sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
-                    sellerImage={item.seller.avatarUrl || "/noobcat.png"} 
-                  />
-                ))}
+                {apiMarketItems.map((item) => {
+                  // Construct proper image URL
+                  const imageUrl = item.imageUrl 
+                    ? (item.imageUrl.startsWith('http') 
+                        ? item.imageUrl 
+                        : `${API_CONFIG.BASE_URL}${item.imageUrl}`)
+                    : "/noobcat.png";
+                  
+                  const sellerAvatarUrl = item.seller.avatarUrl
+                    ? (item.seller.avatarUrl.startsWith('http')
+                        ? item.seller.avatarUrl
+                        : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`)
+                    : "/noobcat.png";
+
+                  console.log('Market Item:', {
+                    title: item.title,
+                    rawImageUrl: item.imageUrl,
+                    processedImageUrl: imageUrl,
+                    rawAvatarUrl: item.seller.avatarUrl,
+                    processedAvatarUrl: sellerAvatarUrl
+                  });
+
+                  return (
+                    <MarketCard 
+                      key={item.id} 
+                      price={`฿${parseFloat(item.price).toFixed(0)}`}
+                      title={item.title} 
+                      jobTitle={item.description} 
+                      image={imageUrl} 
+                      sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
+                      sellerImage={sellerAvatarUrl} 
+                    />
+                  );
+                })}
                 
                 {/* Mock Market Items */}
                 {marketItems.map((item, idx) => (
@@ -318,32 +347,34 @@ export default function MarketMainPage() {
                     e.preventDefault();
                     
                     try {
-                      // Prepare the request body
-                      const requestBody = {
-                        title: productTitle,
-                        description: productDescription,
-                        price: productPrice,
-                        categoryName: "Electronics", // You can modify this or add a category selector
-                        imageUrl: imagePreviews.length > 0 ? imagePreviews[0] : "https://example.com/image.jpg",
-                      };
+                      // Use FormData for file upload
+                      const formData = new FormData();
+                      formData.append('title', productTitle);
+                      formData.append('description', productDescription);
+                      formData.append('price', productPrice);
+                      formData.append('categoryName', 'Electronics'); // You can modify this or add a category selector
+                      
+                      // Append the first image file if available
+                      if (uploadedFiles.length > 0) {
+                        formData.append('image', uploadedFiles[0]);
+                      }
 
-                      console.log('Creating market item:', requestBody);
+                      console.log('Creating market item with FormData');
 
-                      // Call the API
+                      // Call the API with upload endpoint
                       const response = await fetch(
-                        `${API_CONFIG.BASE_URL}/api/market/items`,
+                        `${API_CONFIG.BASE_URL}/api/market/items/upload`,
                         {
                           method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
                           credentials: 'include',
-                          body: JSON.stringify(requestBody),
+                          body: formData,
+                          // Don't set Content-Type header - browser will set it with boundary
                         }
                       );
 
                       if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
                       }
 
                       const newItem = await response.json();
@@ -359,12 +390,13 @@ export default function MarketMainPage() {
                       setProductPrice("");
                       setProductImage("/noobcat.png");
                       setImagePreviews([]);
+                      setUploadedFiles([]);
 
                       // Show success message (optional)
                       alert('สินค้าถูกเพิ่มเรียบร้อยแล้ว!');
                     } catch (err) {
                       console.error('Error creating market item:', err);
-                      alert('เกิดข้อผิดพลาดในการเพิ่มสินค้า กรุณาลองใหม่อีกครั้ง');
+                      alert(`เกิดข้อผิดพลาดในการเพิ่มสินค้า: ${err instanceof Error ? err.message : 'กรุณาลองใหม่อีกครั้ง'}`);
                     }
                   }}
                   className="space-y-6"
