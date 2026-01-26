@@ -144,6 +144,94 @@ export const createMarketItem = async (req: Request, res: Response) => {
     }
 };
 
+// Create a market item with image upload
+export const createMarketItemWithImage = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { title, description, price, categoryName } = req.body;
+        const file = (req as any).file;
+
+        // Validate required fields
+        if (!title || !price) {
+            return res.status(400).json({ message: "Title and price are required" });
+        }
+
+        // Find or fallback to Others
+        let categoryId = null;
+        if (categoryName) {
+            const found = await dbClient
+                .select()
+                .from(marketCategoriesTable)
+                .where(eq(marketCategoriesTable.name, categoryName))
+                .limit(1);
+
+            if (found.length > 0) {
+                categoryId = found[0].id;
+            }
+        }
+
+        if (!categoryId) {
+            const others = await dbClient
+                .select()
+                .from(marketCategoriesTable)
+                .where(eq(marketCategoriesTable.name, "Others"))
+                .limit(1);
+            if (others.length > 0) {
+                categoryId = others[0].id;
+            }
+        }
+
+        // Get image URL if file was uploaded
+        const imageUrl = file ? `/uploads/${file.filename}` : null;
+
+        const [insertedItem] = await dbClient
+            .insert(marketItemsTable)
+            .values({
+                title,
+                description,
+                price: price.toString(),
+                sellerId: userId,
+                categoryId,
+                imageUrl,
+            })
+            .returning();
+
+        const fullItem = await dbClient
+            .select({
+                id: marketItemsTable.id,
+                title: marketItemsTable.title,
+                description: marketItemsTable.description,
+                price: marketItemsTable.price,
+                imageUrl: marketItemsTable.imageUrl,
+                status: marketItemsTable.status,
+                createdAt: marketItemsTable.createdAt,
+                seller: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                    avatarUrl: usersTable.avatarUrl,
+                },
+                category: {
+                    id: marketCategoriesTable.id,
+                    name: marketCategoriesTable.name,
+                }
+            })
+            .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
+            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+            .where(eq(marketItemsTable.id, insertedItem.id));
+
+        res.status(201).json(fullItem[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error creating market item" });
+    }
+};
+
 // Contact seller - Send message with product info
 export const contactSeller = async (req: Request, res: Response) => {
     try {
