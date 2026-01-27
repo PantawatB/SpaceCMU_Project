@@ -45,6 +45,8 @@ export default function FeedsMainPage() {
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [selectedVideos, setSelectedVideos] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
   const [showReportPopup, setShowReportPopup] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
@@ -80,6 +82,7 @@ export default function FeedsMainPage() {
         
         // Handle both array response and object with posts property
         const postsArray = Array.isArray(data) ? data : data.posts || [];
+        console.log('Fetched posts:', postsArray);
         setPosts(postsArray);
       } catch (err) {
         console.error('Error fetching posts:', err);
@@ -104,14 +107,58 @@ export default function FeedsMainPage() {
   ];
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedImages(Array.from(e.target.files));
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
+      const newPreviews: string[] = [];
+      let filesProcessed = 0;
+
+      // Store the actual files
+      setSelectedImages((prev) => [...prev, ...fileArray]);
+
+      fileArray.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews[index] = reader.result as string;
+          filesProcessed++;
+
+          if (filesProcessed === fileArray.length) {
+            setImagePreviews((prev) => [...prev, ...newPreviews]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      // Reset the input value so the same file can be selected again
+      e.target.value = '';
     }
   };
 
   const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setSelectedVideos(Array.from(e.target.files));
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const fileArray = Array.from(files);
+      const newPreviews: string[] = [];
+      let filesProcessed = 0;
+
+      // Store the actual files
+      setSelectedVideos((prev) => [...prev, ...fileArray]);
+
+      fileArray.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          newPreviews[index] = reader.result as string;
+          filesProcessed++;
+
+          if (filesProcessed === fileArray.length) {
+            setVideoPreviews((prev) => [...prev, ...newPreviews]);
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+      
+      // Reset the input value so the same file can be selected again
+      e.target.value = '';
     }
   };
 
@@ -151,6 +198,7 @@ export default function FeedsMainPage() {
       
       const result = await response.json();
       console.log('Post created successfully:', result);
+      console.log('Post media:', result.media);
       alert('Post created successfully!');
       
       // Reset form
@@ -158,20 +206,21 @@ export default function FeedsMainPage() {
       setPostMode(null);
       setSelectedImages([]);
       setSelectedVideos([]);
+      setImagePreviews([]);
+      setVideoPreviews([]);
       
       // Refresh feed to show new post
-      if (selectedFilter === 'Global') {
-        const response = await fetch(
-          `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20`,
-          {
-            credentials: 'include',
-          }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          const postsArray = Array.isArray(data) ? data : data.posts || [];
-          setPosts(postsArray);
+      const refreshResponse = await fetch(
+        `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20`,
+        {
+          credentials: 'include',
         }
+      );
+      if (refreshResponse.ok) {
+        const data = await refreshResponse.json();
+        const postsArray = Array.isArray(data) ? data : data.posts || [];
+        console.log('Refreshed posts:', postsArray);
+        setPosts(postsArray);
       }
       
     } catch (error) {
@@ -545,10 +594,22 @@ export default function FeedsMainPage() {
                     {selectedImages.map((img, idx) => (
                       <div key={`img-${idx}`} className="relative">
                         <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 overflow-hidden">
-                          <span className="truncate px-1 text-center text-[10px] sm:text-xs">📷 {img.name.slice(0, 3)}...</span>
+                          {imagePreviews[idx] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img 
+                              src={imagePreviews[idx]} 
+                              alt={`Preview ${idx}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="truncate px-1 text-center text-[10px] sm:text-xs">📷 {img.name.slice(0, 3)}...</span>
+                          )}
                         </div>
                         <button
-                          onClick={() => setSelectedImages(selectedImages.filter((_, i) => i !== idx))}
+                          onClick={() => {
+                            setSelectedImages(selectedImages.filter((_, i) => i !== idx));
+                            setImagePreviews(imagePreviews.filter((_, i) => i !== idx));
+                          }}
                           className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
                         >
                           ×
@@ -558,10 +619,20 @@ export default function FeedsMainPage() {
                     {selectedVideos.map((vid, idx) => (
                       <div key={`vid-${idx}`} className="relative">
                         <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gray-100 rounded-lg flex items-center justify-center text-xs text-gray-500 overflow-hidden">
-                          <span className="truncate px-1 text-center text-[10px] sm:text-xs">🎥 {vid.name.slice(0, 3)}...</span>
+                          {videoPreviews[idx] ? (
+                            <video 
+                              src={videoPreviews[idx]} 
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="truncate px-1 text-center text-[10px] sm:text-xs">🎥 {vid.name.slice(0, 3)}...</span>
+                          )}
                         </div>
                         <button
-                          onClick={() => setSelectedVideos(selectedVideos.filter((_, i) => i !== idx))}
+                          onClick={() => {
+                            setSelectedVideos(selectedVideos.filter((_, i) => i !== idx));
+                            setVideoPreviews(videoPreviews.filter((_, i) => i !== idx));
+                          }}
                           className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
                         >
                           ×

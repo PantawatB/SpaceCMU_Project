@@ -68,6 +68,15 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const [isReposted, setIsReposted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Debug log
+  console.log('PostCard render:', {
+    postId: post.id,
+    content: post.content,
+    hasMedia: !!post.media,
+    mediaCount: post.media?.length || 0,
+    media: post.media
+  });
+
   // Check user's interaction status on mount
   useEffect(() => {
     const checkInteractionStatus = async () => {
@@ -391,12 +400,12 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
           {post.media.map((media) => (
             <div key={media.id} className="relative">
               {media.mediaType === 'image' ? (
-                <Image
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
                   src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                   alt="Post media"
-                  width={480}
-                  height={320}
-                  className="object-cover rounded-lg"
+                  className="object-cover rounded-lg max-w-full"
+                  style={{ maxWidth: '480px', maxHeight: '400px' }}
                 />
               ) : (
                 <video
