@@ -30,7 +30,6 @@ export default function MarketMainPage() {
   const [productTitle, setProductTitle] = React.useState("");
   const [productDescription, setProductDescription] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
-  const [productImage, setProductImage] = React.useState("/noobcat.png");
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
   const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]); // Store actual files
   const [apiMarketItems, setApiMarketItems] = useState<MarketItemAPI[]>([]);
@@ -89,14 +88,7 @@ export default function MarketMainPage() {
           filesProcessed++;
 
           if (filesProcessed === fileArray.length) {
-            setImagePreviews((prev) => {
-              const updated = [...prev, ...newPreviews];
-              // Set the first image as the main product image if this is the first upload
-              if (prev.length === 0 && newPreviews.length > 0) {
-                setProductImage(newPreviews[0]);
-              }
-              return updated;
-            });
+            setImagePreviews((prev) => [...prev, ...newPreviews]);
           }
         };
         reader.readAsDataURL(file);
@@ -109,20 +101,13 @@ export default function MarketMainPage() {
 
   // Remove a specific image
   const removeImage = (index: number) => {
-    setImagePreviews((prev) => {
-      const newPreviews = prev.filter((_, i) => i !== index);
-      // Update the main product image if the first image is removed
-      if (index === 0) {
-        setProductImage(newPreviews.length > 0 ? newPreviews[0] : "/noobcat.png");
-      }
-      return newPreviews;
-    });
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
     // Also remove from uploaded files
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // mock data เพิ่ม sellerName, sellerImage
-  const [marketItems, setMarketItems] = React.useState([
+  const [marketItems] = React.useState([
     { price: "฿450", title: "รองเท้าแตะ", jobTitle: "รองเท้าแตะ 2 ข้าง ฟหกดฟหกดหฟกดหฟกดหฟฟหกดฟหกดฟหกดฟหกดฟหก", image: "/shoe.webp", sellerName: "Kamado Tanjiro", sellerImage: "/tanjiro.jpg" },
     { price: "฿80", title: "โทรศัพท์", jobTitle: "iphone ฟหกดหกดฟหกดฟหฟหกดหฟกดกดหฟดหฟดฟห", image: "/iphone.jpg", sellerName: "Nezuko Kamado", sellerImage: "/nezuko.jpg" },
     { price: "฿70", title: "กาแฟ", jobTitle: "ฟหกดฟหกดฟกดฟหกดฟหกดหฟดฟหกดหฟกดหฟดฟหด", image: "/coffee.jpeg", sellerName: "Zenitsu Agatsuma", sellerImage: "/zenitsu.jpg" },
@@ -236,7 +221,7 @@ export default function MarketMainPage() {
                     ? (item.imageUrl.startsWith('http') 
                         ? item.imageUrl 
                         : `${API_CONFIG.BASE_URL}${item.imageUrl}`)
-                    : "/noobcat.png";
+                    : undefined; // Use undefined for gray placeholder
                   
                   const sellerAvatarUrl = item.seller.avatarUrl
                     ? (item.seller.avatarUrl.startsWith('http')
@@ -330,7 +315,7 @@ export default function MarketMainPage() {
                   price={productPrice ? `฿${productPrice}` : "฿0"}
                   title={productTitle || "ชื่อสินค้า"}
                   jobTitle={productDescription || "รายละเอียดสินค้า..."}
-                  image={imagePreviews.length > 0 ? imagePreviews[0] : productImage}
+                  image={imagePreviews.length > 0 ? imagePreviews[0] : undefined}
                   sellerName="Your Name"
                   sellerImage="/noobcat.png"
                 />
@@ -388,7 +373,6 @@ export default function MarketMainPage() {
                       setProductTitle("");
                       setProductDescription("");
                       setProductPrice("");
-                      setProductImage("/noobcat.png");
                       setImagePreviews([]);
                       setUploadedFiles([]);
 
