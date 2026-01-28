@@ -63,6 +63,10 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
   
+  // Image lightbox
+  const [showImageLightbox, setShowImageLightbox] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  
   // Track user's interaction status
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
@@ -119,6 +123,24 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
 
     checkInteractionStatus();
   }, [activeUser, post.id]);
+
+  // Keyboard navigation for lightbox
+  useEffect(() => {
+    if (!showImageLightbox) return;
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowImageLightbox(false);
+      } else if (e.key === 'ArrowLeft' && selectedImageIndex > 0) {
+        setSelectedImageIndex(prev => prev - 1);
+      } else if (e.key === 'ArrowRight' && post.media && selectedImageIndex < post.media.filter(m => m.mediaType === 'image').length - 1) {
+        setSelectedImageIndex(prev => prev + 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [showImageLightbox, selectedImageIndex, post.media]);
 
   // Helper function to format time ago
   const getTimeAgo = (dateString: string) => {
@@ -389,30 +411,74 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       
       {/* Post Content */}
       {post.content && (
-        <div className="mb-2 text-base font-semibold">
+        <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap">
           {post.content}
         </div>
       )}
       
-      {/* Post Media */}
+      {/* Post Media - Modern Grid Layout */}
       {post.media && post.media.length > 0 && (
-        <div className="flex gap-3 mb-2 flex-wrap">
-          {post.media.map((media) => (
-            <div key={media.id} className="relative">
+        <div className={`rounded-xl overflow-hidden mb-3 ${
+          post.media.length === 1 ? 'max-w-2xl' :
+          post.media.length === 2 ? 'grid grid-cols-2 gap-2 max-w-2xl' :
+          post.media.length === 3 ? 'grid grid-cols-2 gap-2 max-w-2xl' :
+          post.media.length === 4 ? 'grid grid-cols-2 gap-2 max-w-2xl' :
+          'grid grid-cols-2 gap-2 max-w-2xl'
+        }`}>
+          {post.media.slice(0, 5).map((media, index) => (
+            <div 
+              key={media.id} 
+              className={`relative bg-gray-100 overflow-hidden group ${
+                media.mediaType === 'image' ? 'cursor-pointer' : ''
+              } ${
+                post.media!.length === 1 ? '' :
+                post.media!.length === 3 && index === 0 ? 'col-span-2' :
+                ''
+              }`}
+              style={{
+                minHeight: post.media!.length === 1 ? '300px' : '200px',
+                maxHeight: post.media!.length === 1 ? '500px' : '300px',
+              }}
+              onClick={() => {
+                if (media.mediaType === 'image') {
+                  setSelectedImageIndex(index);
+                  setShowImageLightbox(true);
+                }
+              }}
+            >
               {media.mediaType === 'image' ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
-                  alt="Post media"
-                  className="object-cover rounded-lg max-w-full"
-                  style={{ maxWidth: '480px', maxHeight: '400px' }}
-                />
+                <>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                    alt={`Post media ${index + 1}`}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  {/* Hover overlay */}
+                  <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 flex items-center justify-center">
+                    <svg 
+                      className="w-10 h-10 text-white opacity-0 group-hover:opacity-90 transition-opacity duration-300 drop-shadow-lg"
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                    </svg>
+                  </div>
+                  {/* More images indicator */}
+                  {index === 4 && post.media && post.media.length > 5 && (
+                    <div className="absolute inset-0 backdrop-blur-[1px] bg-white/30 flex items-center justify-center">
+                      <span className="text-white text-3xl font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">+{post.media.length - 5}</span>
+                    </div>
+                  )}
+                </>
               ) : (
                 <video
                   src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                   controls
-                  className="object-cover rounded-lg max-w-full"
-                  style={{ maxHeight: '400px' }}
+                  className="w-full h-full object-cover"
+                  preload="metadata"
                 />
               )}
             </div>
@@ -727,6 +793,84 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
               </button>
             </div>
           </div>
+        </div>
+      )}
+      
+      {/* Image Lightbox Popup */}
+      {showImageLightbox && post.media && (
+        <div 
+          className="fixed inset-0 backdrop-blur-sm bg-black/30 z-100 flex items-center justify-center p-4"
+          onClick={() => setShowImageLightbox(false)}
+        >
+          {/* Close Button */}
+          <button
+            onClick={() => setShowImageLightbox(false)}
+            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-101"
+          >
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Image Counter */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-4 py-2 rounded-full z-101">
+            {selectedImageIndex + 1} / {post.media.filter(m => m.mediaType === 'image').length}
+          </div>
+
+          {/* Previous Button */}
+          {selectedImageIndex > 0 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedImageIndex(prev => prev - 1);
+              }}
+              className="absolute left-4 text-white hover:text-gray-300 transition-colors z-101"
+            >
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Next Button */}
+          {selectedImageIndex < post.media.filter(m => m.mediaType === 'image').length - 1 && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSelectedImageIndex(prev => prev + 1);
+              }}
+              className="absolute right-4 text-white hover:text-gray-300 transition-colors z-101"
+            >
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Image */}
+          <div className="max-w-7xl max-h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`${API_CONFIG.BASE_URL}${post.media.filter(m => m.mediaType === 'image')[selectedImageIndex]?.mediaUrl}`}
+              alt={`Full size ${selectedImageIndex + 1}`}
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+            />
+          </div>
+
+          {/* Download Button */}
+          <a
+            href={`${API_CONFIG.BASE_URL}${post.media.filter(m => m.mediaType === 'image')[selectedImageIndex]?.mediaUrl}`}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-4 right-4 bg-white text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2 z-101"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Download
+          </a>
         </div>
       )}
     </div>
