@@ -419,11 +419,11 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       {/* Post Media - Modern Grid Layout */}
       {post.media && post.media.length > 0 && (
         <div className={`rounded-xl overflow-hidden mb-3 ${
-          post.media.length === 1 ? 'max-w-2xl' :
-          post.media.length === 2 ? 'grid grid-cols-2 gap-2 max-w-2xl' :
-          post.media.length === 3 ? 'grid grid-cols-2 gap-2 max-w-2xl' :
-          post.media.length === 4 ? 'grid grid-cols-2 gap-2 max-w-2xl' :
-          'grid grid-cols-2 gap-2 max-w-2xl'
+          post.media.length === 1 ? 'max-w-full' :
+          post.media.length === 2 ? 'grid grid-cols-2 gap-2 max-w-full' :
+          post.media.length === 3 ? 'grid grid-cols-2 gap-2 max-w-full' :
+          post.media.length === 4 ? 'grid grid-cols-2 gap-2 max-w-full' :
+          'grid grid-cols-2 gap-2 max-w-full'
         }`}>
           {post.media.slice(0, 5).map((media, index) => (
             <div 
@@ -434,11 +434,9 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                 post.media!.length === 1 ? '' :
                 post.media!.length === 3 && index === 0 ? 'col-span-2' :
                 ''
+              } ${
+                post.media!.length === 1 ? 'w-full' : ''
               }`}
-              style={{
-                minHeight: post.media!.length === 1 ? '300px' : '200px',
-                maxHeight: post.media!.length === 1 ? '500px' : '300px',
-              }}
               onClick={() => {
                 if (media.mediaType === 'image') {
                   setSelectedImageIndex(index);
@@ -452,7 +450,11 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                   <img
                     src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                     alt={`Post media ${index + 1}`}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    className={`transition-transform duration-300 group-hover:scale-105 ${
+                      post.media!.length === 1 
+                        ? 'w-full h-auto object-contain max-h-[600px]' 
+                        : 'w-full h-full object-cover min-h-[250px] max-h-[350px]'
+                    }`}
                     loading="lazy"
                   />
                   {/* Hover overlay */}
@@ -477,7 +479,11 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                 <video
                   src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                   controls
-                  className="w-full h-full object-cover"
+                  className={`${
+                    post.media!.length === 1 
+                      ? 'w-full h-auto max-h-[600px]' 
+                      : 'w-full h-full min-h-[250px] max-h-[350px]'
+                  } object-contain bg-black`}
                   preload="metadata"
                 />
               )}
