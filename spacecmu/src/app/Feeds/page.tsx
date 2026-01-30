@@ -814,20 +814,26 @@ export default function FeedsMainPage() {
           {showShareBar && (
             <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 sm:p-5 w-full max-w-2xl">
               {/* Row 1: Avatar + Text Input */}
-              <div className="flex items-center gap-2 sm:gap-3 mb-2 sm:mb-3">
+              <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
                 <Image
                   src={activeUser?.avatarUrl || "/noobcat.png"}
                   alt="avatar"
                   width={40}
                   height={40}
-                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0"
+                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />
-                <input
-                  type="text"
+                <textarea
                   value={postText}
                   onChange={(e) => setPostText(e.target.value)}
                   placeholder="What's on your mind?"
-                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all"
+                  rows={1}
+                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
+                  style={{ minHeight: '40px', maxHeight: '120px' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                  }}
                 />
               </div>
 
