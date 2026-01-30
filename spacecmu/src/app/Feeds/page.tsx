@@ -110,6 +110,35 @@ export default function FeedsMainPage() {
     const files = e.target.files;
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
+      
+      // Validate file types and size
+      const maxSize = 10 * 1024 * 1024; // 10MB for images
+      const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg)$/i;
+      
+      const invalidFiles = fileArray.filter(file => {
+        const isValidExtension = allowedExtensions.test(file.name);
+        const isValidSize = file.size <= maxSize;
+        return !isValidExtension || !isValidSize;
+      });
+      
+      if (invalidFiles.length > 0) {
+        const oversizedFiles = invalidFiles.filter(f => f.size > maxSize);
+        const unsupportedFiles = invalidFiles.filter(f => !allowedExtensions.test(f.name));
+        
+        let errorMsg = 'Some files could not be uploaded:\n';
+        if (oversizedFiles.length > 0) {
+          errorMsg += `\n- Files too large (max 10MB): ${oversizedFiles.map(f => f.name).join(', ')}`;
+        }
+        if (unsupportedFiles.length > 0) {
+          errorMsg += `\n- Unsupported formats: ${unsupportedFiles.map(f => f.name).join(', ')}`;
+          errorMsg += '\n\nSupported image formats: JPG, JPEG, PNG, GIF, WEBP, BMP, SVG';
+        }
+        
+        alert(errorMsg);
+        e.target.value = '';
+        return;
+      }
+      
       const newPreviews: string[] = [];
       let filesProcessed = 0;
 
@@ -138,6 +167,35 @@ export default function FeedsMainPage() {
     const files = e.target.files;
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
+      
+      // Validate file types and size
+      const maxSize = 100 * 1024 * 1024; // 100MB
+      const allowedExtensions = /\.(mp4|mov|avi|mkv|webm|flv|wmv|m4v|3gp)$/i;
+      
+      const invalidFiles = fileArray.filter(file => {
+        const isValidExtension = allowedExtensions.test(file.name);
+        const isValidSize = file.size <= maxSize;
+        return !isValidExtension || !isValidSize;
+      });
+      
+      if (invalidFiles.length > 0) {
+        const oversizedFiles = invalidFiles.filter(f => f.size > maxSize);
+        const unsupportedFiles = invalidFiles.filter(f => !allowedExtensions.test(f.name));
+        
+        let errorMsg = 'Some files could not be uploaded:\n';
+        if (oversizedFiles.length > 0) {
+          errorMsg += `\n- Files too large (max 100MB): ${oversizedFiles.map(f => f.name).join(', ')}`;
+        }
+        if (unsupportedFiles.length > 0) {
+          errorMsg += `\n- Unsupported formats: ${unsupportedFiles.map(f => f.name).join(', ')}`;
+          errorMsg += '\n\nSupported video formats: MP4, MOV, AVI, MKV, WEBM, FLV, WMV, M4V, 3GP';
+        }
+        
+        alert(errorMsg);
+        e.target.value = '';
+        return;
+      }
+      
       const newPreviews: string[] = [];
       let filesProcessed = 0;
 
@@ -193,7 +251,8 @@ export default function FeedsMainPage() {
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        const errorMessage = errorData.message || errorData.error || `HTTP error! status: ${response.status}`;
+        throw new Error(errorMessage);
       }
       
       const result = await response.json();
@@ -225,7 +284,8 @@ export default function FeedsMainPage() {
       
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to create post. Please try again.';
+      alert(`Error: ${errorMessage}`);
     }
   };
 
@@ -669,7 +729,7 @@ export default function FeedsMainPage() {
                     <label className="flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg text-gray-600 hover:bg-gray-50 cursor-pointer transition-all group">
                       <input
                         type="file"
-                        accept="video/*"
+                        accept="video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/x-flv,video/x-ms-wmv,.mp4,.mov,.avi,.mkv,.webm,.flv,.wmv,.m4v,.3gp"
                         multiple
                         onChange={handleVideoUpload}
                         className="hidden"
