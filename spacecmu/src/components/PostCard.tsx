@@ -411,7 +411,7 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       
       {/* Post Content */}
       {post.content && (
-        <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap">
+        <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
           {post.content}
         </div>
       )}
