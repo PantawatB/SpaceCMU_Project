@@ -557,17 +557,11 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                         </div>
                       </>
                     ) : (
-                      <div className="flex items-center justify-center  rounded-2xl" style={{
-                        height: post.media!.length === 1 ? '500px' : '400px',
-                      }}>
+                      <div className="flex items-center justify-center h-full">
                         <video
                           src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                           controls
-                          className="h-full w-auto rounded-2xl"
-                          style={{
-                            height: post.media!.length === 1 ? '500px' : '400px',
-                            objectFit: 'contain'
-                          }}
+                          className="w-auto max-h-full rounded-2xl"
                           preload="metadata"
                         />
                       </div>
