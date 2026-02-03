@@ -63,6 +63,12 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
   
+  // Comment media files
+  const [commentImages, setCommentImages] = useState<File[]>([]);
+  const [commentVideos, setCommentVideos] = useState<File[]>([]);
+  const [commentImagePreviews, setCommentImagePreviews] = useState<string[]>([]);
+  const [commentVideoPreviews, setCommentVideoPreviews] = useState<string[]>([]);
+  
   // Image lightbox
   const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -320,7 +326,7 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       return;
     }
 
-    if (!commentText.trim()) {
+    if (!commentText.trim() && commentImages.length === 0 && commentVideos.length === 0) {
       return;
     }
 
@@ -361,6 +367,10 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
 
       setComments([newComment, ...comments]);
       setCommentText('');
+      setCommentImages([]);
+      setCommentVideos([]);
+      setCommentImagePreviews([]);
+      setCommentVideoPreviews([]);
     } catch (error) {
       console.error('Error posting comment:', error);
       alert('Failed to post comment. Please try again.');
@@ -665,55 +675,150 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
             
             {/* Comment Input */}
             <div className="px-6 py-4 border-t border-gray-200 shrink-0">
-              <div className="flex items-end gap-3">
-                <Image
-                  src={activeUser?.avatarUrl || "/noobcat.png"}
-                  alt="avatar"
-                  width={40}
-                  height={40}
-                  className="w-10 h-10 rounded-full object-cover shrink-0"
-                />
-                <div className="flex-1 bg-gray-100 rounded-2xl px-4 py-3 flex items-center max-h-24">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Write a comment..."
-                    rows={1}
-                    className="w-full bg-transparent border-none outline-none text-gray-800 placeholder-gray-500 text-sm resize-none overflow-y-auto max-h-20"
-                    style={{
-                      minHeight: '20px',
-                      maxHeight: '80px'
-                    }}
-                    onInput={(e) => {
-                      const target = e.target as HTMLTextAreaElement;
-                      target.style.height = 'auto';
-                      target.style.height = target.scrollHeight + 'px';
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handlePostComment();
-                      }
-                    }}
-                    disabled={postingComment}
+              <div className="flex flex-col gap-3">
+                {/* Avatar + Text Input Row */}
+                <div className="flex items-start gap-3">
+                  <Image
+                    src={activeUser?.avatarUrl || "/noobcat.png"}
+                    alt="avatar"
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 rounded-full object-cover shrink-0 mt-1"
                   />
+                  <div className="flex-1">
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Write a comment..."
+                      rows={1}
+                      className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm transition-all resize-none overflow-hidden"
+                      style={{ minHeight: '40px', maxHeight: '120px' }}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handlePostComment();
+                        }
+                      }}
+                      disabled={postingComment}
+                    />
+                  </div>
                 </div>
-                <button 
-                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 transition-colors shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handlePostComment}
-                  disabled={postingComment || !commentText.trim()}
-                >
-                  {postingComment ? (
-                    <svg className="animate-spin w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                  ) : (
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                    </svg>
-                  )}
-                </button>
+
+                {/* Media Preview */}
+                {(commentImages.length > 0 || commentVideos.length > 0) && (
+                  <div className="flex flex-wrap gap-2 ml-13">
+                    {commentImages.map((img, idx) => (
+                      <div key={`img-${idx}`} className="relative">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                          {commentImagePreviews[idx] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={commentImagePreviews[idx]}
+                              alt={`Preview ${idx}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-gray-500">📷</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setCommentImages(commentImages.filter((_, i) => i !== idx));
+                            setCommentImagePreviews(commentImagePreviews.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                    {commentVideos.map((vid, idx) => (
+                      <div key={`vid-${idx}`} className="relative">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
+                          {commentVideoPreviews[idx] ? (
+                            <video
+                              src={commentVideoPreviews[idx]}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-xs text-gray-500">🎥</span>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setCommentVideos(commentVideos.filter((_, i) => i !== idx));
+                            setCommentVideoPreviews(commentVideoPreviews.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Action Buttons Row */}
+                <div className="flex items-center justify-between ml-13">
+                  <div className="flex items-center gap-2">
+                    {/* Upload Media Button (Combined) */}
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        onChange={(e) => {
+                          const files = e.target.files;
+                          if (!files) return;
+
+                          Array.from(files).forEach(file => {
+                            if (file.type.startsWith('image/')) {
+                              setCommentImages(prev => [...prev, file]);
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setCommentImagePreviews(prev => [...prev, reader.result as string]);
+                              };
+                              reader.readAsDataURL(file);
+                            } else if (file.type.startsWith('video/')) {
+                              setCommentVideos(prev => [...prev, file]);
+                              const url = URL.createObjectURL(file);
+                              setCommentVideoPreviews(prev => [...prev, url]);
+                            }
+                          });
+                          e.target.value = '';
+                        }}
+                        className="hidden"
+                      />
+                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-100 transition-all">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span className="text-xs font-medium">Photo/Video</span>
+                      </div>
+                    </label>
+                  </div>
+
+                  {/* Send Button */}
+                  <button 
+                    className="px-6 py-2 rounded-full font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:scale-105"
+                    onClick={handlePostComment}
+                    disabled={postingComment || (!commentText.trim() && commentImages.length === 0 && commentVideos.length === 0)}
+                  >
+                    {postingComment ? (
+                      <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
+                      'Post'
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
