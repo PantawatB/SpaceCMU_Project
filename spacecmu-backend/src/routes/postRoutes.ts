@@ -28,7 +28,7 @@ router.delete("/:postId", sessionMiddleware, deletePost);
 router.get("/:postId/likes", getPostLikes);
 router.post("/like", sessionMiddleware, likePost);
 router.post("/repost", sessionMiddleware, repostPost);
-router.post("/comment", sessionMiddleware, addComment);
+router.post("/comment", sessionMiddleware, uploadMultiple.array("media", 10), addComment); // Max 10 files for comments
 router.delete("/comment/:commentId", sessionMiddleware, deleteComment);
 router.post("/save", sessionMiddleware, toggleSavePost);
 router.get("/saved/me", sessionMiddleware, getSavedPosts);

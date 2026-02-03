@@ -9,6 +9,7 @@ import {
   decimal,
   jsonb,
   pgEnum,
+  bigint,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -218,6 +219,19 @@ export const commentsTable = pgTable("comments", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+});
+
+// --- Comment Media Table ---
+export const commentMediaTable = pgTable("comment_media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  commentId: uuid("comment_id").references(() => commentsTable.id, { onDelete: "cascade" }).notNull(),
+  
+  mediaUrl: varchar("media_url", { length: 500 }).notNull(),
+  mediaType: varchar("media_type", { length: 20 }).notNull(), // 'image' or 'video'
+  order: integer("order").default(0).notNull(),
+  fileSize: bigint("file_size", { mode: "number" }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // --- Likes Table ---

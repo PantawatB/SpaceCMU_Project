@@ -31,6 +31,14 @@ interface Post {
   media?: PostMedia[];
 }
 
+interface CommentMedia {
+  id: number;
+  commentId: string;
+  mediaUrl: string;
+  mediaType: 'image' | 'video';
+  order: number;
+}
+
 interface Comment {
   id: string | number;
   postId: number;
@@ -42,6 +50,7 @@ interface Comment {
     lastName: string | null;
     avatarUrl: string | null;
   };
+  media?: CommentMedia[];
 }
 
 interface PostCardProps {
@@ -63,12 +72,6 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<'happy' | 'sad' | null>(null);
   
-  // Comment media files
-  const [commentImages, setCommentImages] = useState<File[]>([]);
-  const [commentVideos, setCommentVideos] = useState<File[]>([]);
-  const [commentImagePreviews, setCommentImagePreviews] = useState<string[]>([]);
-  const [commentVideoPreviews, setCommentVideoPreviews] = useState<string[]>([]);
-  
   // Image lightbox
   const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -77,6 +80,10 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+
+  // Comment media upload states
+  const [commentMediaFiles, setCommentMediaFiles] = useState<File[]>([]);
+  const [commentMediaPreviews, setCommentMediaPreviews] = useState<string[]>([]);
 
   // Debug log
   console.log('PostCard render:', {
@@ -294,23 +301,29 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       }
 
       const data = await response.json();
+      console.log('Fetched comments data:', data);
       
-      // API returns array directly with 'user' instead of 'author'
+      // API returns array directly with 'user' instead of 'author' and includes media
       const fetchedComments: Comment[] = Array.isArray(data) 
-        ? data.map(comment => ({
-            id: comment.id,
-            postId: post.id,
-            userId: comment.user.id,
-            content: comment.content,
-            createdAt: comment.createdAt,
-            author: {
-              firstName: comment.user.firstName,
-              lastName: comment.user.lastName,
-              avatarUrl: comment.user.avatarUrl,
-            }
-          }))
+        ? data.map(comment => {
+            console.log('Processing comment:', comment.id, 'media:', comment.media);
+            return {
+              id: comment.id,
+              postId: post.id,
+              userId: comment.user.id,
+              content: comment.content,
+              createdAt: comment.createdAt,
+              author: {
+                firstName: comment.user.firstName,
+                lastName: comment.user.lastName,
+                avatarUrl: comment.user.avatarUrl,
+              },
+              media: comment.media || undefined,
+            };
+          })
         : [];
       
+      console.log('Processed comments:', fetchedComments);
       setComments(fetchedComments);
     } catch (error) {
       console.error('Error fetching comments:', error);
@@ -326,54 +339,58 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
       return;
     }
 
-    if (!commentText.trim() && commentImages.length === 0 && commentVideos.length === 0) {
+    if (!commentText.trim() && commentMediaFiles.length === 0) {
+      alert('Please write a comment or add media');
       return;
     }
 
     setPostingComment(true);
     try {
+      // Create FormData for multipart/form-data
+      const formData = new FormData();
+      formData.append('postId', post.id.toString());
+      formData.append('content', commentText.trim() || '');
+
+      // Add all media files
+      commentMediaFiles.forEach((file) => {
+        formData.append('media', file);
+      });
+
+      console.log('Posting comment with:', {
+        postId: post.id,
+        content: commentText.trim(),
+        mediaCount: commentMediaFiles.length,
+      });
+
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         credentials: 'include',
-        body: JSON.stringify({
-          postId: post.id,
-          content: commentText.trim(),
-        }),
+        body: formData,
+        // Don't set Content-Type header - browser will set it automatically with boundary
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('Comment post error:', errorData);
         throw new Error(errorData.message || `Failed to post comment: ${response.status}`);
       }
 
       const result = await response.json();
+      console.log('Comment posted successfully:', result);
 
-      // Add new comment to the list
-      const newComment: Comment = {
-        id: result.comment?.id || Date.now(),
-        postId: post.id,
-        userId: activeUser.id,
-        content: commentText.trim(),
-        createdAt: new Date().toISOString(),
-        author: {
-          firstName: activeUser.firstName,
-          lastName: activeUser.lastName,
-          avatarUrl: activeUser.avatarUrl,
-        },
-      };
-
-      setComments([newComment, ...comments]);
+      // Clear inputs
       setCommentText('');
-      setCommentImages([]);
-      setCommentVideos([]);
-      setCommentImagePreviews([]);
-      setCommentVideoPreviews([]);
+      setCommentMediaFiles([]);
+      setCommentMediaPreviews([]);
+
+      // Refresh comments to show new comment with media
+      await fetchComments();
+      
+      alert('Comment posted successfully!');
     } catch (error) {
       console.error('Error posting comment:', error);
-      alert('Failed to post comment. Please try again.');
+      const errorMessage = error instanceof Error ? error.message : 'Failed to post comment. Please try again.';
+      alert(`Error: ${errorMessage}`);
     } finally {
       setPostingComment(false);
     }
@@ -388,6 +405,62 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
   const closeCommentPopup = () => {
     setShowCommentPopup(false);
     setCommentText('');
+    setCommentMediaFiles([]);
+    setCommentMediaPreviews([]);
+  };
+
+  const handleCommentMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const newFiles = Array.from(files);
+      const imageMaxSize = 10 * 1024 * 1024; // 10MB
+      const videoMaxSize = 100 * 1024 * 1024; // 100MB
+
+      // Check total count
+      const totalCount = commentMediaFiles.length + newFiles.length;
+      if (totalCount > 10) {
+        alert(`You can only upload up to 10 files per comment. Currently selected: ${commentMediaFiles.length}, trying to add: ${newFiles.length}`);
+        e.target.value = '';
+        return;
+      }
+
+      const validFiles: File[] = [];
+      const errors: string[] = [];
+
+      newFiles.forEach((file) => {
+        const isVideo = file.type.startsWith('video/');
+        const maxSize = isVideo ? videoMaxSize : imageMaxSize;
+
+        if (file.size <= maxSize) {
+          validFiles.push(file);
+        } else {
+          errors.push(`${file.name} (File size exceeds ${isVideo ? '100MB' : '10MB'})`);
+        }
+      });
+
+      if (errors.length > 0) {
+        alert('Cannot upload some files:\n\n' + errors.join('\n'));
+      }
+
+      if (validFiles.length > 0) {
+        setCommentMediaFiles((prev) => [...prev, ...validFiles]);
+
+        validFiles.forEach((file) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            setCommentMediaPreviews((prev) => [...prev, reader.result as string]);
+          };
+          reader.readAsDataURL(file);
+        });
+      }
+
+      e.target.value = '';
+    }
+  };
+
+  const removeCommentMedia = (index: number) => {
+    setCommentMediaFiles((prev) => prev.filter((_, i) => i !== index));
+    setCommentMediaPreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleDeletePost = async () => {
@@ -663,6 +736,31 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                         <p className="text-sm text-gray-800 mt-1">
                           {comment.content}
                         </p>
+
+                        {/* Comment Media */}
+                        {comment.media && comment.media.length > 0 && (
+                          <div className="mt-3 grid grid-cols-2 gap-2">
+                            {comment.media.map((media) => (
+                              <div key={media.id} className="rounded-lg overflow-hidden bg-gray-200">
+                                {media.mediaType === 'video' ? (
+                                  <video
+                                    src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                                    controls
+                                    className="w-full h-auto max-h-48 object-cover"
+                                  />
+                                ) : (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                                    alt="Comment media"
+                                    className="w-full h-auto max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                                  />
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
                         <p className="text-xs text-gray-500 mt-2">
                           {new Date(comment.createdAt).toLocaleString()}
                         </p>
@@ -710,50 +808,27 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                 </div>
 
                 {/* Media Preview */}
-                {(commentImages.length > 0 || commentVideos.length > 0) && (
+                {commentMediaPreviews.length > 0 && (
                   <div className="flex flex-wrap gap-2 ml-13">
-                    {commentImages.map((img, idx) => (
-                      <div key={`img-${idx}`} className="relative">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                          {commentImagePreviews[idx] ? (
+                    {commentMediaPreviews.map((preview, idx) => (
+                      <div key={idx} className="relative">
+                        <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
+                          {commentMediaFiles[idx]?.type.startsWith('video/') ? (
+                            <video
+                              src={preview}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
-                              src={commentImagePreviews[idx]}
+                              src={preview}
                               alt={`Preview ${idx}`}
                               className="w-full h-full object-cover"
                             />
-                          ) : (
-                            <span className="text-xs text-gray-500">📷</span>
                           )}
                         </div>
                         <button
-                          onClick={() => {
-                            setCommentImages(commentImages.filter((_, i) => i !== idx));
-                            setCommentImagePreviews(commentImagePreviews.filter((_, i) => i !== idx));
-                          }}
-                          className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                    {commentVideos.map((vid, idx) => (
-                      <div key={`vid-${idx}`} className="relative">
-                        <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center overflow-hidden">
-                          {commentVideoPreviews[idx] ? (
-                            <video
-                              src={commentVideoPreviews[idx]}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-xs text-gray-500">🎥</span>
-                          )}
-                        </div>
-                        <button
-                          onClick={() => {
-                            setCommentVideos(commentVideos.filter((_, i) => i !== idx));
-                            setCommentVideoPreviews(commentVideoPreviews.filter((_, i) => i !== idx));
-                          }}
+                          onClick={() => removeCommentMedia(idx)}
                           className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600 font-bold"
                         >
                           ×
@@ -766,40 +841,23 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                 {/* Action Buttons Row */}
                 <div className="flex items-center justify-between ml-13">
                   <div className="flex items-center gap-2">
-                    {/* Upload Media Button (Combined) */}
-                    <label className="cursor-pointer">
+                    {/* Upload Media Button */}
+                    <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-100 transition-all cursor-pointer">
                       <input
                         type="file"
-                        accept="image/*,video/*"
+                        accept="image/jpg,image/jpeg,image/png,image/gif,image/webp,image/bmp,image/svg+xml,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/x-flv,video/x-ms-wmv,.mp4,.mov,.avi,.mkv,.webm,.flv,.wmv,.m4v,.3gp"
                         multiple
-                        onChange={(e) => {
-                          const files = e.target.files;
-                          if (!files) return;
-
-                          Array.from(files).forEach(file => {
-                            if (file.type.startsWith('image/')) {
-                              setCommentImages(prev => [...prev, file]);
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setCommentImagePreviews(prev => [...prev, reader.result as string]);
-                              };
-                              reader.readAsDataURL(file);
-                            } else if (file.type.startsWith('video/')) {
-                              setCommentVideos(prev => [...prev, file]);
-                              const url = URL.createObjectURL(file);
-                              setCommentVideoPreviews(prev => [...prev, url]);
-                            }
-                          });
-                          e.target.value = '';
-                        }}
+                        onChange={handleCommentMediaUpload}
                         className="hidden"
+                        disabled={postingComment}
                       />
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-100 transition-all">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                        <span className="text-xs font-medium">Photo/Video</span>
-                      </div>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="text-xs font-medium">Photo/Video</span>
+                      {commentMediaFiles.length > 0 && (
+                        <span className="text-xs font-bold text-blue-600">({commentMediaFiles.length}/10)</span>
+                      )}
                     </label>
                   </div>
 
@@ -807,7 +865,7 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
                   <button 
                     className="px-6 py-2 rounded-full font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:scale-105"
                     onClick={handlePostComment}
-                    disabled={postingComment || (!commentText.trim() && commentImages.length === 0 && commentVideos.length === 0)}
+                    disabled={postingComment || (!commentText.trim() && commentMediaFiles.length === 0)}
                   >
                     {postingComment ? (
                       <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
