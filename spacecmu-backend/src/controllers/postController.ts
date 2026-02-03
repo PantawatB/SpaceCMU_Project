@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable } from "../../db/schema.js";
+import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable } from "../../db/schema.js";
 import { eq, desc, and, sql, lt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -485,16 +485,43 @@ export const addComment = async (req: Request, res: Response) => {
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
+
+        // Validate postId
+        if (!postId) {
+            return res.status(400).json({ message: "postId is required" });
+        }
+
+        // Create the comment
         const newComment = await dbClient
             .insert(commentsTable)
-            .values({ userId, postId, content })
+            .values({ userId, postId: String(postId), content: content || '' })
             .returning();
+
+        const commentId = newComment[0].id;
+
+        // Handle media uploads if present
+        const files = req.files as Express.Multer.File[];
+        if (files && files.length > 0) {
+            const mediaValues = files.map((file, index) => {
+                const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+                const mediaUrl = `/uploads/${file.filename}`;
+                return {
+                    commentId,
+                    mediaUrl,
+                    mediaType,
+                    order: index,
+                };
+            });
+
+            // Insert all media entries
+            await dbClient.insert(commentMediaTable).values(mediaValues);
+        }
 
         // Increment comment count in postsTable
         await dbClient
             .update(postsTable)
             .set({ commentCount: sql`${postsTable.commentCount} + 1` })
-            .where(eq(postsTable.id, postId));
+            .where(eq(postsTable.id, String(postId)));
 
         res.status(201).json(newComment[0]);
     } catch (error) {
@@ -518,6 +545,11 @@ export const deleteComment = async (req: Request, res: Response) => {
         }
 
         const postId = commentToDelete[0].postId;
+
+        // Delete associated media first
+        await dbClient
+            .delete(commentMediaTable)
+            .where(eq(commentMediaTable.commentId, commentId));
 
         // Delete the comment
         await dbClient.delete(commentsTable).where(eq(commentsTable.id, commentId));
@@ -556,7 +588,23 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
             .where(eq(commentsTable.postId, postId))
             .orderBy(desc(commentsTable.createdAt));
 
-        res.json(comments);
+        // Fetch media for each comment
+        const commentsWithMedia = await Promise.all(
+            comments.map(async (comment) => {
+                const media = await dbClient
+                    .select()
+                    .from(commentMediaTable)
+                    .where(eq(commentMediaTable.commentId, comment.id))
+                    .orderBy(commentMediaTable.order);
+
+                return {
+                    ...comment,
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        res.json(commentsWithMedia);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching comments" });
