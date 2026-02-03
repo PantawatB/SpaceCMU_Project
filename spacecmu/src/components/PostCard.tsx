@@ -499,79 +499,84 @@ export default function PostCard({ post, onLikeUpdate, onRepostUpdate, onSaveUpd
         </div>
       )}
       
-      {/* Post Media - Modern Grid Layout */}
+      {/* Post Media - Threads-style Horizontal Layout */}
       {post.media && post.media.length > 0 && (
-        <div className={`rounded-xl overflow-hidden mb-3 ${
-          post.media.length === 1 ? 'max-w-full' :
-          post.media.length === 2 ? 'grid grid-cols-2 gap-2 max-w-full' :
-          post.media.length === 3 ? 'grid grid-cols-2 gap-2 max-w-full' :
-          post.media.length === 4 ? 'grid grid-cols-2 gap-2 max-w-full' :
-          'grid grid-cols-2 gap-2 max-w-full'
-        }`}>
-          {post.media.slice(0, 5).map((media, index) => (
-            <div 
-              key={media.id} 
-              className={`relative bg-gray-100 overflow-hidden group ${
-                media.mediaType === 'image' ? 'cursor-pointer' : ''
-              } ${
-                post.media!.length === 1 ? '' :
-                post.media!.length === 3 && index === 0 ? 'col-span-2' :
-                ''
-              } ${
-                post.media!.length === 1 ? 'w-full' : ''
-              }`}
-              onClick={() => {
-                if (media.mediaType === 'image') {
-                  setSelectedImageIndex(index);
-                  setShowImageLightbox(true);
-                }
-              }}
-            >
-              {media.mediaType === 'image' ? (
-                <>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
-                    alt={`Post media ${index + 1}`}
-                    className={`transition-transform duration-300 group-hover:scale-105 ${
-                      post.media!.length === 1 
-                        ? 'w-full h-auto object-contain max-h-[600px]' 
-                        : 'w-full h-full object-cover min-h-[250px] max-h-[350px]'
+        <div className={`mb-3 ${post.media.length <= 2 ? '' : '-mx-6'}`}>
+          <div className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? '' : 'px-6'}`}>
+            <div className={`flex gap-2 ${post.media.length <= 2 ? 'justify-center' : ''}`} style={{ width: post.media.length <= 2 ? '100%' : 'max-content' }}>
+              {post.media.map((media, index) => {
+                // Calculate dynamic width based on number of media items
+                const getMediaWidth = () => {
+                  if (post.media!.length === 1) return '100%';
+                  if (post.media!.length === 2) return 'calc(50% - 4px)'; // 50% minus half gap
+                  if (post.media!.length === 3) return '280px';
+                  return '250px'; // 4+ items
+                };
+
+                return (
+                  <div 
+                    key={media.id} 
+                    className={`relative rounded-2xl overflow-hidden group shrink-0 ${
+                      media.mediaType === 'image' ? 'cursor-pointer' : ''
                     }`}
-                    loading="lazy"
-                  />
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-10 transition-all duration-300 flex items-center justify-center">
-                    <svg 
-                      className="w-10 h-10 text-white opacity-0 group-hover:opacity-90 transition-opacity duration-300 drop-shadow-lg"
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-                    </svg>
+                    style={{
+                      width: getMediaWidth(),
+                      maxWidth: post.media!.length === 1 ? '100%' : '400px',
+                    }}
+                    onClick={() => {
+                      if (media.mediaType === 'image') {
+                        setSelectedImageIndex(index);
+                        setShowImageLightbox(true);
+                      }
+                    }}
+                  >
+                    {media.mediaType === 'image' ? (
+                      <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                          alt={`Post media ${index + 1}`}
+                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02] rounded-2xl"
+                          style={{
+                            maxHeight: post.media!.length === 1 ? '600px' : '450px',
+                            minHeight: post.media!.length === 1 ? 'auto' : '350px',
+                            objectFit: post.media!.length === 1 ? 'contain' : 'cover'
+                          }}
+                          loading="lazy"
+                        />
+                        {/* Hover overlay for images */}
+                        <div className="absolute inset-0  bg-opacity-0 group-hover:bg-opacity-5 transition-all duration-300 flex items-center justify-center pointer-events-none">
+                          <svg 
+                            className="w-12 h-12 text-white opacity-0 group-hover:opacity-80 transition-opacity duration-300 drop-shadow-lg"
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                          </svg>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-center justify-center  rounded-2xl" style={{
+                        height: post.media!.length === 1 ? '500px' : '400px',
+                      }}>
+                        <video
+                          src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                          controls
+                          className="h-full w-auto rounded-2xl"
+                          style={{
+                            height: post.media!.length === 1 ? '500px' : '400px',
+                            objectFit: 'contain'
+                          }}
+                          preload="metadata"
+                        />
+                      </div>
+                    )}
                   </div>
-                  {/* More images indicator */}
-                  {index === 4 && post.media && post.media.length > 5 && (
-                    <div className="absolute inset-0 backdrop-blur-[1px] bg-white/30 flex items-center justify-center">
-                      <span className="text-white text-3xl font-bold drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)]">+{post.media.length - 5}</span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <video
-                  src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
-                  controls
-                  className={`${
-                    post.media!.length === 1 
-                      ? 'w-full h-auto max-h-[600px]' 
-                      : 'w-full h-full min-h-[250px] max-h-[350px]'
-                  } object-contain bg-black`}
-                  preload="metadata"
-                />
-              )}
+                );
+              })}
             </div>
-          ))}
+          </div>
         </div>
       )}
 
