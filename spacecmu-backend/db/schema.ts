@@ -12,7 +12,6 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-// Enums for status/roles
 export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
 export const userStatusEnum = pgEnum("user_status", ["active", "banned"]);
 export const postStatusEnum = pgEnum("post_status", ["active", "banned"]);
@@ -20,6 +19,7 @@ export const friendshipStatusEnum = pgEnum("friendship_status", ["pending", "acc
 export const marketItemStatusEnum = pgEnum("market_item_status", ["available", "sold"]);
 export const announcementTypeEnum = pgEnum("announcement_type", ["global", "private"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other"]);
+export const roomMemberRoleEnum = pgEnum("room_member_role", ["member", "admin"]);
 
 // --- Users Table ---
 // Covers Profile, Settings, Admin User Mgmt
@@ -148,15 +148,52 @@ export const friendshipsTable = pgTable("friendships", {
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Chat Rooms Table ---
+// Supports both 1-on-1 and group chats
+export const chatRoomsTable = pgTable("chat_rooms", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  name: varchar("name", { length: 255 }), // For group chats, null for 1-on-1
+  avatarUrl: varchar("avatar_url", { length: 512 }), // For group chats
+  isGroup: boolean("is_group").default(false).notNull(), // false = 1-on-1, true = group
+
+  createdBy: uuid("created_by").references(() => usersTable.id).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+});
+
+// --- Chat Room Members Table ---
+// Tracks membership in chat rooms
+export const chatRoomMembersTable = pgTable("chat_room_members", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  roomId: uuid("room_id").references(() => chatRoomsTable.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => usersTable.id).notNull(),
+
+  role: roomMemberRoleEnum("role").default("member"), // For group chats: member or admin
+
+  joinedAt: timestamp("joined_at").defaultNow().notNull(),
+  lastReadAt: timestamp("last_read_at"), // Track read status per user
+}, (t) => ({
+  unq: {
+    name: 'unique_room_user',
+    columns: [t.roomId, t.userId],
+    unique: true
+  }
+}));
+
 // --- Messages Table ---
-// Covers Chatbox
+// Covers Chatbox - now room-based
 export const messagesTable = pgTable("messages", {
   id: uuid("id").primaryKey().defaultRandom(),
+
+  roomId: uuid("room_id").references(() => chatRoomsTable.id, { onDelete: "cascade" }).notNull(),
   senderId: uuid("sender_id").references(() => usersTable.id).notNull(),
-  receiverId: uuid("receiver_id").references(() => usersTable.id).notNull(),
+  receiverId: uuid("receiver_id").references(() => usersTable.id), // Deprecated, kept for backward compatibility
 
   content: text("content").notNull(),
-  isRead: boolean("is_read").default(false),
+  isRead: boolean("is_read").default(false), // Deprecated, use lastReadAt in chatRoomMembers instead
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   editedAt: timestamp("edited_at"), // For message editing
