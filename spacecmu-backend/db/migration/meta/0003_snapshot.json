@@ -1,5 +1,5 @@
 {
-  "id": "e6fff6c6-626f-4584-95f9-d9bfa756427b",
+  "id": "38a7d268-b6bd-4dba-b74e-645e8d3bc8e2",
   "prevId": "a28a1df2-f09c-4d6a-9e6b-c1f2bceb565a",
   "version": "7",
   "dialect": "postgresql",
@@ -240,8 +240,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.comment_media": {
-      "name": "comment_media",
+    "public.chat_room_members": {
+      "name": "chat_room_members",
       "schema": "",
       "columns": {
         "id": {
@@ -251,36 +251,110 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
-        "comment_id": {
-          "name": "comment_id",
+        "room_id": {
+          "name": "room_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "media_url": {
-          "name": "media_url",
-          "type": "varchar(500)",
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "media_type": {
-          "name": "media_type",
-          "type": "varchar(20)",
+        "role": {
+          "name": "role",
+          "type": "room_member_role",
+          "typeSchema": "public",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false,
+          "default": "'member'"
         },
-        "order": {
-          "name": "order",
-          "type": "integer",
+        "joined_at": {
+          "name": "joined_at",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": true,
-          "default": 0
+          "default": "now()"
         },
-        "file_size": {
-          "name": "file_size",
-          "type": "bigint",
+        "last_read_at": {
+          "name": "last_read_at",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chat_room_members_room_id_chat_rooms_id_fk": {
+          "name": "chat_room_members_room_id_chat_rooms_id_fk",
+          "tableFrom": "chat_room_members",
+          "tableTo": "chat_rooms",
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "chat_room_members_user_id_users_id_fk": {
+          "name": "chat_room_members_user_id_users_id_fk",
+          "tableFrom": "chat_room_members",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.chat_rooms": {
+      "name": "chat_rooms",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "name": {
+          "name": "name",
+          "type": "varchar(255)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "avatar_url": {
+          "name": "avatar_url",
+          "type": "varchar(512)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "is_group": {
+          "name": "is_group",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",
@@ -288,21 +362,27 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp (3)",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "comment_media_comment_id_comments_id_fk": {
-          "name": "comment_media_comment_id_comments_id_fk",
-          "tableFrom": "comment_media",
-          "tableTo": "comments",
+        "chat_rooms_created_by_users_id_fk": {
+          "name": "chat_rooms_created_by_users_id_fk",
+          "tableFrom": "chat_rooms",
+          "tableTo": "users",
           "columnsFrom": [
-            "comment_id"
+            "created_by"
           ],
           "columnsTo": [
             "id"
           ],
-          "onDelete": "cascade",
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -692,6 +772,12 @@
           "notNull": true,
           "default": "gen_random_uuid()"
         },
+        "room_id": {
+          "name": "room_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "sender_id": {
           "name": "sender_id",
           "type": "uuid",
@@ -702,7 +788,7 @@
           "name": "receiver_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "content": {
           "name": "content",
@@ -739,6 +825,19 @@
       },
       "indexes": {},
       "foreignKeys": {
+        "messages_room_id_chat_rooms_id_fk": {
+          "name": "messages_room_id_chat_rooms_id_fk",
+          "tableFrom": "messages",
+          "tableTo": "chat_rooms",
+          "columnsFrom": [
+            "room_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
         "messages_sender_id_users_id_fk": {
           "name": "messages_sender_id_users_id_fk",
           "tableFrom": "messages",
@@ -1525,6 +1624,14 @@
       "values": [
         "active",
         "banned"
+      ]
+    },
+    "public.room_member_role": {
+      "name": "room_member_role",
+      "schema": "public",
+      "values": [
+        "member",
+        "admin"
       ]
     },
     "public.user_role": {

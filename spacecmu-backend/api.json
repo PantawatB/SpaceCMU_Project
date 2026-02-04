@@ -1346,97 +1346,178 @@
             "name": "06. Messaging & Chat",
             "item": [
                 {
-                    "name": "Conversations",
+                    "name": "Chat Rooms",
+                    "description": "Manage chat rooms for both 1-on-1 and group conversations",
                     "item": [
                         {
-                            "name": "Get All Conversations",
+                            "name": "Create Direct Room (1-on-1)",
                             "request": {
-                                "method": "GET",
+                                "method": "POST",
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text",
-                                        "description": "User authentication token"
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
                                     }
                                 ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"otherUserId\": \"user_uuid_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/messages/conversations/:userId",
+                                    "raw": "{{baseUrl}}/api/chat-rooms/direct",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
-                                        "messages",
-                                        "conversations",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here",
-                                            "description": "ID of the user to get conversations for"
-                                        }
+                                        "chat-rooms",
+                                        "direct"
                                     ]
                                 },
-                                "description": "Get all conversations for a user with last message preview and unread count.\n\n**Response Example:**\n```json\n[\n  {\n    \"userId\": \"uuid-123\",\n    \"userName\": \"John Doe\",\n    \"avatarUrl\": \"https://example.com/avatar.jpg\",\n    \"lastMessage\": {\n      \"content\": \"Hey! How are you?\",\n      \"createdAt\": \"2026-01-11T10:30:00Z\",\n      \"isRead\": false\n    },\n    \"unreadCount\": 3\n  }\n]\n```"
+                                "description": "Create a 1-on-1 chat room with another user. If room already exists, returns existing room.\n\n**Request Body:**\n- `otherUserId` (required): UUID of the other user\n\n**Response Example:**\n```json\n{\n  \"message\": \"Direct room created successfully\",\n  \"room\": {\n    \"id\": \"room-uuid\",\n    \"isGroup\": false,\n    \"createdBy\": \"your-user-id\",\n    \"createdAt\": \"2026-02-04T10:00:00Z\"\n  },\n  \"isNew\": true\n}\n```"
                             }
                         },
                         {
-                            "name": "Get Conversation Between Two Users",
+                            "name": "Create Group Room",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"name\": \"Study Group\",\n  \"memberIds\": [\"user1_uuid\", \"user2_uuid\"],\n  \"avatarUrl\": \"https://example.com/avatar.jpg\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/chat-rooms/group",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "chat-rooms",
+                                        "group"
+                                    ]
+                                },
+                                "description": "Create a group chat room.\n\n**Request Body:**\n- `name` (required): Group name\n- `memberIds` (required): Array of user UUIDs to add\n- `avatarUrl` (optional): Group avatar URL\n\n**Response Example:**\n```json\n{\n  \"message\": \"Group room created successfully\",\n  \"room\": {\n    \"id\": \"room-uuid\",\n    \"name\": \"Study Group\",\n    \"avatarUrl\": \"https://example.com/avatar.jpg\",\n    \"isGroup\": true,\n    \"createdBy\": \"your-user-id\",\n    \"createdAt\": \"2026-02-04T10:00:00Z\"\n  }\n}\n```"
+                            }
+                        },
+                        {
+                            "name": "Get User's Rooms",
                             "request": {
                                 "method": "GET",
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
+                                        "value": "Bearer {{token}}",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/messages/conversation/:userId1/:userId2?page=1&limit=50",
+                                    "raw": "{{baseUrl}}/api/chat-rooms/me",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
-                                        "messages",
-                                        "conversation",
-                                        ":userId1",
-                                        ":userId2"
+                                        "chat-rooms",
+                                        "me"
+                                    ]
+                                },
+                                "description": "Get all chat rooms the user is a member of.\n\n**Response:** Array of rooms with:\n- Room details\n- Member list\n- Last message\n- Unread count\n- For 1-on-1: displays other user's name/avatar"
+                            }
+                        },
+                        {
+                            "name": "Get Room Details",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/chat-rooms/:roomId",
+                                    "host": [
+                                        "{{baseUrl}}"
                                     ],
-                                    "query": [
-                                        {
-                                            "key": "page",
-                                            "value": "1",
-                                            "description": "Page number for pagination (optional, default: 1)"
-                                        },
-                                        {
-                                            "key": "limit",
-                                            "value": "50",
-                                            "description": "Number of messages per page (optional, default: 50)"
-                                        }
+                                    "path": [
+                                        "api",
+                                        "chat-rooms",
+                                        ":roomId"
                                     ],
                                     "variable": [
                                         {
-                                            "key": "userId1",
-                                            "value": "user1_id_here",
-                                            "description": "First user ID"
-                                        },
-                                        {
-                                            "key": "userId2",
-                                            "value": "user2_id_here",
-                                            "description": "Second user ID"
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
                                         }
                                     ]
                                 },
-                                "description": "Get all messages between two users with pagination.\n\n**Response Example:**\n```json\n{\n  \"messages\": [\n    {\n      \"id\": \"msg-uuid-1\",\n      \"senderId\": \"user1_id\",\n      \"receiverId\": \"user2_id\",\n      \"content\": \"Hello!\",\n      \"isRead\": true,\n      \"createdAt\": \"2026-01-11T10:30:00Z\"\n    }\n  ],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 50,\n    \"total\": 125,\n    \"totalPages\": 3\n  }\n}\n```"
+                                "description": "Get details of a specific room including all members."
+                            }
+                        },
+                        {
+                            "name": "Update Room",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"name\": \"New Group Name\",\n  \"avatarUrl\": \"https://example.com/new-avatar.jpg\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/chat-rooms/:roomId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "chat-rooms",
+                                        ":roomId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Update room name and/or avatar. **Admin only** for group chats."
                             }
                         }
                     ]
                 },
                 {
-                    "name": "Send & Manage Messages",
+                    "name": "Room Messages",
+                    "description": "Send and manage messages within chat rooms",
                     "item": [
                         {
                             "name": "Send Message",
@@ -1445,13 +1526,13 @@
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
+                                        "value": "Bearer {{token}}",
                                         "type": "text"
                                     }
                                 ],
                                 "body": {
                                     "mode": "raw",
-                                    "raw": "{\n  \"senderId\": \"user1_id_here\",\n  \"receiverId\": \"user2_id_here\",\n  \"content\": \"Hello! How are you doing today?\"\n}",
+                                    "raw": "{\n  \"roomId\": \"room_uuid_here\",\n  \"content\": \"Hello everyone!\"\n}",
                                     "options": {
                                         "raw": {
                                             "language": "json"
@@ -1468,74 +1549,84 @@
                                         "messages"
                                     ]
                                 },
-                                "description": "Send a new message to another user.\n\n**Request Body:**\n- `senderId` (required): UUID of the sender\n- `receiverId` (required): UUID of the receiver\n- `content` (required): Message content (non-empty string)\n\n**Response Example:**\n```json\n{\n  \"id\": \"msg-uuid-123\",\n  \"senderId\": \"user1_id\",\n  \"receiverId\": \"user2_id\",\n  \"content\": \"Hello! How are you doing today?\",\n  \"isRead\": false,\n  \"createdAt\": \"2026-01-11T10:30:00Z\"\n}\n```"
+                                "description": "Send a message to a chat room.\n\n**Request Body:**\n- `roomId` (required): Room UUID\n- `content` (required): Message content\n\n**Backward Compatible:** Also accepts `receiverId` instead of `roomId` for legacy support."
                             }
                         },
                         {
-                            "name": "Mark Message as Read",
+                            "name": "Get Room Messages",
                             "request": {
-                                "method": "PATCH",
+                                "method": "GET",
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
+                                        "value": "Bearer {{token}}",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/messages/:messageId/read",
+                                    "raw": "{{baseUrl}}/api/messages/room/:roomId?page=1&limit=50",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
                                     "path": [
                                         "api",
                                         "messages",
-                                        ":messageId",
+                                        "room",
+                                        ":roomId"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "page",
+                                            "value": "1",
+                                            "description": "Page number (default: 1)"
+                                        },
+                                        {
+                                            "key": "limit",
+                                            "value": "50",
+                                            "description": "Messages per page (default: 50)"
+                                        }
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Get messages in a room with pagination. Returns newest first."
+                            }
+                        },
+                        {
+                            "name": "Mark Room as Read",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/room/:roomId/read",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "room",
+                                        ":roomId",
                                         "read"
                                     ],
                                     "variable": [
                                         {
-                                            "key": "messageId",
-                                            "value": "message_id_here",
-                                            "description": "ID of the message to mark as read"
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
                                         }
                                     ]
                                 },
-                                "description": "Mark a specific message as read.\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Message marked as read\",\n  \"messageId\": \"msg-uuid-123\"\n}\n```"
-                            }
-                        },
-                        {
-                            "name": "Mark All Messages as Read",
-                            "request": {
-                                "method": "PATCH",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "body": {
-                                    "mode": "raw",
-                                    "raw": "{\n  \"userId\": \"current_user_id\",\n  \"senderId\": \"other_user_id\"\n}",
-                                    "options": {
-                                        "raw": {
-                                            "language": "json"
-                                        }
-                                    }
-                                },
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/messages/read-all",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "messages",
-                                        "read-all"
-                                    ]
-                                },
-                                "description": "Mark all messages from a specific sender as read.\n\n**Request Body:**\n- `userId` (required): Current user's ID (receiver)\n- `senderId` (required): Sender's ID whose messages to mark as read\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"All messages marked as read\",\n  \"count\": 5\n}\n```"
+                                "description": "Mark all messages in a room as read. Updates `lastReadAt` timestamp."
                             }
                         },
                         {
@@ -1545,7 +1636,7 @@
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
+                                        "value": "Bearer {{token}}",
                                         "type": "text"
                                     }
                                 ],
@@ -1562,50 +1653,11 @@
                                     "variable": [
                                         {
                                             "key": "messageId",
-                                            "value": "message_id_here",
-                                            "description": "ID of the message to delete"
+                                            "value": "message_uuid_here"
                                         }
                                     ]
                                 },
-                                "description": "Soft delete a message (sets deletedAt timestamp).\n\n**Response Example:**\n```json\n{\n  \"success\": true,\n  \"message\": \"Message deleted successfully\",\n  \"messageId\": \"msg-uuid-123\"\n}\n```"
-                            }
-                        }
-                    ]
-                },
-                {
-                    "name": "Unread & Search",
-                    "item": [
-                        {
-                            "name": "Get Unread Count",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/messages/unread/:userId",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "messages",
-                                        "unread",
-                                        ":userId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "userId",
-                                            "value": "user_id_here",
-                                            "description": "ID of the user to get unread count for"
-                                        }
-                                    ]
-                                },
-                                "description": "Get total unread message count for a user.\n\n**Response Example:**\n```json\n{\n  \"userId\": \"user-uuid-123\",\n  \"unreadCount\": 12,\n  \"conversations\": [\n    {\n      \"senderId\": \"user2_id\",\n      \"senderName\": \"John Doe\",\n      \"unreadCount\": 5\n    },\n    {\n      \"senderId\": \"user3_id\",\n      \"senderName\": \"Jane Smith\",\n      \"unreadCount\": 7\n    }\n  ]\n}\n```"
+                                "description": "Soft delete a message. Only the sender can delete their messages."
                             }
                         },
                         {
@@ -1615,12 +1667,12 @@
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
+                                        "value": "Bearer {{token}}",
                                         "type": "text"
                                     }
                                 ],
                                 "url": {
-                                    "raw": "{{baseUrl}}/api/messages/search?userId=user_id_here&query=hello&otherUserId=user2_id",
+                                    "raw": "{{baseUrl}}/api/messages/search?query=hello&roomId=room_uuid",
                                     "host": [
                                         "{{baseUrl}}"
                                     ],
@@ -1631,23 +1683,134 @@
                                     ],
                                     "query": [
                                         {
-                                            "key": "userId",
-                                            "value": "user_id_here",
-                                            "description": "Current user's ID (required)"
-                                        },
-                                        {
                                             "key": "query",
                                             "value": "hello",
-                                            "description": "Search query string (required)"
+                                            "description": "Search term (required)"
                                         },
                                         {
-                                            "key": "otherUserId",
-                                            "value": "user2_id",
-                                            "description": "Filter by specific conversation partner (optional)"
+                                            "key": "roomId",
+                                            "value": "room_uuid",
+                                            "description": "Filter by room (optional)"
                                         }
                                     ]
                                 },
-                                "description": "Search messages by content. Can filter by specific conversation.\n\n**Query Parameters:**\n- `userId` (required): Current user's ID\n- `query` (required): Search term\n- `otherUserId` (optional): Filter results to conversation with this user\n\n**Response Example:**\n```json\n{\n  \"results\": [\n    {\n      \"id\": \"msg-uuid-1\",\n      \"senderId\": \"user1_id\",\n      \"senderName\": \"John Doe\",\n      \"receiverId\": \"user2_id\",\n      \"receiverName\": \"Jane Smith\",\n      \"content\": \"Hello! How are you?\",\n      \"createdAt\": \"2026-01-11T10:30:00Z\",\n      \"matchedText\": \"Hello\"\n    }\n  ],\n  \"count\": 1,\n  \"query\": \"hello\"\n}\n```"
+                                "description": "Search messages across user's rooms. Can filter by specific room."
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Room Members",
+                    "description": "Manage chat room members",
+                    "item": [
+                        {
+                            "name": "Add Member",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"userId\": \"user_uuid_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/chat-rooms/:roomId/members",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "chat-rooms",
+                                        ":roomId",
+                                        "members"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Add a member to a group room. **Admin only**. Cannot add to 1-on-1 rooms."
+                            }
+                        },
+                        {
+                            "name": "Remove Member",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/chat-rooms/:roomId/members/:targetUserId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "chat-rooms",
+                                        ":roomId",
+                                        "members",
+                                        ":targetUserId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        },
+                                        {
+                                            "key": "targetUserId",
+                                            "value": "user_uuid_to_remove"
+                                        }
+                                    ]
+                                },
+                                "description": "Remove a member from a group room. **Admin only**. Cannot remove yourself (use Leave Room instead)."
+                            }
+                        },
+                        {
+                            "name": "Leave Room",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/chat-rooms/:roomId/leave",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "chat-rooms",
+                                        ":roomId",
+                                        "leave"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Leave a chat room. Room is auto-deleted if it becomes empty."
                             }
                         }
                     ]

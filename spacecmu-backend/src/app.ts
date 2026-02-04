@@ -17,6 +17,7 @@ import friendRoutes from "./routes/friendRoutes.js";
 import calendarRoutes from "./routes/calendarRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
+import chatRoomRoutes from "./routes/chatRoomRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 
 const app: Express = express();
@@ -55,6 +56,7 @@ app.use("/api/friends", friendRoutes);
 app.use("/api/calendar", calendarRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/chat-rooms", chatRoomRoutes);
 app.use("/api/auth", authRoutes);
 
 // Global Error Handler
