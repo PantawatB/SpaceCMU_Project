@@ -4,3 +4,6 @@ node_modules
 dist
 logs
 .npmrc
+# Uploads
+uploads/*
+!uploads/.gitkeep

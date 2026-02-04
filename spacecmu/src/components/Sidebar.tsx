@@ -2,7 +2,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import Image from "next/image";
 import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
@@ -432,7 +431,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         <div>
         {/* Logo */}
         <div className="flex items-center gap-2 mb-7">
-          <Image
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
             src="/SpaceCMUlogo1.png"
             alt="SpaceCMU Logo"
             width={40}
@@ -476,13 +476,11 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 <div
                   className={`w-14 h-14 rounded-full flex items-center justify-center relative ${profile.bg} shadow-lg`}
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={displayData.avatar}
                     alt={displayData.name}
-                    width={48}
-                    height={48}
                     className="w-12 h-12 rounded-full object-cover border-2 border-white"
-                    priority
                   />
                   {activeProfile === idx && (
                     <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
@@ -636,7 +634,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                   {/* ที่สำหรับตั้งค่ารูปภาพในแต่ละหัวข้อ tutorialStep */}
                   {tutorialSteps[tutorialStep].image && (
                     <div className="mb-4 mt-3 flex justify-center">
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={tutorialSteps[tutorialStep].image}
                         alt={tutorialSteps[tutorialStep].title}
                         width={300}

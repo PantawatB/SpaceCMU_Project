@@ -1,17 +1,74 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
+import { API_CONFIG } from "@/lib/config";
+
+interface MarketItemSeller {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
+
+interface MarketItemAPI {
+  id: string;
+  title: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
+  status: string;
+  createdAt: string;
+  seller: MarketItemSeller;
+  category: string | null;
+}
 
 export default function MarketMainPage() {
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
   const [productTitle, setProductTitle] = React.useState("");
   const [productDescription, setProductDescription] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
-  const [productImage, setProductImage] = React.useState("/noobcat.png");
   const [imagePreviews, setImagePreviews] = React.useState<string[]>([]);
+  const [uploadedFiles, setUploadedFiles] = React.useState<File[]>([]); // Store actual files
+  const [apiMarketItems, setApiMarketItems] = useState<MarketItemAPI[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch market items from API
+  useEffect(() => {
+    const fetchMarketItems = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(
+          `${API_CONFIG.BASE_URL}/api/market/items`,
+          {
+            credentials: 'include',
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('Market items raw response:', data);
+        
+        setApiMarketItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error('Error fetching market items:', err);
+        setError('Failed to load market items');
+        setApiMarketItems([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMarketItems();
+  }, []);
 
   // Handle multiple image uploads
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -21,6 +78,9 @@ export default function MarketMainPage() {
       const newPreviews: string[] = [];
       let filesProcessed = 0;
 
+      // Store the actual files
+      setUploadedFiles((prev) => [...prev, ...fileArray]);
+
       fileArray.forEach((file, index) => {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -28,14 +88,7 @@ export default function MarketMainPage() {
           filesProcessed++;
 
           if (filesProcessed === fileArray.length) {
-            setImagePreviews((prev) => {
-              const updated = [...prev, ...newPreviews];
-              // Set the first image as the main product image if this is the first upload
-              if (prev.length === 0 && newPreviews.length > 0) {
-                setProductImage(newPreviews[0]);
-              }
-              return updated;
-            });
+            setImagePreviews((prev) => [...prev, ...newPreviews]);
           }
         };
         reader.readAsDataURL(file);
@@ -48,18 +101,13 @@ export default function MarketMainPage() {
 
   // Remove a specific image
   const removeImage = (index: number) => {
-    setImagePreviews((prev) => {
-      const newPreviews = prev.filter((_, i) => i !== index);
-      // Update the main product image if the first image is removed
-      if (index === 0) {
-        setProductImage(newPreviews.length > 0 ? newPreviews[0] : "/noobcat.png");
-      }
-      return newPreviews;
-    });
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+    // Also remove from uploaded files
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   // mock data เพิ่ม sellerName, sellerImage
-  const [marketItems, setMarketItems] = React.useState([
+  const [marketItems] = React.useState([
     { price: "฿450", title: "รองเท้าแตะ", jobTitle: "รองเท้าแตะ 2 ข้าง ฟหกดฟหกดหฟกดหฟกดหฟฟหกดฟหกดฟหกดฟหกดฟหก", image: "/shoe.webp", sellerName: "Kamado Tanjiro", sellerImage: "/tanjiro.jpg" },
     { price: "฿80", title: "โทรศัพท์", jobTitle: "iphone ฟหกดหกดฟหกดฟหฟหกดหฟกดกดหฟดหฟดฟห", image: "/iphone.jpg", sellerName: "Nezuko Kamado", sellerImage: "/nezuko.jpg" },
     { price: "฿70", title: "กาแฟ", jobTitle: "ฟหกดฟหกดฟกดฟหกดฟหกดหฟดฟหกดหฟกดหฟดฟหด", image: "/coffee.jpeg", sellerName: "Zenitsu Agatsuma", sellerImage: "/zenitsu.jpg" },
@@ -149,11 +197,73 @@ export default function MarketMainPage() {
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
           <div className="max-w-9xl pt-8 mx-auto w-full">
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {marketItems.map((item, idx) => (
-              <MarketCard key={idx} price={item.price} title={item.title} jobTitle={item.jobTitle} image={item.image} sellerName={item.sellerName} sellerImage={item.sellerImage} />
-            ))}
-            </div>
+            {/* Loading State */}
+            {loading && (
+              <div className="text-center py-12">
+                <div className="text-gray-500">Loading market items...</div>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="text-center py-12">
+                <div className="text-red-500">{error}</div>
+              </div>
+            )}
+
+            {/* Market Items Grid */}
+            {!loading && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                {/* API Market Items */}
+                {apiMarketItems.map((item) => {
+                  // Construct proper image URL
+                  const imageUrl = item.imageUrl 
+                    ? (item.imageUrl.startsWith('http') 
+                        ? item.imageUrl 
+                        : `${API_CONFIG.BASE_URL}${item.imageUrl}`)
+                    : undefined; // Use undefined for gray placeholder
+                  
+                  const sellerAvatarUrl = item.seller.avatarUrl
+                    ? (item.seller.avatarUrl.startsWith('http')
+                        ? item.seller.avatarUrl
+                        : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`)
+                    : "/noobcat.png";
+
+                  console.log('Market Item:', {
+                    title: item.title,
+                    rawImageUrl: item.imageUrl,
+                    processedImageUrl: imageUrl,
+                    rawAvatarUrl: item.seller.avatarUrl,
+                    processedAvatarUrl: sellerAvatarUrl
+                  });
+
+                  return (
+                    <MarketCard 
+                      key={item.id} 
+                      price={`฿${parseFloat(item.price).toFixed(0)}`}
+                      title={item.title} 
+                      jobTitle={item.description} 
+                      image={imageUrl} 
+                      sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
+                      sellerImage={sellerAvatarUrl} 
+                    />
+                  );
+                })}
+                
+                {/* Mock Market Items */}
+                {marketItems.map((item, idx) => (
+                  <MarketCard 
+                    key={`mock-${idx}`} 
+                    price={item.price} 
+                    title={item.title} 
+                    jobTitle={item.jobTitle} 
+                    image={item.image} 
+                    sellerName={item.sellerName} 
+                    sellerImage={item.sellerImage} 
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -205,7 +315,7 @@ export default function MarketMainPage() {
                   price={productPrice ? `฿${productPrice}` : "฿0"}
                   title={productTitle || "ชื่อสินค้า"}
                   jobTitle={productDescription || "รายละเอียดสินค้า..."}
-                  image={imagePreviews.length > 0 ? imagePreviews[0] : productImage}
+                  image={imagePreviews.length > 0 ? imagePreviews[0] : undefined}
                   sellerName="Your Name"
                   sellerImage="/noobcat.png"
                 />
@@ -218,29 +328,60 @@ export default function MarketMainPage() {
                 </h2>
 
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     
-                    // Create new product
-                    const newProduct = {
-                      price: `฿${productPrice}`,
-                      title: productTitle,
-                      jobTitle: productDescription,
-                      image: imagePreviews.length > 0 ? imagePreviews[0] : productImage,
-                      sellerName: "Your Name",
-                      sellerImage: "/noobcat.png",
-                    };
-                    
-                    // Add product to the list
-                    setMarketItems(prev => [newProduct, ...prev]);
-                    
-                    setShowAddProductPopup(false);
-                    // Reset form
-                    setProductTitle("");
-                    setProductDescription("");
-                    setProductPrice("");
-                    setProductImage("/noobcat.png");
-                    setImagePreviews([]);
+                    try {
+                      // Use FormData for file upload
+                      const formData = new FormData();
+                      formData.append('title', productTitle);
+                      formData.append('description', productDescription);
+                      formData.append('price', productPrice);
+                      formData.append('categoryName', 'Electronics'); // You can modify this or add a category selector
+                      
+                      // Append the first image file if available
+                      if (uploadedFiles.length > 0) {
+                        formData.append('image', uploadedFiles[0]);
+                      }
+
+                      console.log('Creating market item with FormData');
+
+                      // Call the API with upload endpoint
+                      const response = await fetch(
+                        `${API_CONFIG.BASE_URL}/api/market/items/upload`,
+                        {
+                          method: 'POST',
+                          credentials: 'include',
+                          body: formData,
+                          // Don't set Content-Type header - browser will set it with boundary
+                        }
+                      );
+
+                      if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                      }
+
+                      const newItem = await response.json();
+                      console.log('Market item created successfully:', newItem);
+
+                      // Add the new item to the API items list
+                      setApiMarketItems(prev => [newItem, ...prev]);
+
+                      // Close popup and reset form
+                      setShowAddProductPopup(false);
+                      setProductTitle("");
+                      setProductDescription("");
+                      setProductPrice("");
+                      setImagePreviews([]);
+                      setUploadedFiles([]);
+
+                      // Show success message (optional)
+                      alert('สินค้าถูกเพิ่มเรียบร้อยแล้ว!');
+                    } catch (err) {
+                      console.error('Error creating market item:', err);
+                      alert(`เกิดข้อผิดพลาดในการเพิ่มสินค้า: ${err instanceof Error ? err.message : 'กรุณาลองใหม่อีกครั้ง'}`);
+                    }
                   }}
                   className="space-y-6"
                 >

@@ -36,16 +36,23 @@ export const upload = multer({
 // Multiple files upload (for posts with multiple media)
 export const uploadMultiple = multer({
     storage: storage,
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50MB per file
+    limits: { fileSize: 100 * 1024 * 1024 }, // 100MB per file (increased for video files)
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /jpeg|jpg|png|gif|webp|mp4|mov|avi|mkv/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
+        // Check if it's an image
+        const isImage = file.mimetype.startsWith('image/');
+        
+        // Check if it's a video - support common video formats
+        const isVideo = file.mimetype.startsWith('video/') || 
+                       file.mimetype === 'application/octet-stream'; // Some .mov files use this mimetype
+        
+        // Check file extension
+        const allowedExtensions = /\.(jpg|jpeg|png|gif|webp|bmp|svg|mp4|mov|avi|mkv|webm|flv|wmv|m4v|3gp)$/i;
+        const hasValidExtension = allowedExtensions.test(file.originalname);
 
-        if (mimetype && extname) {
+        if ((isImage || isVideo) && hasValidExtension) {
             return cb(null, true);
         } else {
-            cb(new Error("Only images (jpeg, jpg, png, gif, webp) and videos (mp4, mov, avi, mkv) are allowed!"));
+            cb(new Error(`File type not supported: ${file.mimetype}. Only images (jpg, png, gif, webp, etc.) and videos (mp4, mov, avi, mkv, etc.) are allowed!`));
         }
     }
 });

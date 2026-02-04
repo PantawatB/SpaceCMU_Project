@@ -9,6 +9,7 @@ import {
   decimal,
   jsonb,
   pgEnum,
+  bigint,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
@@ -257,6 +258,19 @@ export const commentsTable = pgTable("comments", {
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Comment Media Table ---
+export const commentMediaTable = pgTable("comment_media", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  commentId: uuid("comment_id").references(() => commentsTable.id, { onDelete: "cascade" }).notNull(),
+  
+  mediaUrl: varchar("media_url", { length: 500 }).notNull(),
+  mediaType: varchar("media_type", { length: 20 }).notNull(), // 'image' or 'video'
+  order: integer("order").default(0).notNull(),
+  fileSize: bigint("file_size", { mode: "number" }),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // --- Likes Table ---
 export const likesTable = pgTable("likes", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -279,7 +293,13 @@ export const savedPostsTable = pgTable("saved_posts", {
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  unq: {
+    name: 'unique_user_post_save',
+    columns: [t.userId, t.postId],
+    unique: true
+  }
+}));
 
 // --- Notifications Table ---
 export const notificationsTable = pgTable("notifications", {
@@ -302,7 +322,13 @@ export const repostsTable = pgTable("reposts", {
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => ({
+  unq: {
+    name: 'unique_user_post_repost',
+    columns: [t.userId, t.postId],
+    unique: true
+  }
+}));
 
 // --- Sessions Table ---
 export const sessionsTable = pgTable("sessions", {
