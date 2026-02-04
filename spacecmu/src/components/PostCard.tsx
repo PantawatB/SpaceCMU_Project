@@ -558,7 +558,7 @@ export default function PostCard({
             className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? "" : "px-6"}`}
           >
             <div
-              className={`flex gap-2 ${post.media.length <= 2 ? "justify-center" : ""}`}
+              className={`flex items-center gap-2 ${post.media.length <= 2 ? "justify-center" : ""}`}
               style={{ width: post.media.length <= 2 ? "100%" : "max-content" }}
             >
               {post.media.map((media, index) => {
@@ -622,20 +622,15 @@ export default function PostCard({
                         </div>
                       </>
                     ) : (
-                      <div className="flex space-x-1 overflow-x-auto">
-  <div className="h-[300px] shrink-0 rounded-2xl overflow-hidden bg-black/5">
-    <video
-      src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
-      controls
-      preload="metadata"
-      className="h-full w-auto rounded-2xl"
-    />
-  </div>
-</div>
-
-
-
-
+                      <video
+                        src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                        controls
+                        preload="metadata"
+                        className="w-full h-auto rounded-2xl"
+                        style={{
+                          maxHeight: "450px",
+                        }}
+                      />
                     )}
                   </div>
                 );
