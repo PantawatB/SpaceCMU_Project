@@ -557,15 +557,14 @@ export default function PostCard({
           <div
             className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? "" : "px-6"}`}
           >
-            <div
-              className={`flex items-center gap-2 ${post.media.length <= 2 ? "justify-center" : ""}`}
-              style={{ width: post.media.length <= 2 ? "100%" : "max-content" }}
-            >
+            <div className="flex items-center gap-2 w-max min-w-full justify-center">
               {post.media.map((media, index) => {
                 const isSingleMedia = post.media!.length === 1;
+                const isSingleImage =
+                  isSingleMedia && media.mediaType === "image";
 
                 const getMediaWidth = () => {
-                  if (isSingleMedia) return "100%";
+                  if (isSingleImage) return "100%";
                   return "auto";
                 };
 
@@ -577,7 +576,7 @@ export default function PostCard({
                     }`}
                     style={{
                       width: getMediaWidth(),
-                      maxWidth: isSingleMedia ? "100%" : "none",
+                      maxWidth: isSingleImage ? "100%" : "none",
                     }}
                     onClick={() => {
                       if (media.mediaType === "image") {
@@ -593,14 +592,14 @@ export default function PostCard({
                           src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                           alt={`Post media ${index + 1}`}
                           className="transition-transform duration-300 group-hover:scale-[1.02] rounded-2xl"
-                          style={{
-                            width: isSingleMedia ? "100%" : "auto",
-                            height: isSingleMedia ? "auto" : "350px",
-                            maxHeight: isSingleMedia ? "600px" : "350px",
-                            objectFit: "contain",
-                          }}
-                          loading="lazy"
-                        />
+                        style={{
+                          width: isSingleMedia ? "100%" : "auto",
+                          height: isSingleMedia ? "auto" : "350px",
+                          maxHeight: isSingleMedia ? "600px" : "350px",
+                          objectFit: "contain",
+                        }}
+                        loading="lazy"
+                      />
                         {/* Hover overlay for images */}
                         <div className="absolute inset-0  bg-opacity-0 group-hover:bg-opacity-5 transition-all duration-300 flex items-center justify-center pointer-events-none">
                           <svg
@@ -625,9 +624,10 @@ export default function PostCard({
                         preload="metadata"
                         className="rounded-2xl"
                         style={{
-                          width: isSingleMedia ? "100%" : "auto",
+                          width: "auto",
                           height: isSingleMedia ? "auto" : "350px",
                           maxHeight: isSingleMedia ? "600px" : "350px",
+                          maxWidth: isSingleMedia ? "100%" : "none",
                           objectFit: "contain",
                         }}
                       />
