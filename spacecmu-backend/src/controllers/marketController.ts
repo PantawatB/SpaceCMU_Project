@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { marketItemsTable, marketCategoriesTable, usersTable, messagesTable } from "../../db/schema.js";
-import { eq, desc, and } from "drizzle-orm";
+import { marketItemsTable, marketCategoriesTable, usersTable, messagesTable, chatRoomsTable, chatRoomMembersTable } from "../../db/schema.js";
+import { eq, desc, and, or } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 // Get all market items with filters
@@ -282,12 +282,62 @@ export const contactSeller = async (req: Request, res: Response) => {
             ? `${customMessage}\n\n---\nสินค้าที่สนใจ: ${marketItem.title}\nราคา: ฿${marketItem.price}\nรายละเอียด: ${marketItem.description || "ไม่มีรายละเอียด"}`
             : `สวัสดีครับ/ค่ะ สนใจสินค้าของคุณ\n\nสินค้า: ${marketItem.title}\nราคา: ฿${marketItem.price}\nรายละเอียด: ${marketItem.description || "ไม่มีรายละเอียด"}\n\nสามารถติดต่อได้ไหมครับ/ค่ะ`;
 
-        // Send message
+        // Find or create a direct chat room between buyer and seller
+        const existingRoom = await dbClient
+            .select({ id: chatRoomsTable.id })
+            .from(chatRoomsTable)
+            .innerJoin(chatRoomMembersTable, eq(chatRoomsTable.id, chatRoomMembersTable.roomId))
+            .where(
+                and(
+                    eq(chatRoomsTable.isGroup, false),
+                    eq(chatRoomMembersTable.userId, buyerId)
+                )
+            )
+            .then(async (rooms) => {
+                // Check if any of these rooms also has the seller
+                for (const room of rooms) {
+                    const members = await dbClient
+                        .select({ userId: chatRoomMembersTable.userId })
+                        .from(chatRoomMembersTable)
+                        .where(eq(chatRoomMembersTable.roomId, room.id));
+
+                    const memberIds = members.map(m => m.userId);
+                    if (memberIds.includes(marketItem.sellerId) && memberIds.length === 2) {
+                        return room;
+                    }
+                }
+                return null;
+            });
+
+        let roomId: string;
+
+        if (existingRoom) {
+            roomId = existingRoom.id;
+        } else {
+            // Create new direct room
+            const [newRoom] = await dbClient
+                .insert(chatRoomsTable)
+                .values({
+                    isGroup: false,
+                    createdBy: buyerId,
+                })
+                .returning();
+
+            roomId = newRoom.id;
+
+            // Add both users as members
+            await dbClient.insert(chatRoomMembersTable).values([
+                { roomId, userId: buyerId, role: "member" },
+                { roomId, userId: marketItem.sellerId, role: "member" },
+            ]);
+        }
+
+        // Send message to the room
         const newMessage = await dbClient
             .insert(messagesTable)
             .values({
+                roomId,
                 senderId: buyerId,
-                receiverId: marketItem.sellerId,
                 content: autoMessage
             })
             .returning();
@@ -297,6 +347,7 @@ export const contactSeller = async (req: Request, res: Response) => {
             message: "Message sent to seller successfully",
             data: {
                 messageId: newMessage[0].id,
+                roomId,
                 sellerId: marketItem.sellerId,
                 sellerName: `${marketItem.seller.firstName} ${marketItem.seller.lastName}`,
                 itemTitle: marketItem.title,
