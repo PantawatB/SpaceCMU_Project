@@ -558,16 +558,15 @@ export default function PostCard({
             className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? "" : "px-6"}`}
           >
             <div
-              className={`flex gap-2 ${post.media.length <= 2 ? "justify-center" : ""}`}
+              className={`flex items-center gap-2 ${post.media.length <= 2 ? "justify-center" : ""}`}
               style={{ width: post.media.length <= 2 ? "100%" : "max-content" }}
             >
               {post.media.map((media, index) => {
-                // Calculate dynamic width based on number of media items
+                const isSingleMedia = post.media!.length === 1;
+
                 const getMediaWidth = () => {
-                  if (post.media!.length === 1) return "100%";
-                  if (post.media!.length === 2) return "calc(50% - 4px)"; // 50% minus half gap
-                  if (post.media!.length === 3) return "280px";
-                  return "250px"; // 4+ items
+                  if (isSingleMedia) return "100%";
+                  return "auto";
                 };
 
                 return (
@@ -578,7 +577,7 @@ export default function PostCard({
                     }`}
                     style={{
                       width: getMediaWidth(),
-                      maxWidth: post.media!.length === 1 ? "100%" : "400px",
+                      maxWidth: isSingleMedia ? "100%" : "none",
                     }}
                     onClick={() => {
                       if (media.mediaType === "image") {
@@ -593,14 +592,12 @@ export default function PostCard({
                         <img
                           src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
                           alt={`Post media ${index + 1}`}
-                          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02] rounded-2xl"
+                          className="transition-transform duration-300 group-hover:scale-[1.02] rounded-2xl"
                           style={{
-                            maxHeight:
-                              post.media!.length === 1 ? "600px" : "450px",
-                            minHeight:
-                              post.media!.length === 1 ? "auto" : "350px",
-                            objectFit:
-                              post.media!.length === 1 ? "contain" : "cover",
+                            width: isSingleMedia ? "100%" : "auto",
+                            height: isSingleMedia ? "auto" : "350px",
+                            maxHeight: isSingleMedia ? "600px" : "350px",
+                            objectFit: "contain",
                           }}
                           loading="lazy"
                         />
@@ -622,20 +619,18 @@ export default function PostCard({
                         </div>
                       </>
                     ) : (
-                      <div className="flex space-x-1 overflow-x-auto">
-  <div className="h-[300px] shrink-0 rounded-2xl overflow-hidden bg-black/5">
-    <video
-      src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
-      controls
-      preload="metadata"
-      className="h-full w-auto rounded-2xl"
-    />
-  </div>
-</div>
-
-
-
-
+                      <video
+                        src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                        controls
+                        preload="metadata"
+                        className="rounded-2xl"
+                        style={{
+                          width: isSingleMedia ? "100%" : "auto",
+                          height: isSingleMedia ? "auto" : "350px",
+                          maxHeight: isSingleMedia ? "600px" : "350px",
+                          objectFit: "contain",
+                        }}
+                      />
                     )}
                   </div>
                 );
