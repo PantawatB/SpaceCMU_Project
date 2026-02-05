@@ -31,6 +31,19 @@ class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        
+        // Handle token errors
+        if (response.status === 401) {
+          if (errorData.message === "No token provided" || 
+              errorData.message?.toLowerCase().includes("token") ||
+              errorData.message?.toLowerCase().includes("unauthorized")) {
+            // Emit custom event for token error
+            window.dispatchEvent(new CustomEvent('tokenError', { 
+              detail: { message: errorData.message } 
+            }));
+          }
+        }
+        
         throw new Error(
           errorData.message || `HTTP error! status: ${response.status}`
         );

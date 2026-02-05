@@ -3,6 +3,7 @@
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
+import TokenErrorPopup from "../../components/TokenErrorPopup";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
@@ -43,6 +44,20 @@ export default function ProfileMainPage() {
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showTokenErrorPopup, setShowTokenErrorPopup] = useState(false);
+
+  // Global token error listener
+  useEffect(() => {
+    const handleTokenError = () => {
+      setShowTokenErrorPopup(true);
+    };
+
+    window.addEventListener('tokenError', handleTokenError);
+    
+    return () => {
+      window.removeEventListener('tokenError', handleTokenError);
+    };
+  }, []);
 
   // Fetch user's posts when "Posts" tab is active
   useEffect(() => {
@@ -61,6 +76,14 @@ export default function ProfileMainPage() {
         );
 
         if (!response.ok) {
+          // Check for token errors
+          if (response.status === 401) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.message === "No token provided" || errorData.message?.includes("token")) {
+              setShowTokenErrorPopup(true);
+              return;
+            }
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -86,7 +109,12 @@ export default function ProfileMainPage() {
         setMyPosts(postsData);
       } catch (err) {
         console.error('Error fetching my posts:', err);
-        setError('Failed to load posts');
+        // Check if it's a token error
+        if (err instanceof Error && err.message.includes("token")) {
+          setShowTokenErrorPopup(true);
+        } else {
+          setError('Failed to load posts');
+        }
         setMyPosts([]);
       } finally {
         setLoading(false);
@@ -113,6 +141,14 @@ export default function ProfileMainPage() {
         );
 
         if (!response.ok) {
+          // Check for token errors
+          if (response.status === 401) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.message === "No token provided" || errorData.message?.includes("token")) {
+              setShowTokenErrorPopup(true);
+              return;
+            }
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -138,7 +174,12 @@ export default function ProfileMainPage() {
         setLikedPosts(postsData);
       } catch (err) {
         console.error('Error fetching liked posts:', err);
-        setError('Failed to load liked posts');
+        // Check if it's a token error
+        if (err instanceof Error && err.message.includes("token")) {
+          setShowTokenErrorPopup(true);
+        } else {
+          setError('Failed to load liked posts');
+        }
         setLikedPosts([]);
       } finally {
         setLoading(false);
@@ -165,6 +206,14 @@ export default function ProfileMainPage() {
         );
 
         if (!response.ok) {
+          // Check for token errors
+          if (response.status === 401) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.message === "No token provided" || errorData.message?.includes("token")) {
+              setShowTokenErrorPopup(true);
+              return;
+            }
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -190,7 +239,12 @@ export default function ProfileMainPage() {
         setRepostedPosts(postsData);
       } catch (err) {
         console.error('Error fetching reposted posts:', err);
-        setError('Failed to load reposted posts');
+        // Check if it's a token error
+        if (err instanceof Error && err.message.includes("token")) {
+          setShowTokenErrorPopup(true);
+        } else {
+          setError('Failed to load reposted posts');
+        }
         setRepostedPosts([]);
       } finally {
         setLoading(false);
@@ -217,6 +271,14 @@ export default function ProfileMainPage() {
         );
 
         if (!response.ok) {
+          // Check for token errors
+          if (response.status === 401) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.message === "No token provided" || errorData.message?.includes("token")) {
+              setShowTokenErrorPopup(true);
+              return;
+            }
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -242,7 +304,12 @@ export default function ProfileMainPage() {
         setSavedPosts(postsData);
       } catch (err) {
         console.error('Error fetching saved posts:', err);
-        setError('Failed to load saved posts');
+        // Check if it's a token error
+        if (err instanceof Error && err.message.includes("token")) {
+          setShowTokenErrorPopup(true);
+        } else {
+          setError('Failed to load saved posts');
+        }
         setSavedPosts([]);
       } finally {
         setLoading(false);
@@ -927,6 +994,12 @@ export default function ProfileMainPage() {
 
         {/* Chatbox - Bottom Right */}
         <Chatbox />
+
+        {/* Token Error Popup */}
+        <TokenErrorPopup 
+          isOpen={showTokenErrorPopup} 
+          onClose={() => setShowTokenErrorPopup(false)} 
+        />
       </div>
   );
 }

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
+import TokenErrorPopup from "../../components/TokenErrorPopup";
 import Image from "next/image";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
@@ -55,10 +56,30 @@ export default function FeedsMainPage() {
   const [error, setError] = useState<string | null>(null);
   const [showUploadPopup, setShowUploadPopup] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [showTokenErrorPopup, setShowTokenErrorPopup] = useState(false);
+
+  // Global token error listener
+  useEffect(() => {
+    const handleTokenError = () => {
+      setShowTokenErrorPopup(true);
+    };
+
+    window.addEventListener('tokenError', handleTokenError);
+    
+    return () => {
+      window.removeEventListener('tokenError', handleTokenError);
+    };
+  }, []);
 
   // Fetch posts when selectedFilter changes
   useEffect(() => {
     const fetchPosts = async () => {
+      // Don't fetch if no active user
+      if (!activeUser) {
+        setPosts([]);
+        return;
+      }
+
       // Only fetch for Global category
       if (selectedFilter !== "Global") {
         setPosts([]);
@@ -77,6 +98,14 @@ export default function FeedsMainPage() {
         );
 
         if (!response.ok) {
+          // Check for token errors
+          if (response.status === 401) {
+            const errorData = await response.json().catch(() => ({}));
+            if (errorData.message === "No token provided" || errorData.message?.includes("token")) {
+              setShowTokenErrorPopup(true);
+              return;
+            }
+          }
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -88,7 +117,12 @@ export default function FeedsMainPage() {
         setPosts(postsArray);
       } catch (err) {
         console.error("Error fetching posts:", err);
-        setError("Failed to load posts");
+        // Check if it's a token error
+        if (err instanceof Error && err.message.includes("token")) {
+          setShowTokenErrorPopup(true);
+        } else {
+          setError("Failed to load posts");
+        }
         setPosts([]);
       } finally {
         setLoading(false);
@@ -96,7 +130,7 @@ export default function FeedsMainPage() {
     };
 
     fetchPosts();
-  }, [selectedFilter]);
+  }, [selectedFilter, activeUser]);
 
   const postModes = [
     { id: "Global", label: "Global" },
@@ -1043,6 +1077,12 @@ export default function FeedsMainPage() {
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />
+
+      {/* Token Error Popup */}
+      <TokenErrorPopup 
+        isOpen={showTokenErrorPopup} 
+        onClose={() => setShowTokenErrorPopup(false)} 
+      />
     </div>
   );
 }
