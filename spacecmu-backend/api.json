@@ -383,6 +383,38 @@
                                     ]
                                 }
                             }
+                        },
+                        {
+                            "name": "Search Users",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/search?query=somchai",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        "search"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "query",
+                                            "value": "somchai",
+                                            "description": "Search term"
+                                        }
+                                    ]
+                                },
+                                "description": "Search for users by firstName, lastName, username, studentId, or full name.\n\n**Search Criteria:**\n- **First Name**: `query=somchai`\n- **Last Name**: `query=CMU`\n- **Full Name**: `query=somchai cmu`\n- **Username**: `query=somchai_cmu` or `query=@somchai_cmu`\n- **Student ID**: `query=650612102`\n\n**Features:**\n- Case-insensitive search\n- Partial matching (contains)\n- Excludes current user from results\n- Maximum 20 results\n\n**Response Format:**\n```json\n[\n  {\n    \"id\": \"user-uuid\",\n    \"firstName\": \"Somchai\",\n    \"lastName\": \"CMU\",\n    \"username\": \"somchai_cmu\",\n    \"studentId\": \"650610000\",\n    \"avatarUrl\": \"/uploads/avatar.jpg\",\n    \"bio\": \"Engineering student\",\n    \"faculty\": \"Engineering\",\n    \"major\": \"Computer Engineering\",\n    \"year\": 3,\n    \"friendsCount\": 42\n  }\n]\n```\n\n**Note:** @ prefix is automatically removed from username searches"
+                            }
                         }
                     ]
                 }
