@@ -93,6 +93,10 @@ export default function PostCard({
     [],
   );
 
+  // Media scroll position tracking
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(true);
+
   // Debug log
   console.log("PostCard render:", {
     postId: post.id,
@@ -164,23 +168,38 @@ export default function PostCard({
   useEffect(() => {
     if (!showImageLightbox) return;
 
+    // Prevent body scroll when lightbox is open
+    document.body.style.overflow = 'hidden';
+
     const handleKeyPress = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setShowImageLightbox(false);
-      } else if (e.key === "ArrowLeft" && selectedImageIndex > 0) {
-        setSelectedImageIndex((prev) => prev - 1);
-      } else if (
-        e.key === "ArrowRight" &&
-        post.media &&
-        selectedImageIndex <
-          post.media.filter((m) => m.mediaType === "image").length - 1
-      ) {
-        setSelectedImageIndex((prev) => prev + 1);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault(); // Prevent page scroll
+        e.stopPropagation(); // Prevent event bubbling
+        if (selectedImageIndex > 0) {
+          setSelectedImageIndex((prev) => prev - 1);
+        }
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault(); // Prevent page scroll
+        e.stopPropagation(); // Prevent event bubbling
+        if (
+          post.media &&
+          selectedImageIndex <
+            post.media.filter((m) => m.mediaType === "image").length - 1
+        ) {
+          setSelectedImageIndex((prev) => prev + 1);
+        }
       }
     };
 
-    window.addEventListener("keydown", handleKeyPress);
-    return () => window.removeEventListener("keydown", handleKeyPress);
+    // Use capture phase to catch event before it reaches other elements
+    window.addEventListener("keydown", handleKeyPress, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress, true);
+      // Restore body scroll when lightbox closes
+      document.body.style.overflow = 'unset';
+    };
   }, [showImageLightbox, selectedImageIndex, post.media]);
 
   // Helper function to format time ago
@@ -521,6 +540,20 @@ export default function PostCard({
     // Delete post logic here
   };
 
+  // Handle scroll position for media arrows
+  const handleMediaScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const target = e.currentTarget;
+    const scrollLeft = target.scrollLeft;
+    const scrollWidth = target.scrollWidth;
+    const clientWidth = target.clientWidth;
+
+    // Show left arrow if scrolled away from left edge
+    setShowLeftArrow(scrollLeft > 10);
+
+    // Show right arrow if not at right edge
+    setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
+  };
+
   return (
     <div className="bg-gray-50 rounded-2xl p-6 shadow relative">
       <div className="flex items-center gap-3 mb-2">
@@ -553,9 +586,52 @@ export default function PostCard({
 
       {/* Post Media - Threads-style Horizontal Layout */}
       {post.media && post.media.length > 0 && (
-        <div className={`mb-3 ${post.media.length <= 2 ? "" : "-mx-6"}`}>
+        <div className={`mb-3 ${post.media.length <= 2 ? "" : "-mx-6"} relative group/media`}>
+          {/* Left Arrow Indicator - Show only when scrolled right and has multiple images */}
+          {post.media.length > 1 && showLeftArrow && (
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-30 group-hover/media:opacity-100 transition-opacity duration-300">
+              <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
+                <svg 
+                  className="w-5 h-5 text-gray-700" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2.5} 
+                    d="M15 19l-7-7 7-7" 
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
+
+          {/* Right Arrow Indicator - Show only when can scroll right and has multiple images */}
+          {post.media.length > 1 && showRightArrow && (
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-30 group-hover/media:opacity-100 transition-opacity duration-300">
+              <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
+                <svg 
+                  className="w-5 h-5 text-gray-700" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path 
+                    strokeLinecap="round" 
+                    strokeLinejoin="round" 
+                    strokeWidth={2.5} 
+                    d="M9 5l7 7-7 7" 
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
+
           <div
             className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? "" : "px-6"}`}
+            onScroll={handleMediaScroll}
           >
             <div className="flex items-center gap-2 w-max min-w-full justify-center">
               {post.media.map((media, index) => {
