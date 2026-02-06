@@ -6,6 +6,7 @@ import {
     getPendingRequests,
     deleteFriend,
     getActiveFriends,
+    getPeopleYouMayKnow,
 } from "../controllers/friendController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 
@@ -16,6 +17,7 @@ router.post("/respond", sessionMiddleware, respondToRequest);
 router.get("/me", sessionMiddleware, getFriendsList);
 router.get("/requests/me", sessionMiddleware, getPendingRequests);
 router.get("/active", sessionMiddleware, getActiveFriends);
+router.get("/suggestions", sessionMiddleware, getPeopleYouMayKnow);
 router.delete("/:friendId", sessionMiddleware, deleteFriend);
 
 export default router;

@@ -1207,6 +1207,31 @@
                             }
                         },
                         {
+                            "name": "Get Friend Suggestions (People You May Know)",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/suggestions",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "suggestions"
+                                    ]
+                                },
+                                "description": "Get personalized friend suggestions using intelligent matching algorithms.\n\n**Two Strategies:**\n\n1. **No Friends Yet** - Suggests users with nearby student IDs\n   - 5 users before your student ID\n   - 5 users after your student ID\n   - Total: up to 10 suggestions\n\n2. **Has Friends** - Suggests friends of friends\n   - Random 10 from your friends' friends\n   - Sorted by mutual friends count\n   - Excludes existing friends and self\n\n**Caching:**\n- Results cached for 5 minutes\n- Reduces database load\n- Faster response times\n\n**Response Format:**\n```json\n[\n  {\n    \"id\": \"user-uuid\",\n    \"firstName\": \"People\",\n    \"lastName\": \"5\",\n    \"username\": \"people5\",\n    \"studentId\": \"650612097\",\n    \"avatarUrl\": \"/avatar.jpg\",\n    \"bio\": \"Design is my passion\",\n    \"faculty\": \"Engineering\",\n    \"major\": \"Computer Engineering\",\n    \"year\": 3,\n    \"friendsCount\": 42,\n    \"mutualFriendsCount\": 5,\n    \"suggestionReason\": \"nearby_student_id\"\n  },\n  {\n    \"mutualFriendsCount\": 3,\n    \"suggestionReason\": \"friend_of_friend\"\n  }\n]\n```\n\n**Suggestion Reasons:**\n- `nearby_student_id` - User has similar student ID\n- `friend_of_friend` - User is friend of your friend\n\n**Features:**\n- Smart matching based on user state\n- Mutual friends count for social proof\n- Cached for performance\n- Maximum 10 suggestions"
+                            }
+                        },
+                        {
                             "name": "Unfriend User",
                             "request": {
                                 "method": "DELETE",
@@ -1230,10 +1255,11 @@
                                     "variable": [
                                         {
                                             "key": "friendId",
-                                            "value": "friend_id_here"
+                                            "value": "friend_user_id_here"
                                         }
                                     ]
-                                }
+                                },
+                                "description": "Remove a friend from your friends list. This will delete the friendship record between you and the specified user.\n\n**Response:**\n```json\n{\n  \"message\": \"Friend removed successfully\"\n}\n```"
                             }
                         }
                     ]
