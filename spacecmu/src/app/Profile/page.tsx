@@ -680,7 +680,7 @@ export default function ProfileMainPage() {
             {/* Tab Content */}
             <div className="bg-white rounded-2xl shadow p-6">
               {activeTab === "Posts" && (
-                <div>
+                <div className="max-w-[1400px] mx-left">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -816,7 +816,7 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Reposts" && (
-                <div>
+                <div className="max-w-[1400px] mx-left">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -874,7 +874,7 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Liked" && (
-                <div>
+                <div className="max-w-[1400px] mx-left">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -932,7 +932,7 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Saved" && (
-                <div>
+                <div className="max-w-[1400px] mx-left">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
