@@ -266,3 +266,216 @@ export const getActiveFriends = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error fetching active friends" });
     }
 };
+
+// Cache for friend suggestions (5 minutes TTL)
+const suggestionsCache = new Map<string, { data: any[], timestamp: number }>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Get People You May Know (Friend Suggestions)
+export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Check cache first
+        const cached = suggestionsCache.get(userId);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            return res.json(cached.data);
+        }
+
+        // Get user's friends count
+        const friendships = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                and(
+                    or(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, userId)),
+                    eq(friendshipsTable.status, "accepted")
+                )
+            );
+
+        const hasFriends = friendships.length > 0;
+        let suggestions: any[] = [];
+
+        if (!hasFriends) {
+            // Strategy 1: Suggest by student ID proximity (5 before, 5 after)
+            suggestions = await suggestByStudentId(userId);
+        } else {
+            // Strategy 2: Suggest friends of friends
+            suggestions = await suggestFriendsOfFriends(userId, friendships);
+        }
+
+        // Cache the results
+        suggestionsCache.set(userId, {
+            data: suggestions,
+            timestamp: Date.now()
+        });
+
+        res.json(suggestions);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching friend suggestions" });
+    }
+};
+
+// Strategy 1: Suggest users with nearby student IDs
+const suggestByStudentId = async (userId: string) => {
+    // Get current user's studentId
+    const currentUser = await dbClient
+        .select({ studentId: usersTable.studentId })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId))
+        .limit(1);
+
+    if (currentUser.length === 0 || !currentUser[0].studentId) {
+        return [];
+    }
+
+    const myStudentId = currentUser[0].studentId;
+
+    // Get 5 users before (lower student IDs)
+    const usersBefore = await dbClient
+        .select({
+            id: usersTable.id,
+            firstName: usersTable.firstName,
+            lastName: usersTable.lastName,
+            username: usersTable.username,
+            studentId: usersTable.studentId,
+            avatarUrl: usersTable.avatarUrl,
+            bio: usersTable.bio,
+            faculty: usersTable.faculty,
+            major: usersTable.major,
+            year: usersTable.year,
+            friendsCount: usersTable.friendsCount,
+        })
+        .from(usersTable)
+        .where(
+            and(
+                sql`${usersTable.studentId} < ${myStudentId}`,
+                sql`${usersTable.studentId} IS NOT NULL`,
+                sql`${usersTable.id} != ${userId}`
+            )
+        )
+        .orderBy(sql`${usersTable.studentId} DESC`)
+        .limit(5);
+
+    // Get 5 users after (higher student IDs)
+    const usersAfter = await dbClient
+        .select({
+            id: usersTable.id,
+            firstName: usersTable.firstName,
+            lastName: usersTable.lastName,
+            username: usersTable.username,
+            studentId: usersTable.studentId,
+            avatarUrl: usersTable.avatarUrl,
+            bio: usersTable.bio,
+            faculty: usersTable.faculty,
+            major: usersTable.major,
+            year: usersTable.year,
+            friendsCount: usersTable.friendsCount,
+        })
+        .from(usersTable)
+        .where(
+            and(
+                sql`${usersTable.studentId} > ${myStudentId}`,
+                sql`${usersTable.studentId} IS NOT NULL`,
+                sql`${usersTable.id} != ${userId}`
+            )
+        )
+        .orderBy(sql`${usersTable.studentId} ASC`)
+        .limit(5);
+
+    // Combine and add suggestion reason
+    const suggestions = [...usersBefore.reverse(), ...usersAfter].map(user => ({
+        ...user,
+        mutualFriendsCount: 0,
+        suggestionReason: "nearby_student_id"
+    }));
+
+    return suggestions;
+};
+
+// Strategy 2: Suggest friends of friends
+const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => {
+    // Get my friend IDs
+    const myFriendIds = myFriendships.map(f =>
+        f.userId1 === userId ? f.userId2 : f.userId1
+    );
+
+    if (myFriendIds.length === 0) {
+        return [];
+    }
+
+    // Get friends of my friends
+    const friendsOfFriendships = await dbClient
+        .select()
+        .from(friendshipsTable)
+        .where(
+            and(
+                or(
+                    sql`${friendshipsTable.userId1} IN (${sql.join(myFriendIds.map(id => sql`${id}`), sql`, `)})`,
+                    sql`${friendshipsTable.userId2} IN (${sql.join(myFriendIds.map(id => sql`${id}`), sql`, `)})`
+                ),
+                eq(friendshipsTable.status, "accepted")
+            )
+        );
+
+    // Extract unique friend-of-friend IDs
+    const friendOfFriendIds = new Set<string>();
+    friendsOfFriendships.forEach(f => {
+        const fofId = myFriendIds.includes(f.userId1) ? f.userId2 : f.userId1;
+        // Exclude self and existing friends
+        if (fofId !== userId && !myFriendIds.includes(fofId)) {
+            friendOfFriendIds.add(fofId);
+        }
+    });
+
+    if (friendOfFriendIds.size === 0) {
+        return [];
+    }
+
+    const fofArray = Array.from(friendOfFriendIds);
+
+    // Get user details for friends of friends
+    const suggestions = await dbClient
+        .select({
+            id: usersTable.id,
+            firstName: usersTable.firstName,
+            lastName: usersTable.lastName,
+            username: usersTable.username,
+            studentId: usersTable.studentId,
+            avatarUrl: usersTable.avatarUrl,
+            bio: usersTable.bio,
+            faculty: usersTable.faculty,
+            major: usersTable.major,
+            year: usersTable.year,
+            friendsCount: usersTable.friendsCount,
+        })
+        .from(usersTable)
+        .where(sql`${usersTable.id} IN (${sql.join(fofArray.map(id => sql`${id}`), sql`, `)})`);
+
+    // Calculate mutual friends count for each suggestion
+    const suggestionsWithMutual = suggestions.map(user => {
+        // Count how many of my friends are also friends with this user
+        const mutualCount = friendsOfFriendships.filter(f =>
+            (f.userId1 === user.id || f.userId2 === user.id) &&
+            (myFriendIds.includes(f.userId1) || myFriendIds.includes(f.userId2))
+        ).length;
+
+        return {
+            ...user,
+            mutualFriendsCount: mutualCount,
+            suggestionReason: "friend_of_friend"
+        };
+    });
+
+    // Sort by mutual friends count (descending) and randomly select 10
+    const sorted = suggestionsWithMutual.sort((a, b) => b.mutualFriendsCount - a.mutualFriendsCount);
+
+    // Shuffle and take 10
+    const shuffled = sorted.sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, 10);
+};
+
