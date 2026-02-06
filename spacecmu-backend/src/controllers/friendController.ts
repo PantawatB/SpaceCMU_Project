@@ -180,7 +180,7 @@ export const deleteFriend = async (req: Request, res: Response) => {
     }
 };
 
-// Get friends with their last active status
+// Get friends with their last active status (Top 3 most recent)
 export const getActiveFriends = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
@@ -208,7 +208,7 @@ export const getActiveFriends = async (req: Request, res: Response) => {
             return res.json([]);
         }
 
-        // Fetch friend details with lastActiveAt
+        // Fetch friend details with lastActiveAt, sorted by most recent activity
         const friends = await dbClient
             .select({
                 id: usersTable.id,
@@ -220,7 +220,8 @@ export const getActiveFriends = async (req: Request, res: Response) => {
             })
             .from(usersTable)
             .where(sql`${usersTable.id} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`)
-            .orderBy(sql`${usersTable.lastActiveAt} DESC NULLS LAST`);
+            .orderBy(sql`${usersTable.lastActiveAt} DESC NULLS LAST`)
+            .limit(3); // Only get top 3 most recently active friends
 
         // Format response with activity status
         const activeFriends = friends.map(friend => {
