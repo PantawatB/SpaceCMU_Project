@@ -7,6 +7,7 @@ import {
     updateBio,
     updateAvatar,
     deleteAvatar,
+    searchUsers,
 } from "../controllers/userController.js";
 import { getMe } from "../controllers/authController.js";
 import { upload } from "../middleware/uploadMiddleware.js";
@@ -15,6 +16,7 @@ import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 const router = Router();
 
 router.get("/me", sessionMiddleware, getMe);
+router.get("/search", sessionMiddleware, searchUsers);
 router.get("/", getAllUsers);
 router.get("/:id", getUserById);
 router.post("/", createUser);

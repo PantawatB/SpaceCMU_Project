@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { usersTable } from "../../db/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
@@ -213,4 +213,60 @@ export const deleteAvatar = async (req: Request, res: Response) => {
     }
 };
 
+// Search Users
+export const searchUsers = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
 
+        const { query } = req.query;
+
+        if (!query || typeof query !== "string") {
+            res.status(400).json({ message: "Search query is required" });
+            return;
+        }
+
+        // Remove @ prefix if searching by username
+        const searchTerm = query.trim().replace(/^@/, "");
+
+        if (searchTerm.length === 0) {
+            res.json([]);
+            return;
+        }
+
+        // Search by firstName, lastName, username, or studentId (case-insensitive)
+        const users = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                studentId: usersTable.studentId,
+                avatarUrl: usersTable.avatarUrl,
+                bio: usersTable.bio,
+                faculty: usersTable.faculty,
+                major: usersTable.major,
+                year: usersTable.year,
+                friendsCount: usersTable.friendsCount,
+            })
+            .from(usersTable)
+            .where(
+                sql`(
+                    LOWER(${usersTable.firstName}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.lastName}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.username}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.studentId}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(CONCAT(${usersTable.firstName}, ' ', ${usersTable.lastName})) LIKE LOWER(${`%${searchTerm}%`})
+                ) AND ${usersTable.id} != ${userId}`
+            )
+            .limit(20); // Limit to 20 results
+
+        res.json(users);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error searching users" });
+    }
+};
