@@ -2,8 +2,10 @@
 
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
-import React from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { User } from "@/types/user";
+import { API_CONFIG } from "@/lib/config";
 
 // Friend card component
 interface FriendCardProps {
@@ -182,6 +184,81 @@ const peopleYouMayKnow: FriendCardProps[] = [
 ];
 
 export default function FriendsMainPage() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<User[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Search function
+  const searchUsers = async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/users/search?query=${encodeURIComponent(query)}`,
+        {
+          method: "GET",
+          credentials: "include", // Include cookies (token)
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // API returns array directly, not wrapped in { users: [] }
+        setSearchResults(Array.isArray(data) ? data : []);
+        setShowDropdown(true);
+      } else {
+        console.error("Search failed:", response.statusText);
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching users:", error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced search
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      searchUsers(value);
+    }, 300);
+  };
+
+  const handleUserClick = (userId: string) => {
+    // Navigate to user profile or handle user selection
+    window.location.href = `/Profile/${userId}`;
+    setShowDropdown(false);
+  };
 
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
@@ -190,7 +267,7 @@ export default function FriendsMainPage() {
       {/* Main Content */}
       <main className="flex-1 p-8">
         {/* Search bar */}
-        <div className="mb-6">
+        <div className="mb-6" ref={searchRef}>
           <div className="relative w-full">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               <svg
@@ -222,8 +299,111 @@ export default function FriendsMainPage() {
             <input
               type="text"
               placeholder="Search"
+              value={searchQuery}
+              onChange={handleSearchChange}
               className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
+            
+            {/* Search Dropdown */}
+            {showDropdown && (
+              <div className="absolute top-full mt-2 w-full bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden z-50 max-h-[500px] overflow-y-auto">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600"></div>
+                      <p className="text-sm text-gray-500">Searching...</p>
+                    </div>
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="divide-y divide-gray-100">
+                    {searchResults.map((user) => (
+                      <div
+                        key={user.id}
+                        onClick={() => handleUserClick(user.id)}
+                        className="flex items-center gap-4 px-5 py-4 hover:bg-linear-to-r hover:from-gray-50 hover:to-blue-50/30 cursor-pointer transition-all duration-200 group"
+                      >
+                        {/* Avatar */}
+                        <div className="relative shrink-0">
+                          <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
+                            <Image
+                              src={user.avatarUrl || "/tanjiro.jpg"}
+                              alt={`${user.firstName} ${user.lastName}`}
+                              width={48}
+                              height={48}
+                              className="rounded-full object-cover w-full h-full"
+                            />
+                          </div>
+                        </div>
+                        
+                        {/* User Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {user.firstName} {user.lastName}
+                            </p>
+                          </div>
+                          <p className="text-xs text-gray-500 font-medium mb-1">
+                            @{user.username}
+                          </p>
+                          {user.bio ? (
+                            <p className="text-xs text-gray-600 line-clamp-1 mt-1">
+                              {user.bio}
+                            </p>
+                          ) : (
+                            <p className="text-xs text-gray-400 italic">No bio</p>
+                          )}
+                        </div>
+
+                        {/* Friends Count & Arrow */}
+                        <div className="shrink-0 flex items-center gap-3">
+                          {user.friendsCount > 0 && (
+                            <div className="flex items-center gap-1 px-2 py-1 bg-gray-100 rounded-full">
+                              <svg className="w-3 h-3 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                              </svg>
+                              <span className="text-xs font-medium text-gray-700">
+                                {user.friendsCount}
+                              </span>
+                            </div>
+                          )}
+                          <svg
+                            className="w-5 h-5 text-gray-400 group-hover:text-blue-500 group-hover:translate-x-1 transition-all"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9 5l7 7-7 7"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : searchQuery.trim() ? (
+                  <div className="px-4 py-12 text-center">
+                    <svg
+                      className="w-12 h-12 mx-auto text-gray-300 mb-3"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={1.5}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    <p className="text-sm font-medium text-gray-600 mb-1">No users found</p>
+                    <p className="text-xs text-gray-400">Try searching with a different name</p>
+                  </div>
+                ) : null}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-col">
