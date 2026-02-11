@@ -448,8 +448,6 @@ export default function PostCard({
 
       // Refresh comments to show new comment with media
       await fetchComments();
-
-      alert("Comment posted successfully!");
     } catch (error) {
       console.error("Error posting comment:", error);
       const errorMessage =

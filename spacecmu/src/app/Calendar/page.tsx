@@ -26,6 +26,7 @@ export default function CalendarPage() {
     details: string;
     time: string;
     id: string;
+    completed: boolean;
   }>>>({});
 
   const months = [
@@ -370,14 +371,54 @@ export default function CalendarPage() {
                         );
                       }
                       
+                      // Separate completed and incomplete tasks
+                      const incompleteTasks = dayTasks.filter(task => !task.completed);
+                      const completedTasks = dayTasks.filter(task => task.completed);
+                      
                       return (
                         <div className="space-y-3">
-                          {dayTasks.map((task) => (
+                          {/* Incomplete Tasks */}
+                          {incompleteTasks.map((task) => (
                             <NoteCard
                               key={task.id}
                               title={task.title}
                               details={task.details}
                               time={task.time}
+                              completed={task.completed}
+                              onSuccess={() => setTasks(prev => ({
+                                ...prev,
+                                [dateKey]: prev[dateKey].map(t => 
+                                  t.id === task.id ? { ...t, completed: true } : t
+                                )
+                              }))}
+                              onDelete={() => setTasks(prev => ({
+                                ...prev,
+                                [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
+                              }))}
+                            />
+                          ))}
+                          
+                          {/* Divider - Only show if there are both incomplete and completed tasks */}
+                          {incompleteTasks.length > 0 && completedTasks.length > 0 && (
+                            <div className="py-2">
+                              <div className="border-t-2 border-gray-300"></div>
+                            </div>
+                          )}
+                          
+                          {/* Completed Tasks */}
+                          {completedTasks.map((task) => (
+                            <NoteCard
+                              key={task.id}
+                              title={task.title}
+                              details={task.details}
+                              time={task.time}
+                              completed={task.completed}
+                              onSuccess={() => setTasks(prev => ({
+                                ...prev,
+                                [dateKey]: prev[dateKey].map(t => 
+                                  t.id === task.id ? { ...t, completed: false } : t
+                                )
+                              }))}
                               onDelete={() => setTasks(prev => ({
                                 ...prev,
                                 [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
@@ -484,14 +525,54 @@ export default function CalendarPage() {
                   );
                 }
                 
+                // Separate completed and incomplete tasks
+                const incompleteTasks = dayTasks.filter(task => !task.completed);
+                const completedTasks = dayTasks.filter(task => task.completed);
+                
                 return (
                   <div className="space-y-3">
-                    {dayTasks.map((task) => (
+                    {/* Incomplete Tasks */}
+                    {incompleteTasks.map((task) => (
                       <NoteCard
                         key={task.id}
                         title={task.title}
                         details={task.details}
                         time={task.time}
+                        completed={task.completed}
+                        onSuccess={() => setTasks(prev => ({
+                          ...prev,
+                          [dateKey]: prev[dateKey].map(t => 
+                            t.id === task.id ? { ...t, completed: true } : t
+                          )
+                        }))}
+                        onDelete={() => setTasks(prev => ({
+                          ...prev,
+                          [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
+                        }))}
+                      />
+                    ))}
+                    
+                    {/* Divider - Only show if there are both incomplete and completed tasks */}
+                    {incompleteTasks.length > 0 && completedTasks.length > 0 && (
+                      <div className="py-2">
+                        <div className="border-t-2 border-gray-300"></div>
+                      </div>
+                    )}
+                    
+                    {/* Completed Tasks */}
+                    {completedTasks.map((task) => (
+                      <NoteCard
+                        key={task.id}
+                        title={task.title}
+                        details={task.details}
+                        time={task.time}
+                        completed={task.completed}
+                        onSuccess={() => setTasks(prev => ({
+                          ...prev,
+                          [dateKey]: prev[dateKey].map(t => 
+                            t.id === task.id ? { ...t, completed: false } : t
+                          )
+                        }))}
                         onDelete={() => setTasks(prev => ({
                           ...prev,
                           [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
@@ -559,7 +640,7 @@ export default function CalendarPage() {
                 </h3>
 
                 {/* Preview Card - use NoteCard component so preview and real note match exactly */}
-                <NoteCard title={taskTitle || "Jane Doe"} details={taskDetails || "invited you to edit the Web Design file."} time={taskTime} />
+                <NoteCard title={taskTitle || "Preview"} details={taskDetails || "This is an example that will be displayed here."} time={taskTime} />
               </div>
 
               {/* Right Side - Form */}
@@ -580,6 +661,7 @@ export default function CalendarPage() {
                       title: taskTitle,
                       details: taskDetails,
                       time: taskTime,
+                      completed: false,
                     };
                     
                     // Add task to the tasks object
