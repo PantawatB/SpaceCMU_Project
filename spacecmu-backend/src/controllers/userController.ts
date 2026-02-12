@@ -1,7 +1,8 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { usersTable } from "../../db/schema.js";
-import { eq, sql } from "drizzle-orm";
+import { usersTable, friendshipsTable } from "../../db/schema.js";
+import { eq, sql, or, and } from "drizzle-orm";
+import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
@@ -17,10 +18,27 @@ export const getAllUsers = async (req: Request, res: Response) => {
     }
 };
 
-// Get user by ID
+// Get user by ID (with friendship status)
 export const getUserById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        let currentUserId = req.session?.activeUserId; // May be undefined if not logged in
+
+        // Fallback: Try to get userId from JWT token directly (for testing)
+        if (!currentUserId) {
+            const authHeader = req.headers.authorization;
+            if (authHeader && authHeader.startsWith("Bearer ")) {
+                try {
+                    const token = authHeader.split(" ")[1];
+                    const jwtSecret = process.env.JWT_SECRET || "fallback_secret";
+                    const decoded: any = jwt.verify(token, jwtSecret);
+                    currentUserId = decoded.id;
+                } catch (error) {
+                    // Invalid token, continue as unauthenticated
+                }
+            }
+        }
+
         const user = await dbClient
             .select()
             .from(usersTable)
@@ -32,7 +50,84 @@ export const getUserById = async (req: Request, res: Response) => {
             return;
         }
 
-        res.json(user[0]);
+        const userData = user[0];
+
+        // If not logged in, return basic user info
+        if (!currentUserId) {
+            return res.json(userData);
+        }
+
+        // If viewing own profile (and not an anonymous account), return basic info
+        if (currentUserId === id && !userData.isAnonymous) {
+            return res.json(userData);
+        }
+
+        // Check friendship status
+        const friendship = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                or(
+                    and(eq(friendshipsTable.userId1, currentUserId), eq(friendshipsTable.userId2, id)),
+                    and(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, currentUserId))
+                )
+            )
+            .limit(1);
+
+        let friendshipStatus: "none" | "pending" | "accepted" | "blocked" = "none";
+        let isPendingFrom: string | null = null; // who sent the pending request
+
+        if (friendship.length > 0) {
+            friendshipStatus = friendship[0].status as "pending" | "accepted" | "blocked";
+            if (friendshipStatus === "pending") {
+                isPendingFrom = friendship[0].userId1 === currentUserId ? "me" : "them";
+            }
+        }
+
+        // Calculate mutual friends if they are friends
+        let mutualFriendsCount = 0;
+        if (friendshipStatus === "accepted") {
+            // Get my friends
+            const myFriendships = await dbClient
+                .select()
+                .from(friendshipsTable)
+                .where(
+                    and(
+                        or(eq(friendshipsTable.userId1, currentUserId), eq(friendshipsTable.userId2, currentUserId)),
+                        eq(friendshipsTable.status, "accepted")
+                    )
+                );
+
+            const myFriendIds = myFriendships.map(f =>
+                f.userId1 === currentUserId ? f.userId2 : f.userId1
+            );
+
+            // Get their friends
+            const theirFriendships = await dbClient
+                .select()
+                .from(friendshipsTable)
+                .where(
+                    and(
+                        or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
+                        eq(friendshipsTable.status, "accepted")
+                    )
+                );
+
+            const theirFriendIds = theirFriendships.map(f =>
+                f.userId1 === id ? f.userId2 : f.userId1
+            );
+
+            // Count mutual friends
+            mutualFriendsCount = myFriendIds.filter(fid => theirFriendIds.includes(fid)).length;
+        }
+
+        // Return user data with friendship info
+        res.json({
+            ...userData,
+            friendshipStatus,
+            isPendingFrom,
+            mutualFriendsCount
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching user" });

@@ -122,3 +122,58 @@ export const deleteEvent = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error deleting event" });
     }
 };
+
+// Toggle event status between completed (success) and cancelled (unsuccess)
+export const toggleEventStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { eventId } = req.params;
+
+        // Verify event belongs to user
+        const event = await dbClient
+            .select()
+            .from(calendarEventsTable)
+            .where(eq(calendarEventsTable.id, eventId))
+            .limit(1);
+
+        if (event.length === 0) {
+            return res.status(404).json({ message: "Event not found" });
+        }
+
+        if (event[0].userId !== userId) {
+            return res.status(403).json({ message: "Forbidden" });
+        }
+
+        // Toggle status: completed <-> cancelled
+        const currentStatus = event[0].status;
+        let newStatus: "completed" | "cancelled";
+
+        if (currentStatus === "completed") {
+            newStatus = "cancelled";
+        } else if (currentStatus === "cancelled") {
+            newStatus = "completed";
+        } else {
+            // If pending, default to completed
+            newStatus = "completed";
+        }
+
+        // Update status
+        const [updatedEvent] = await dbClient
+            .update(calendarEventsTable)
+            .set({ status: newStatus })
+            .where(eq(calendarEventsTable.id, eventId))
+            .returning();
+
+        res.json({
+            message: `Event marked as ${newStatus}`,
+            event: updatedEvent,
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error toggling event status" });
+    }
+};
