@@ -7,6 +7,12 @@ import { getUserIdFromRequest } from "../utils/authUtils.js";
 // Get all market items with filters
 export const getMarketItems = async (req: Request, res: Response) => {
     try {
+        // Require authentication
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized. Please login to view market items." });
+        }
+
         const { category, sortBy } = req.query;
 
         let query = dbClient
@@ -58,6 +64,12 @@ export const getMarketItems = async (req: Request, res: Response) => {
 // Get all categories
 export const getAllCategories = async (req: Request, res: Response) => {
     try {
+        // Require authentication
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized. Please login to view categories." });
+        }
+
         const categories = await dbClient.select().from(marketCategoriesTable);
         res.json(categories);
     } catch (error) {

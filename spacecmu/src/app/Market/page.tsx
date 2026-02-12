@@ -5,6 +5,9 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
 import { API_CONFIG } from "@/lib/config";
+import { useUser } from "@/contexts/UserContext";
+import { apiService } from "@/lib/api";
+import { useToast } from "@/contexts/ToastContext";
 
 interface MarketItemSeller {
   id: string;
@@ -27,6 +30,8 @@ interface MarketItemAPI {
 }
 
 export default function MarketMainPage() {
+  const { activeMode, refreshUser } = useUser();
+  const { showSuccess, showError, showWarning } = useToast();
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
   const [showProductDetailPopup, setShowProductDetailPopup] = React.useState(false);
   const [selectedProduct, setSelectedProduct] = React.useState<MarketItemAPI | null>(null);
@@ -39,6 +44,32 @@ export default function MarketMainPage() {
   const [apiMarketItems, setApiMarketItems] = useState<MarketItemAPI[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showModeWarning, setShowModeWarning] = useState(false);
+
+  // Force switch to PUBLIC mode when entering Market page
+  useEffect(() => {
+    const switchToPublicMode = async () => {
+      if (activeMode === "ANONYMOUS") {
+        try {
+          // Show warning toast
+          setShowModeWarning(true);
+          
+          // Auto-hide toast after 4 seconds
+          setTimeout(() => {
+            setShowModeWarning(false);
+          }, 4000);
+
+          // Switch to PUBLIC mode
+          await apiService.switchMode("PUBLIC");
+          await refreshUser(true); // Silent refresh
+        } catch (err) {
+          console.error('Failed to switch to PUBLIC mode:', err);
+        }
+      }
+    };
+
+    switchToPublicMode();
+  }, [activeMode, refreshUser]);
 
   // Fetch market items from API
   useEffect(() => {
@@ -83,7 +114,7 @@ export default function MarketMainPage() {
       // Check if adding these files would exceed the limit
       const totalFiles = uploadedFiles.length + fileArray.length;
       if (totalFiles > 10) {
-        alert(`สามารถอัพโหลดได้สูงสุด 10 รูปเท่านั้น\nปัจจุบันมี ${uploadedFiles.length} รูป กำลังเพิ่ม ${fileArray.length} รูป`);
+        showWarning(`สามารถอัพโหลดได้สูงสุด 10 รูปเท่านั้น\nปัจจุบันมี ${uploadedFiles.length} รูป กำลังเพิ่ม ${fileArray.length} รูป`);
         e.target.value = '';
         return;
       }
@@ -326,7 +357,7 @@ export default function MarketMainPage() {
                     try {
                       // Validate images (optional now - can upload without images)
                       if (uploadedFiles.length > 10) {
-                        alert('สามารถอัพโหลดได้สูงสุด 10 รูปเท่านั้น');
+                        showWarning('สามารถอัพโหลดได้สูงสุด 10 รูปเท่านั้น');
                         return;
                       }
 
@@ -401,10 +432,10 @@ export default function MarketMainPage() {
                       setUploadedFiles([]);
 
                       // Show success message (optional)
-                      alert('สินค้าถูกเพิ่มเรียบร้อยแล้ว!');
+                      showSuccess('สินค้าถูกเพิ่มเรียบร้อยแล้ว!');
                     } catch (err) {
                       console.error('Error creating market item:', err);
-                      alert(`เกิดข้อผิดพลาดในการเพิ่มสินค้า: ${err instanceof Error ? err.message : 'กรุณาลองใหม่อีกครั้ง'}`);
+                      showError(`เกิดข้อผิดพลาดในการเพิ่มสินค้า: ${err instanceof Error ? err.message : 'กรุณาลองใหม่อีกครั้ง'}`);
                     }
                   }}
                   className="space-y-6"
@@ -808,7 +839,7 @@ export default function MarketMainPage() {
                 <button
                   onClick={() => {
                     // TODO: Implement chat functionality
-                    alert(`เปิดแชทกับ ${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`);
+                    showSuccess(`เปิดแชทกับ ${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`);
                   }}
                   className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
                 >
@@ -840,6 +871,69 @@ export default function MarketMainPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mode Warning Toast */}
+      {showModeWarning && (
+        <div className="fixed top-20 right-4 z-50 animate-slide-in-right">
+          <div className="relative w-[330px] h-20 rounded-lg bg-white shadow-[rgba(149,157,165,0.2)_0px_8px_24px] overflow-hidden flex items-center justify-around gap-4 px-4 py-2.5">
+            {/* Wave Background */}
+            <svg 
+              className="absolute left-[-31px] top-8 w-20 rotate-90 fill-[#ffa30d3a]" 
+              viewBox="0 0 1440 320" 
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path 
+                d="M0,256L11.4,240C22.9,224,46,192,69,192C91.4,192,114,224,137,234.7C160,245,183,235,206,213.3C228.6,192,251,160,274,149.3C297.1,139,320,149,343,181.3C365.7,213,389,267,411,282.7C434.3,299,457,277,480,250.7C502.9,224,526,192,549,181.3C571.4,171,594,181,617,208C640,235,663,277,686,256C708.6,235,731,149,754,122.7C777.1,96,800,128,823,165.3C845.7,203,869,245,891,224C914.3,203,937,117,960,112C982.9,107,1006,181,1029,197.3C1051.4,213,1074,171,1097,144C1120,117,1143,107,1166,133.3C1188.6,160,1211,224,1234,218.7C1257.1,213,1280,139,1303,133.3C1325.7,128,1349,192,1371,192C1394.3,192,1417,128,1429,96L1440,64L1440,320L1428.6,320C1417.1,320,1394,320,1371,320C1348.6,320,1326,320,1303,320C1280,320,1257,320,1234,320C1211.4,320,1189,320,1166,320C1142.9,320,1120,320,1097,320C1074.3,320,1051,320,1029,320C1005.7,320,983,320,960,320C937.1,320,914,320,891,320C868.6,320,846,320,823,320C800,320,777,320,754,320C731.4,320,709,320,686,320C662.9,320,640,320,617,320C594.3,320,571,320,549,320C525.7,320,503,320,480,320C457.1,320,434,320,411,320C388.6,320,366,320,343,320C320,320,297,320,274,320C251.4,320,229,320,206,320C182.9,320,160,320,137,320C114.3,320,91,320,69,320C45.7,320,23,320,11,320L0,320Z" 
+                fillOpacity={1} 
+              />
+            </svg>
+
+            {/* Icon Container */}
+            <div className="relative w-[35px] h-[35px] flex justify-center items-center bg-[#ffa30d48] rounded-full ml-2 shrink-0">
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 256 256" 
+                strokeWidth={0} 
+                fill="currentColor" 
+                className="w-[17px] h-[17px] text-[#db970e]"
+              >
+                <path d="M236.8,188.09,149.35,36.22h0a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM222.93,203.8a8.5,8.5,0,0,1-7.48,4.2H40.55a8.5,8.5,0,0,1-7.48-4.2,7.59,7.59,0,0,1,0-7.72L120.52,44.21a8.75,8.75,0,0,1,15,0l87.45,151.87A7.59,7.59,0,0,1,222.93,203.8ZM120,144V104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm20,36a12,12,0,1,1-12-12A12,12,0,0,1,140,180Z" />
+              </svg>
+            </div>
+
+            {/* Message Text */}
+            <div className="flex flex-col justify-center items-start grow">
+              <p className="m-0 text-[#db970e] text-[17px] font-bold cursor-default">
+                ไม่สามารถใช้งาน Market
+              </p>
+              <p className="m-0 text-sm text-[#555] cursor-default">
+                ระบบเปลี่ยนเป็นโหมด Public แล้ว
+              </p>
+            </div>
+
+            {/* Close Icon */}
+            <button
+              onClick={() => setShowModeWarning(false)}
+              className="shrink-0"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 15 15" 
+                strokeWidth={0} 
+                fill="none" 
+                className="w-[18px] h-[18px] text-[#555] cursor-pointer hover:text-[#333] transition-colors"
+              >
+                <path 
+                  fill="currentColor" 
+                  d="M11.7816 4.03157C12.0062 3.80702 12.0062 3.44295 11.7816 3.2184C11.5571 2.99385 11.193 2.99385 10.9685 3.2184L7.50005 6.68682L4.03164 3.2184C3.80708 2.99385 3.44301 2.99385 3.21846 3.2184C2.99391 3.44295 2.99391 3.80702 3.21846 4.03157L6.68688 7.49999L3.21846 10.9684C2.99391 11.193 2.99391 11.557 3.21846 11.7816C3.44301 12.0061 3.80708 12.0061 4.03164 11.7816L7.50005 8.31316L10.9685 11.7816C11.193 12.0061 11.5571 12.0061 11.7816 11.7816C12.0062 11.557 12.0062 11.193 11.7816 10.9684L8.31322 7.49999L11.7816 4.03157Z" 
+                  clipRule="evenodd" 
+                  fillRule="evenodd" 
+                />
+              </svg>
+            </button>
           </div>
         </div>
       )}
