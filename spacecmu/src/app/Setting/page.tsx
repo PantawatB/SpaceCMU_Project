@@ -2,7 +2,6 @@
 import { useState } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
-import Image from "next/image";
 import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
@@ -212,11 +211,11 @@ export default function SettingPage() {
                 <div className="flex flex-col gap-4">
                   <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-gray-200">
                     {activeUser?.bannerUrl ? (
-                      <Image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
                         src={activeUser.bannerUrl}
                         alt="Banner"
-                        fill
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
@@ -238,12 +237,11 @@ export default function SettingPage() {
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Profile Picture</h2>
                 <div className="flex items-center gap-6">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={activeUser?.avatarUrl || "/tanjiro.jpg"}
                     alt="Profile"
-                    width={80}
-                    height={80}
-                    className="rounded-full object-cover"
+                    className="w-20 h-20 rounded-full object-cover"
                   />
                   <div>
                     <button 
@@ -580,12 +578,11 @@ export default function SettingPage() {
                       key={account.id}
                       className="flex items-start gap-4 p-5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                     >
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={account.avatar}
                         alt={account.name}
-                        width={56}
-                        height={56}
-                        className="rounded-full object-cover"
+                        className="w-14 h-14 rounded-full object-cover"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
@@ -664,11 +661,11 @@ export default function SettingPage() {
                 <div className="flex flex-col items-center">
                   <p className="text-sm font-semibold text-gray-600 mb-4">Current Photo</p>
                   <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
-                    <Image
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
                       src={activeUser?.avatarUrl || "/tanjiro.jpg"}
                       alt="Current Profile"
-                      fill
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                     />
                   </div>
                 </div>
@@ -679,11 +676,11 @@ export default function SettingPage() {
                   <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-dashed border-gray-300 shadow-lg bg-gray-50 flex items-center justify-center group hover:border-blue-400 transition-colors">
                     {newPhoto ? (
                       <>
-                        <Image
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
                           src={newPhoto}
                           alt="New Profile"
-                          fill
-                          className="object-cover"
+                          className="w-full h-full object-cover"
                         />
                         <button
                           onClick={() => setNewPhoto(null)}
@@ -795,11 +792,11 @@ export default function SettingPage() {
                   <p className="text-sm font-semibold text-gray-600 mb-4">Current Banner</p>
                   <div className="relative w-full h-56 rounded-xl overflow-hidden border-4 border-gray-200 shadow-lg">
                     {activeUser?.bannerUrl ? (
-                      <Image
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
                         src={activeUser.bannerUrl}
                         alt="Current Banner"
-                        fill
-                        className="object-cover"
+                        className="w-full h-full object-cover"
                       />
                     ) : (
                       <div className="w-full h-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
@@ -813,11 +810,11 @@ export default function SettingPage() {
                   <div className="relative w-full h-56 rounded-xl overflow-hidden border-4 border-dashed border-gray-300 shadow-lg bg-gray-50 flex items-center justify-center group hover:border-blue-400 transition-colors">
                     {newBanner ? (
                       <>
-                        <Image
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
                           src={newBanner}
                           alt="New Banner"
-                          fill
-                          className="object-cover"
+                          className="w-full h-full object-cover"
                         />
                         <button
                           onClick={() => setNewBanner(null)}

@@ -12,11 +12,10 @@ import { upload } from "../middleware/uploadMiddleware.js";
 
 const router = Router();
 
-router.get("/items", getMarketItems);
-router.get("/items/me", sessionMiddleware, getMyMarketItems); // Get my listed items
-router.get("/categories", getAllCategories);
+router.get("/items", sessionMiddleware, getMarketItems);
+router.get("/categories", sessionMiddleware, getAllCategories);
 router.post("/items", sessionMiddleware, createMarketItem);
-router.post("/items/upload", sessionMiddleware, upload.single("image"), createMarketItemWithImage);
+router.post("/items/upload", sessionMiddleware, upload.array("images", 10), createMarketItemWithImage);
 router.post("/contact-seller", sessionMiddleware, contactSeller);
 
 export default router;

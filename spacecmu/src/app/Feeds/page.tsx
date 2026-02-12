@@ -5,9 +5,9 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
-import Image from "next/image";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
+import { useToast } from "@/contexts/ToastContext";
 
 interface PostMedia {
   id: number;
@@ -37,6 +37,7 @@ interface Post {
 
 export default function FeedsMainPage() {
   const { activeUser } = useUser();
+  const { showSuccess, showError } = useToast();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("Global");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -200,7 +201,7 @@ export default function FeedsMainPage() {
     });
 
     if (errors.length > 0) {
-      alert("ไม่สามารถอัพโหลดไฟล์บางไฟล์:\n\n" + errors.join("\n"));
+      showError("ไม่สามารถอัพโหลดไฟล์บางไฟล์:\n\n" + errors.join("\n"));
     }
 
     // Process images
@@ -276,7 +277,7 @@ export default function FeedsMainPage() {
       const result = await response.json();
       console.log("Post created successfully:", result);
       console.log("Post media:", result.media);
-      alert("Post created successfully!");
+      showSuccess("Post created successfully!");
 
       // Reset form
       setPostText("");
@@ -305,7 +306,7 @@ export default function FeedsMainPage() {
         error instanceof Error
           ? error.message
           : "Failed to create post. Please try again.";
-      alert(`Error: ${errorMessage}`);
+      showError(`Error: ${errorMessage}`);
     }
   };
 
@@ -849,11 +850,10 @@ export default function FeedsMainPage() {
             <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 sm:p-5 w-full max-w-2xl">
               {/* Row 1: Avatar + Text Input */}
               <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={activeUser?.avatarUrl || "/noobcat.png"}
                   alt="avatar"
-                  width={40}
-                  height={40}
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />
                 <textarea
