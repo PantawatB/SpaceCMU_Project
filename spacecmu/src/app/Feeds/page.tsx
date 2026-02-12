@@ -5,7 +5,6 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
-import Image from "next/image";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -851,11 +850,10 @@ export default function FeedsMainPage() {
             <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 p-3 sm:p-5 w-full max-w-2xl">
               {/* Row 1: Avatar + Text Input */}
               <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
-                <Image
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
                   src={activeUser?.avatarUrl || "/noobcat.png"}
                   alt="avatar"
-                  width={40}
-                  height={40}
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />
                 <textarea

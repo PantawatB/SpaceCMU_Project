@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
@@ -555,12 +554,11 @@ export default function PostCard({
   return (
     <div className="bg-gray-50 rounded-2xl p-6 shadow relative">
       <div className="flex items-center gap-3 mb-2">
-        <Image
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
           src={post.author?.avatarUrl || "/noobcat.png"}
           alt="avatar"
-          width={40}
-          height={40}
-          className="rounded-full object-cover"
+          className="w-10 h-10 rounded-full object-cover"
         />
         <div>
           <div className="font-bold">
@@ -898,11 +896,10 @@ export default function PostCard({
                 comments.map((comment) => (
                   <div key={comment.id} className="flex gap-3">
                     <div className="relative shrink-0">
-                      <Image
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
                         src={comment.author?.avatarUrl || "/noobcat.png"}
                         alt="avatar"
-                        width={40}
-                        height={40}
                         className="w-10 h-10 rounded-full object-cover"
                       />
                     </div>
@@ -957,11 +954,10 @@ export default function PostCard({
               <div className="flex flex-col gap-3">
                 {/* Avatar + Text Input Row */}
                 <div className="flex items-start gap-3">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={activeUser?.avatarUrl || "/noobcat.png"}
                     alt="avatar"
-                    width={40}
-                    height={40}
                     className="w-10 h-10 rounded-full object-cover shrink-0 mt-1"
                   />
                   <div className="flex-1">
