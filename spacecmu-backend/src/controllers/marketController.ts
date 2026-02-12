@@ -16,6 +16,7 @@ export const getMarketItems = async (req: Request, res: Response) => {
                 description: marketItemsTable.description,
                 price: marketItemsTable.price,
                 imageUrl: marketItemsTable.imageUrl,
+                imageUrls: marketItemsTable.imageUrls,
                 status: marketItemsTable.status,
                 createdAt: marketItemsTable.createdAt,
                 seller: {
@@ -153,7 +154,7 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
         }
 
         const { title, description, price, categoryName } = req.body;
-        const file = (req as any).file;
+        const files = (req as any).files as Express.Multer.File[];
 
         // Validate required fields
         if (!title || !price) {
@@ -185,8 +186,12 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
             }
         }
 
-        // Get image URL if file was uploaded
-        const imageUrl = file ? `/uploads/${file.filename}` : null;
+        // Get image URLs if files were uploaded (store first image in imageUrl for backward compatibility)
+        const imageUrl = files && files.length > 0 ? `/uploads/${files[0].filename}` : null;
+        // Store all image URLs as JSON string
+        const imageUrls = files && files.length > 0 
+            ? JSON.stringify(files.map(f => `/uploads/${f.filename}`))
+            : null;
 
         const [insertedItem] = await dbClient
             .insert(marketItemsTable)
@@ -196,7 +201,8 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
                 price: price.toString(),
                 sellerId: userId,
                 categoryId,
-                imageUrl,
+                imageUrl, // First image for backward compatibility
+                imageUrls, // Array of all images as JSON string
             })
             .returning();
 
@@ -207,6 +213,7 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
                 description: marketItemsTable.description,
                 price: marketItemsTable.price,
                 imageUrl: marketItemsTable.imageUrl,
+                imageUrls: marketItemsTable.imageUrls,
                 status: marketItemsTable.status,
                 createdAt: marketItemsTable.createdAt,
                 seller: {
@@ -227,8 +234,8 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
 
         res.status(201).json(fullItem[0]);
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Error creating market item" });
+        console.error('Error creating market item:', error);
+        res.status(500).json({ message: "Error creating market item", error: error instanceof Error ? error.message : 'Unknown error' });
     }
 };
 
