@@ -114,6 +114,22 @@ body {
   animation: slide-up 0.3s ease-out;
 }
 
+/* Toast Slide In from Right Animation */
+@keyframes slide-in-right {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
 /* Hide scrollbar for Threads-style media display */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE and Edge */

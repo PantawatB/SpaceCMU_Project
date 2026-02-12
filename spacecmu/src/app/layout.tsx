@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { UserProvider } from "@/contexts/UserContext";
 import { TokenErrorProvider } from "@/contexts/TokenErrorContext";
+import { ToastProvider } from "@/contexts/ToastContext";
 import { AuthWrapper } from "@/components/AuthWrapper";
 
 const geistSans = Geist({
@@ -32,9 +33,11 @@ export default function RootLayout({
       >
         <UserProvider>
           <TokenErrorProvider>
-            <AuthWrapper>
-              {children}
-            </AuthWrapper>
+            <ToastProvider>
+              <AuthWrapper>
+                {children}
+              </AuthWrapper>
+            </ToastProvider>
           </TokenErrorProvider>
         </UserProvider>
       </body>

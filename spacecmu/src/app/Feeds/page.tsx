@@ -8,6 +8,7 @@ import TokenErrorPopup from "../../components/TokenErrorPopup";
 import Image from "next/image";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
+import { useToast } from "@/contexts/ToastContext";
 
 interface PostMedia {
   id: number;
@@ -37,6 +38,7 @@ interface Post {
 
 export default function FeedsMainPage() {
   const { activeUser } = useUser();
+  const { showSuccess, showError } = useToast();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState("Global");
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
@@ -200,7 +202,7 @@ export default function FeedsMainPage() {
     });
 
     if (errors.length > 0) {
-      alert("ไม่สามารถอัพโหลดไฟล์บางไฟล์:\n\n" + errors.join("\n"));
+      showError("ไม่สามารถอัพโหลดไฟล์บางไฟล์:\n\n" + errors.join("\n"));
     }
 
     // Process images
@@ -276,7 +278,7 @@ export default function FeedsMainPage() {
       const result = await response.json();
       console.log("Post created successfully:", result);
       console.log("Post media:", result.media);
-      alert("Post created successfully!");
+      showSuccess("Post created successfully!");
 
       // Reset form
       setPostText("");
@@ -305,7 +307,7 @@ export default function FeedsMainPage() {
         error instanceof Error
           ? error.message
           : "Failed to create post. Please try again.";
-      alert(`Error: ${errorMessage}`);
+      showError(`Error: ${errorMessage}`);
     }
   };
 
