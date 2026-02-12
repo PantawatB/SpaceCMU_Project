@@ -19,6 +19,7 @@ interface MarketItemAPI {
   description: string;
   price: string;
   imageUrl: string | null;
+  imageUrls: string | null; // JSON string of array
   status: string;
   createdAt: string;
   seller: MarketItemSeller;
@@ -27,6 +28,9 @@ interface MarketItemAPI {
 
 export default function MarketMainPage() {
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
+  const [showProductDetailPopup, setShowProductDetailPopup] = React.useState(false);
+  const [selectedProduct, setSelectedProduct] = React.useState<MarketItemAPI | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
   const [productTitle, setProductTitle] = React.useState("");
   const [productDescription, setProductDescription] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
@@ -75,6 +79,15 @@ export default function MarketMainPage() {
     const files = e.target.files;
     if (files && files.length > 0) {
       const fileArray = Array.from(files);
+      
+      // Check if adding these files would exceed the limit
+      const totalFiles = uploadedFiles.length + fileArray.length;
+      if (totalFiles > 10) {
+        alert(`สามารถอัพโหลดได้สูงสุด 10 รูปเท่านั้น\nปัจจุบันมี ${uploadedFiles.length} รูป กำลังเพิ่ม ${fileArray.length} รูป`);
+        e.target.value = '';
+        return;
+      }
+
       const newPreviews: string[] = [];
       let filesProcessed = 0;
 
@@ -105,18 +118,6 @@ export default function MarketMainPage() {
     // Also remove from uploaded files
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
-
-  // mock data เพิ่ม sellerName, sellerImage
-  const [marketItems] = React.useState([
-    { price: "฿450", title: "รองเท้าแตะ", jobTitle: "รองเท้าแตะ 2 ข้าง ฟหกดฟหกดหฟกดหฟกดหฟฟหกดฟหกดฟหกดฟหกดฟหก", image: "/shoe.webp", sellerName: "Kamado Tanjiro", sellerImage: "/tanjiro.jpg" },
-    { price: "฿80", title: "โทรศัพท์", jobTitle: "iphone ฟหกดหกดฟหกดฟหฟหกดหฟกดกดหฟดหฟดฟห", image: "/iphone.jpg", sellerName: "Nezuko Kamado", sellerImage: "/nezuko.jpg" },
-    { price: "฿70", title: "กาแฟ", jobTitle: "ฟหกดฟหกดฟกดฟหกดฟหกดหฟดฟหกดหฟกดหฟดฟหด", image: "/coffee.jpeg", sellerName: "Zenitsu Agatsuma", sellerImage: "/zenitsu.jpg" },
-    { price: "฿300", title: "รถบรรทุก", jobTitle: "ฟหกดานราืนรสาหฟนากสฟราสาฟรฟนาหนรกสานรฟหกด", image: "/toy.webp", sellerName: "Inosuke Hashibira", sellerImage: "/inosuke.jpeg" },
-    { price: "฿400", title: "ยาสีฟัน", jobTitle: "ฟหกนดร่นฟรห่กดนรฟหนกยรด่ฟหนรกด่ยฟหนกร่ดฟหกนรด่ฟหยนดร่", image: "/tt.webp", sellerName: "Giyu Tomioka", sellerImage: "/giyu.webp" },
-    { price: "฿150", title: "กาน้ำร้อน", jobTitle: "หฟกดร้ฟหนรนร้สไฟหกดฟห่กดฟาสดนานรฟห้สาก่นรฟห่นดรา", image: "/kk.jpg", sellerName: "Shinobu Kocho", sellerImage: "/shinobu.jpg" },
-    { price: "฿120", title: "ตุ๊กตาหมี", jobTitle: "ฟหกดฟหดฟหกดฟหกดนหฟกรดฟหบกดฟหกดฟหกดฟหกด", image: "/bear.webp", sellerName: "Kyojuro Rengoku", sellerImage: "/kyojuro.jpg" },
-    { price: "฿200", title: "ปลากระป๋อง", jobTitle: "ฟหสกด้่ฟหรก้ดนหฟร้กดนฟหกร้ดฟหนยกรด้ฟหกนดร้หฟด", image: "/fishcan.jpg", sellerName: "Mitsuri Kanroji", sellerImage: "/mitsuri.webp" },
-  ]);
 
   return (
     <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
@@ -245,23 +246,14 @@ export default function MarketMainPage() {
                       jobTitle={item.description} 
                       image={imageUrl} 
                       sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
-                      sellerImage={sellerAvatarUrl} 
+                      sellerImage={sellerAvatarUrl}
+                      onViewClick={() => {
+                        setSelectedProduct(item);
+                        setShowProductDetailPopup(true);
+                      }}
                     />
                   );
                 })}
-                
-                {/* Mock Market Items */}
-                {marketItems.map((item, idx) => (
-                  <MarketCard 
-                    key={`mock-${idx}`} 
-                    price={item.price} 
-                    title={item.title} 
-                    jobTitle={item.jobTitle} 
-                    image={item.image} 
-                    sellerName={item.sellerName} 
-                    sellerImage={item.sellerImage} 
-                  />
-                ))}
               </div>
             )}
           </div>
@@ -332,6 +324,12 @@ export default function MarketMainPage() {
                     e.preventDefault();
                     
                     try {
+                      // Validate images (optional now - can upload without images)
+                      if (uploadedFiles.length > 10) {
+                        alert('สามารถอัพโหลดได้สูงสุด 10 รูปเท่านั้น');
+                        return;
+                      }
+
                       // Use FormData for file upload
                       const formData = new FormData();
                       formData.append('title', productTitle);
@@ -339,12 +337,28 @@ export default function MarketMainPage() {
                       formData.append('price', productPrice);
                       formData.append('categoryName', 'Electronics'); // You can modify this or add a category selector
                       
-                      // Append the first image file if available
+                      // Append images if available
                       if (uploadedFiles.length > 0) {
-                        formData.append('image', uploadedFiles[0]);
+                        // Append all images (up to 10)
+                        const filesToUpload = uploadedFiles.slice(0, 10);
+                        console.log(`Uploading ${filesToUpload.length} images`);
+                        filesToUpload.forEach((file, index) => {
+                          formData.append('images', file);
+                          console.log(`Image ${index + 1}:`, file.name, file.type, file.size);
+                        });
+                      } else {
+                        console.log('No images to upload');
                       }
 
                       console.log('Creating market item with FormData');
+                      console.log('FormData entries:');
+                      for (const [key, value] of formData.entries()) {
+                        if (value instanceof File) {
+                          console.log(`${key}:`, value.name, value.type, value.size);
+                        } else {
+                          console.log(`${key}:`, value);
+                        }
+                      }
 
                       // Call the API with upload endpoint
                       const response = await fetch(
@@ -357,12 +371,22 @@ export default function MarketMainPage() {
                         }
                       );
 
+                      console.log('Response status:', response.status);
+                      const responseText = await response.text();
+                      console.log('Response body:', responseText);
+
                       if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                        let errorMessage = `HTTP error! status: ${response.status}`;
+                        try {
+                          const errorData = JSON.parse(responseText);
+                          errorMessage = errorData.message || errorMessage;
+                        } catch {
+                          // Response is not JSON
+                        }
+                        throw new Error(errorMessage);
                       }
 
-                      const newItem = await response.json();
+                      const newItem = JSON.parse(responseText);
                       console.log('Market item created successfully:', newItem);
 
                       // Add the new item to the API items list
@@ -520,7 +544,12 @@ export default function MarketMainPage() {
                             <p className="mb-2 text-sm text-gray-500">
                               <span className="font-semibold">คลิกเพื่ออัพโหลด</span> หรือลากไฟล์มาวาง
                             </p>
-                            <p className="text-xs text-gray-500">PNG, JPG, WEBP (เลือกได้หลายไฟล์)</p>
+                            <p className="text-xs text-gray-500">PNG, JPG, WEBP (สูงสุด 10 รูป, 5MB/รูป)</p>
+                            {uploadedFiles.length > 0 && (
+                              <p className="text-xs text-blue-600 font-medium mt-2">
+                                เลือกแล้ว {uploadedFiles.length}/10 รูป
+                              </p>
+                            )}
                           </div>
                           <input
                             id="productImage"
@@ -552,6 +581,263 @@ export default function MarketMainPage() {
                     </button>
                   </div>
                 </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Detail Popup Modal */}
+      {showProductDetailPopup && selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop with blur */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => {
+              setShowProductDetailPopup(false);
+              setSelectedProduct(null);
+              setCurrentImageIndex(0);
+            }}
+          />
+
+          {/* Modal Container */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] max-h-[85vh] overflow-hidden">
+            {/* Close Button */}
+            <button
+              onClick={() => {
+                setShowProductDetailPopup(false);
+                setSelectedProduct(null);
+                setCurrentImageIndex(0);
+              }}
+              className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors bg-white rounded-full p-2 shadow-lg"
+            >
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+
+            {/* Modal Content */}
+            <div className="flex flex-col md:flex-row h-full overflow-y-auto">
+              {/* Left Side - Product Image with Navigation */}
+              <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative">
+                <div className="w-full aspect-square max-w-md bg-white rounded-2xl overflow-hidden shadow-md relative flex items-center justify-center">
+                  {(() => {
+                    // Parse imageUrls if available, otherwise use single imageUrl
+                    let images: string[] = [];
+                    if (selectedProduct.imageUrls) {
+                      try {
+                        const parsed = JSON.parse(selectedProduct.imageUrls);
+                        images = Array.isArray(parsed) ? parsed : [];
+                      } catch (e) {
+                        console.error('Failed to parse imageUrls:', e);
+                      }
+                    }
+                    
+                    // Fallback to single imageUrl if no imageUrls
+                    if (images.length === 0 && selectedProduct.imageUrl) {
+                      images = [selectedProduct.imageUrl];
+                    }
+
+                    const totalImages = images.length;
+                    const hasMultipleImages = totalImages > 1;
+
+                    // Get current image URL
+                    const currentImageUrl = images[currentImageIndex] || null;
+
+                    if (currentImageUrl) {
+                      const fullImageUrl = currentImageUrl.startsWith('http') 
+                        ? currentImageUrl 
+                        : `${API_CONFIG.BASE_URL}${currentImageUrl}`;
+
+                      return (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={fullImageUrl}
+                            alt={`${selectedProduct.title} - ${currentImageIndex + 1}`}
+                            className="w-full h-full object-contain"
+                          />
+                          
+                          {/* Navigation Arrows - Show only if multiple images */}
+                          {hasMultipleImages && (
+                            <>
+                              {/* Previous Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCurrentImageIndex((prev) => 
+                                    prev === 0 ? totalImages - 1 : prev - 1
+                                  );
+                                }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10"
+                                aria-label="Previous image"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </button>
+
+                              {/* Next Button */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCurrentImageIndex((prev) => 
+                                    prev === totalImages - 1 ? 0 : prev + 1
+                                  );
+                                }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10"
+                                aria-label="Next image"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                            </>
+                          )}
+                          
+                          {/* Image Counter */}
+                          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm z-10">
+                            {currentImageIndex + 1} / {totalImages}
+                          </div>
+                        </>
+                      );
+                    } else {
+                      // No image placeholder
+                      return (
+                        <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                          <svg 
+                            className="w-32 h-32 text-gray-400" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            viewBox="0 0 24 24"
+                          >
+                            <path 
+                              strokeLinecap="round" 
+                              strokeLinejoin="round" 
+                              strokeWidth={1.5} 
+                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" 
+                            />
+                          </svg>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+
+              {/* Right Side - Product Details */}
+              <div className="w-full md:w-1/2 p-8 flex flex-col">
+                {/* Product Title and Price */}
+                <div className="mb-6">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-3">
+                    {selectedProduct.title}
+                  </h2>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-bold text-orange-600">
+                      ฿{parseFloat(selectedProduct.price).toFixed(0)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 my-6"></div>
+
+                {/* Product Description */}
+                <div className="mb-6 flex-1">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    รายละเอียดสินค้า
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                    {selectedProduct.description}
+                  </p>
+                </div>
+
+                {/* Category (if available) */}
+                {selectedProduct.category && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                      หมวดหมู่
+                    </h3>
+                    <span className="inline-block bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+                      {selectedProduct.category}
+                    </span>
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 my-6"></div>
+
+                {/* Seller Information */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    ผู้ขาย
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={selectedProduct.seller.avatarUrl
+                          ? (selectedProduct.seller.avatarUrl.startsWith('http')
+                              ? selectedProduct.seller.avatarUrl
+                              : `${API_CONFIG.BASE_URL}${selectedProduct.seller.avatarUrl}`)
+                          : "/noobcat.png"}
+                        alt={`${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {selectedProduct.seller.firstName} {selectedProduct.seller.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">ผู้ขาย</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Seller Button */}
+                <button
+                  onClick={() => {
+                    // TODO: Implement chat functionality
+                    alert(`เปิดแชทกับ ${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`);
+                  }}
+                  className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                >
+                  <svg 
+                    className="w-6 h-6" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path 
+                      strokeLinecap="round" 
+                      strokeLinejoin="round" 
+                      strokeWidth={2} 
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" 
+                    />
+                  </svg>
+                  ทักแชทหาผู้ขาย
+                </button>
+
+                {/* Posted Date */}
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-gray-400">
+                    โพสต์เมื่อ {new Date(selectedProduct.createdAt).toLocaleDateString('th-TH', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric'
+                    })}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

@@ -128,7 +128,8 @@ export const marketItemsTable = pgTable("market_items", {
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"), // "jobTitle" in frontend
   price: decimal("price", { precision: 10, scale: 2 }).notNull(), // Storable money value
-  imageUrl: varchar("image_url", { length: 512 }),
+  imageUrl: varchar("image_url", { length: 512 }), // First image for backward compatibility
+  imageUrls: text("image_urls"), // JSON array of all image URLs
 
   status: marketItemStatusEnum("status").default("available"),
 
