@@ -378,3 +378,37 @@ export const contactSeller = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error contacting seller" });
     }
 };
+
+// Get market items listed by the current user
+export const getMyMarketItems = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const items = await dbClient
+            .select({
+                id: marketItemsTable.id,
+                title: marketItemsTable.title,
+                description: marketItemsTable.description,
+                price: marketItemsTable.price,
+                imageUrl: marketItemsTable.imageUrl,
+                status: marketItemsTable.status,
+                createdAt: marketItemsTable.createdAt,
+                category: {
+                    id: marketCategoriesTable.id,
+                    name: marketCategoriesTable.name,
+                }
+            })
+            .from(marketItemsTable)
+            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+            .where(eq(marketItemsTable.sellerId, userId))
+            .orderBy(desc(marketItemsTable.createdAt));
+
+        res.json(items);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching your market items" });
+    }
+};

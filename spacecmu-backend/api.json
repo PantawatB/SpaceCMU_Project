@@ -226,14 +226,15 @@
                             }
                         },
                         {
-                            "name": "Get User By ID",
+                            "name": "Get User By ID (Enhanced with Friendship Status)",
                             "request": {
                                 "method": "GET",
                                 "header": [
                                     {
                                         "key": "Authorization",
                                         "value": "Bearer token_here",
-                                        "type": "text"
+                                        "type": "text",
+                                        "description": "Optional. If provided, response includes friendship status."
                                     }
                                 ],
                                 "url": {
@@ -249,10 +250,12 @@
                                     "variable": [
                                         {
                                             "key": "id",
-                                            "value": "user_id_here"
+                                            "value": "user_id_here",
+                                            "description": "User ID to view"
                                         }
                                     ]
-                                }
+                                },
+                                "description": "Get user profile by ID. When authenticated and viewing another user's profile, returns additional friendship information:\n\n**Response Fields (when authenticated):**\n- `friendshipStatus`: \"none\" | \"pending\" | \"accepted\" | \"blocked\"\n- `isPendingFrom`: \"me\" | \"them\" | null (who sent the pending request)\n- `mutualFriendsCount`: number (count of mutual friends if status is \"accepted\")\n\n**Use Cases:**\n- `friendshipStatus: \"none\"` → Show \"Add Friend\" button\n- `friendshipStatus: \"pending\"` + `isPendingFrom: \"me\"` → Show \"Request Sent\"\n- `friendshipStatus: \"pending\"` + `isPendingFrom: \"them\"` → Show \"Accept/Reject\" buttons\n- `friendshipStatus: \"accepted\"` → Show \"Friends\" + mutual friends count\n\n**Note:** Friendship fields are NOT included when:\n- Not authenticated\n- Viewing own profile"
                             }
                         },
                         {
@@ -510,7 +513,7 @@
                                         "media"
                                     ]
                                 },
-                                "description": "Create a post with multiple images and/or videos. Supports up to 20 files per post. Each file can be up to 50MB. Supported formats: jpeg, jpg, png, gif, webp, mp4, mov, avi, mkv."
+                                "description": "Create a post with multiple images and/or videos. Supports up to 20 files per post. Each file can be up to 50MB. Supported formats: jpeg, jpg, png, gif, webp, mp4, mov, avi, mkv.\n\n**Optional Event Fields:**\nYou can create an event post by adding these optional fields:\n- `eventTitle` (string) - Event name\n- `eventDescription` (string) - Event details\n- `eventStartTime` (string) - ISO 8601 format (e.g., '2026-02-20T14:00:00Z')\n- `eventEndTime` (string) - ISO 8601 format (optional)\n- `eventType` (string) - 'event', 'class', 'activity', 'appointment' (default: 'event')\n\n**Example Event Post:**\n```\ncontent: 'Join our React Workshop!'\ncategory: 'Events'\neventTitle: 'React Workshop for Beginners'\neventDescription: 'Learn React fundamentals'\neventStartTime: '2026-02-20T14:00:00Z'\neventEndTime: '2026-02-20T17:00:00Z'\neventType: 'class'\n```\n\nUsers can then accept the event using `POST /api/posts/:postId/accept-event` to add it to their calendar."
                             }
                         },
                         {
@@ -923,6 +926,33 @@
                         },
                         "description": "Get all posts that the current user has liked.\n\n**Response includes:**\n- Post details with author info\n- `likedAt`: Timestamp when user liked the post\n- Sorted by most recently liked\n\n**Use case:** Display user's liked posts history in their profile"
                     }
+                },
+                {
+                    "name": "Get Posts by User ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/user/:userId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                "user",
+                                ":userId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here",
+                                    "description": "User ID to fetch posts from"
+                                }
+                            ]
+                        },
+                        "description": "Get all posts created by a specific user. Used for viewing user profiles.\n\n**Response includes:**\n- Post details (id, content, category, likeCount, commentCount, repostCount)\n- Author info (firstName, lastName, avatarUrl)\n- Media array (sorted by order)\n- Sorted by most recent first\n\n**Use case:** Display posts on user profile pages"
+                    }
                 }
             ]
         },
@@ -1018,6 +1048,32 @@
                             ]
                         },
                         "description": "Send a message to the seller with product information.\n\n**Request Body:**\n- `itemId` (required): UUID of the market item\n- `buyerId` (required): UUID of the buyer (current user)\n- `customMessage` (optional): Custom message to prepend before product info\n\n**Auto-generated Message Format:**\nIf customMessage is provided:\n```\n{customMessage}\n\n---\nสินค้าที่สนใจ: {title}\nราคา: ฿{price}\nรายละเอียด: {description}\n```\n\nIf no customMessage:\n```\nสวัสดีครับ/ค่ะ สนใจสินค้าของคุณ\n\nสินค้า: {title}\nราคา: ฿{price}\nรายละเอียด: {description}\n\nสามารถติดต่อได้ไหมครับ/ค่ะ\n```\n\n**Response Example (201):**\n```json\n{\n  \"success\": true,\n  \"message\": \"Message sent to seller successfully\",\n  \"data\": {\n    \"messageId\": \"msg-uuid\",\n    \"sellerId\": \"seller-uuid\",\n    \"sellerName\": \"John Doe\",\n    \"itemTitle\": \"Calculator\",\n    \"sentMessage\": {\n      \"id\": \"msg-uuid\",\n      \"senderId\": \"buyer-uuid\",\n      \"receiverId\": \"seller-uuid\",\n      \"content\": \"...\",\n      \"isRead\": false,\n      \"createdAt\": \"2026-01-11T...\"\n    }\n  }\n}\n```\n\n**Error Responses:**\n- 400: Missing required fields or trying to contact yourself\n- 404: Market item not found\n- 500: Server error"
+                    }
+                },
+                {
+                    "name": "Get My Market Items",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/market/items/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "market",
+                                "items",
+                                "me"
+                            ]
+                        },
+                        "description": "Get all market items listed by the current user. Useful for displaying user's own listings on their profile page.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"item-uuid\",\n    \"title\": \"Calculator\",\n    \"description\": \"Scientific calculator\",\n    \"price\": \"250.00\",\n    \"imageUrl\": \"https://...\",\n    \"status\": \"available\",\n    \"createdAt\": \"2026-02-12T...\",\n    \"category\": {\n      \"id\": \"cat-uuid\",\n      \"name\": \"Electronics\"\n    }\n  }\n]\n```"
                     }
                 }
             ]
@@ -1396,6 +1452,70 @@
                             ]
                         },
                         "description": "Delete a calendar event. Only the event owner can delete their events."
+                    }
+                },
+                {
+                    "name": "Toggle Event Status (Success ↔ Unsuccess)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/calendar/:eventId/toggle",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "calendar",
+                                ":eventId",
+                                "toggle"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "eventId",
+                                    "value": "event_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Toggle event status between completed (success) and cancelled (unsuccess).\n\n**Toggle Logic:**\n- `completed` → `cancelled`\n- `cancelled` → `completed`\n- `pending` → `completed` (first toggle)\n\n**Response:**\n```json\n{\n  \"message\": \"Event marked as completed\",\n  \"event\": {\n    \"id\": \"event-uuid\",\n    \"userId\": \"user-uuid\",\n    \"title\": \"Event Title\",\n    \"status\": \"completed\",\n    \"startTime\": \"2026-02-20T14:00:00.000Z\",\n    \"endTime\": \"2026-02-20T17:00:00.000Z\",\n    \"createdAt\": \"2026-02-12T13:36:31.414Z\",\n    \"updatedAt\": \"2026-02-12T06:52:52.764Z\"\n  }\n}\n```"
+                    }
+                },
+                {
+                    "name": "Accept Event from Post",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer token_here",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/posts/:postId/accept-event",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "posts",
+                                ":postId",
+                                "accept-event"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "postId",
+                                    "value": "post_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Accept an event from a post and add it to your calendar. The post must have event data attached.\n\n**Features:**\n- Adds event to user's calendar\n- Prevents duplicate acceptance\n- Returns existing event if already accepted\n\n**Response (Success):**\n```json\n{\n  \"message\": \"Event accepted successfully\",\n  \"event\": {\n    \"id\": \"calendar-event-uuid\",\n    \"userId\": \"user-uuid\",\n    \"title\": \"React Workshop for Beginners\",\n    \"description\": \"Workshop description\",\n    \"startTime\": \"2026-02-20T14:00:00.000Z\",\n    \"endTime\": \"2026-02-20T17:00:00.000Z\",\n    \"type\": \"class\",\n    \"status\": \"pending\",\n    \"createdAt\": \"2026-02-12T13:36:31.414Z\"\n  }\n}\n```\n\n**Response (Already Accepted):**\n```json\n{\n  \"message\": \"Event already accepted\",\n  \"event\": { /* existing event */ }\n}\n```"
                     }
                 }
             ]
@@ -1872,6 +1992,267 @@
                             }
                         }
                     ]
+                }
+            ]
+        },
+        {
+            "name": "07. Settings",
+            "item": [
+                {
+                    "name": "Get User Settings",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "me"
+                            ]
+                        },
+                        "description": "Get all user settings including profile, notifications, and privacy preferences.\n\n**Response:**\n```json\n{\n  \"id\": \"user-uuid\",\n  \"firstName\": \"สิรภพ\",\n  \"lastName\": \"เหลืองประเสริฐ\",\n  \"username\": \"650612102\",\n  \"email\": \"siraphob_lu@cmu.ac.th\",\n  \"studentId\": \"650612102\",\n  \"faculty\": \"คณะวิศวกรรมศาสตร์\",\n  \"bio\": \"นักศึกษาวิศวกรรมซอฟต์แวร์ CMU\",\n  \"avatarUrl\": \"https://...\",\n  \"bannerUrl\": null,\n  \"notificationSettings\": {\n    \"email\": true,\n    \"push\": true,\n    \"sms\": false\n  },\n  \"privacySettings\": {\n    \"profileVisible\": true,\n    \"showEmail\": false,\n    \"allowMessages\": true\n  },\n  \"theme\": \"light\",\n  \"language\": \"en\"\n}\n```"
+                    }
+                },
+                {
+                    "name": "Update Profile",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"firstName\": \"สิรภพ\",\n  \"lastName\": \"เหลืองประเสริฐ\",\n  \"faculty\": \"คณะวิศวกรรมศาสตร์\",\n  \"bio\": \"นักศึกษาวิศวกรรมซอฟต์แวร์ CMU 🚀\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/profile",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "profile"
+                            ]
+                        },
+                        "description": "Update user profile information (name, faculty, bio). All fields are optional."
+                    }
+                },
+                {
+                    "name": "Upload Banner",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "banner",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/banner",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "banner"
+                            ]
+                        },
+                        "description": "Upload banner image (max 5MB, recommended 1500x500)"
+                    }
+                },
+                {
+                    "name": "Upload Avatar",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "avatar",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/avatar",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "avatar"
+                            ]
+                        },
+                        "description": "Upload profile picture (max 5MB)"
+                    }
+                },
+                {
+                    "name": "Update Notification Preferences",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": true,\n  \"push\": true,\n  \"sms\": false\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/notifications",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "notifications"
+                            ]
+                        },
+                        "description": "Update notification preferences. All fields are optional - only send the ones you want to change."
+                    }
+                },
+                {
+                    "name": "Update Privacy Settings",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"profileVisible\": true,\n  \"showEmail\": false,\n  \"allowMessages\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/privacy",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "privacy"
+                            ]
+                        },
+                        "description": "Update privacy settings. All fields are optional."
+                    }
+                },
+                {
+                    "name": "Update Appearance Settings",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"theme\": \"dark\",\n  \"language\": \"th\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/appearance",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "appearance"
+                            ]
+                        },
+                        "description": "Update appearance settings (theme and language).\n\n**Fields:**\n- `theme`: 'light', 'dark', or 'auto'\n- `language`: 'en' or 'th'\n\nAll fields are optional - only send the ones you want to change."
+                    }
+                },
+                {
+                    "name": "Delete Account",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/settings/account",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "settings",
+                                "account"
+                            ]
+                        },
+                        "description": "Delete user account (soft delete - sets status to 'banned'). Session will be destroyed."
+                    }
                 }
             ]
         }

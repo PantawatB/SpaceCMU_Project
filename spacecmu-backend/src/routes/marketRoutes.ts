@@ -5,6 +5,7 @@ import {
     createMarketItem,
     createMarketItemWithImage,
     contactSeller,
+    getMyMarketItems,
 } from "../controllers/marketController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { upload } from "../middleware/uploadMiddleware.js";

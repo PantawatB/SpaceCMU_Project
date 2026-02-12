@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable } from "../../db/schema.js";
+import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable } from "../../db/schema.js";
 import { eq, desc, and, sql, lt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -310,7 +310,7 @@ export const createPostWithMedia = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const { content, category } = req.body;
+        const { content, category, eventTitle, eventDescription, eventStartTime, eventEndTime, eventType } = req.body;
         const files = req.files as Express.Multer.File[];
 
         // 1. Create post
@@ -339,7 +339,19 @@ export const createPostWithMedia = async (req: Request, res: Response) => {
             await dbClient.insert(postMediaTable).values(mediaValues);
         }
 
-        // 3. Fetch complete post with media
+        // 3. Create event post if event data is provided
+        if (eventTitle && eventStartTime) {
+            await dbClient.insert(eventPostsTable).values({
+                postId: newPost.id,
+                eventTitle,
+                eventDescription: eventDescription || null,
+                eventStartTime: new Date(eventStartTime),
+                eventEndTime: eventEndTime ? new Date(eventEndTime) : null,
+                eventType: eventType || "event",
+            });
+        }
+
+        // 4. Fetch complete post with media
         const media = await dbClient
             .select()
             .from(postMediaTable)
@@ -441,7 +453,7 @@ export const likePost = async (req: Request, res: Response) => {
                 .where(eq(postsTable.id, postId))
                 .limit(1);
 
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: "Unliked",
                 likeCount: updatedPost[0]?.likeCount || 0
             });
@@ -465,7 +477,7 @@ export const likePost = async (req: Request, res: Response) => {
                 .where(eq(postsTable.id, postId))
                 .limit(1);
 
-            return res.status(201).json({ 
+            return res.status(201).json({
                 message: "Liked",
                 likeCount: updatedPost[0]?.likeCount || 0
             });
@@ -679,7 +691,7 @@ export const repostPost = async (req: Request, res: Response) => {
                 .where(eq(postsTable.id, postId))
                 .limit(1);
 
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: "Post unreposted",
                 repostCount: updatedPost[0]?.repostCount || 0
             });
@@ -702,7 +714,7 @@ export const repostPost = async (req: Request, res: Response) => {
                 .where(eq(postsTable.id, postId))
                 .limit(1);
 
-            return res.status(200).json({ 
+            return res.status(200).json({
                 message: "Post reposted",
                 repostCount: updatedPost[0]?.repostCount || 0
             });
@@ -885,7 +897,7 @@ export const getSavedPosts = async (req: Request, res: Response) => {
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
-        
+
         // Fetch posts that are linked to the user via savedPostsTable
         const savedPosts = await dbClient
             .select({
@@ -1008,5 +1020,145 @@ export const getUserPosts = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching user posts" });
+    }
+};
+
+// Get posts by user ID (for viewing other users' profiles)
+export const getPostsByUserId = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        // Fetch user's posts with author info
+        const posts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                updatedAt: postsTable.updatedAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
+            .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(eq(postsTable.userId, userId))
+            .orderBy(desc(postsTable.createdAt));
+
+        // Fetch media for all posts
+        const postIds = posts.map(p => p.id);
+        const mediaMap: Record<string, any[]> = {};
+
+        if (postIds.length > 0) {
+            const mediaRecords = await dbClient
+                .select()
+                .from(postMediaTable)
+                .where(sql`${postMediaTable.postId} IN (${sql.join(postIds.map(id => sql`${id}`), sql`, `)})`);
+
+            mediaRecords.reduce((acc, media) => {
+                const postId = String(media.postId);
+                if (!acc[postId]) acc[postId] = [];
+                acc[postId].push(media);
+                return acc;
+            }, mediaMap);
+        }
+
+        // Format the response
+        const formattedPosts = posts.map(post => ({
+            id: post.id,
+            userId: post.userId,
+            content: post.content,
+            category: post.category,
+            likeCount: post.likeCount,
+            commentCount: post.commentCount,
+            repostCount: post.repostCount,
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+            author: {
+                firstName: post.authorFirstName,
+                lastName: post.authorLastName,
+                avatarUrl: post.authorAvatarUrl,
+            },
+            media: (mediaMap[String(post.id)] || []).sort((a: any, b: any) => a.order - b.order),
+        }));
+
+        res.json(formattedPosts);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching user posts" });
+    }
+};
+
+// Accept event from post and add to user's calendar
+export const acceptEventFromPost = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { postId } = req.params;
+
+        // 1. Fetch event data from event_posts table
+        const eventPost = await dbClient
+            .select()
+            .from(eventPostsTable)
+            .where(eq(eventPostsTable.postId, postId))
+            .limit(1);
+
+        if (eventPost.length === 0) {
+            return res.status(404).json({ message: "Event not found for this post" });
+        }
+
+        const event = eventPost[0];
+
+        // 2. Check if user already accepted this event (prevent duplicates)
+        const existingEvent = await dbClient
+            .select()
+            .from(calendarEventsTable)
+            .where(
+                and(
+                    eq(calendarEventsTable.userId, userId),
+                    eq(calendarEventsTable.title, event.eventTitle),
+                    eq(calendarEventsTable.startTime, event.eventStartTime)
+                )
+            )
+            .limit(1);
+
+        if (existingEvent.length > 0) {
+            return res.status(200).json({
+                message: "Event already accepted",
+                event: existingEvent[0],
+            });
+        }
+
+        // 3. Create calendar event for the user
+        const [newCalendarEvent] = await dbClient
+            .insert(calendarEventsTable)
+            .values({
+                userId,
+                title: event.eventTitle,
+                description: event.eventDescription,
+                startTime: event.eventStartTime,
+                endTime: event.eventEndTime,
+                type: event.eventType || "event",
+                status: "pending",
+            })
+            .returning();
+
+        res.status(201).json({
+            message: "Event accepted successfully",
+            event: newCalendarEvent,
+        });
+    } catch (error: any) {
+        console.error("acceptEventFromPost Error:", error);
+        res.status(500).json({
+            message: "Error accepting event",
+            error: error.message,
+        });
     }
 };

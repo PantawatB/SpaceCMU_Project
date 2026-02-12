@@ -19,6 +19,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import messageRoutes from "./routes/messageRoutes.js";
 import chatRoomRoutes from "./routes/chatRoomRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import settingsRoutes from "./routes/settingsRoutes.js";
 
 const app: Express = express();
 
@@ -58,6 +59,7 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/chat-rooms", chatRoomRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api/settings", settingsRoutes);
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {

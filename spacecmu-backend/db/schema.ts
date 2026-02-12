@@ -90,6 +90,22 @@ export const postsTable = pgTable("posts", {
   updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Event Posts Table ---
+// Links posts to calendar events for event acceptance functionality
+export const eventPostsTable = pgTable("event_posts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
+
+  eventTitle: varchar("event_title", { length: 255 }).notNull(),
+  eventDescription: text("event_description"),
+  eventStartTime: timestamp("event_start_time").notNull(),
+  eventEndTime: timestamp("event_end_time"),
+  eventType: varchar("event_type", { length: 50 }).default("event"), // event, class, activity, appointment
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+});
+
 // --- Post Media Table ---
 // Supports multiple images/videos per post
 export const postMediaTable = pgTable("post_media", {
@@ -263,12 +279,12 @@ export const commentsTable = pgTable("comments", {
 export const commentMediaTable = pgTable("comment_media", {
   id: uuid("id").primaryKey().defaultRandom(),
   commentId: uuid("comment_id").references(() => commentsTable.id, { onDelete: "cascade" }).notNull(),
-  
+
   mediaUrl: varchar("media_url", { length: 500 }).notNull(),
   mediaType: varchar("media_type", { length: 20 }).notNull(), // 'image' or 'video'
   order: integer("order").default(0).notNull(),
   fileSize: bigint("file_size", { mode: "number" }),
-  
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
