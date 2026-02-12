@@ -4,7 +4,6 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
-import Image from "next/image";
 import { useState, useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { API_CONFIG } from "@/lib/config";
@@ -451,11 +450,11 @@ export default function ProfileMainPage() {
               {/* Cover Image */}
               <div className="h-40 w-full relative">
                 {activeUser.bannerUrl ? (
-                  <Image
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
                     src={activeUser.bannerUrl}
                     alt="Profile Banner"
-                    fill
-                    className="object-cover"
+                    className="w-full h-full object-cover"
                   />
                 ) : (
                   <div className="h-full w-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
@@ -464,12 +463,11 @@ export default function ProfileMainPage() {
               {/* Profile Avatar - left aligned */}
               <div className="absolute left-10 top-28 flex items-center">
                 <div className="rounded-full border-4 border-white p-1 bg-white">
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src={avatarUrl}
                     alt="Profile Avatar"
-                    width={90}
-                    height={90}
-                    className="rounded-full object-cover"
+                    className="w-[90px] h-[90px] rounded-full object-cover"
                   />
                 </div>
                 {/* Stats - right of avatar, vertically centered, adjust only stats position */}
