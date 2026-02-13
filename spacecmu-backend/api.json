@@ -2054,7 +2054,7 @@
                                 "profile"
                             ]
                         },
-                        "description": "Update user profile information (name, faculty, bio). All fields are optional."
+                        "description": "Update user profile information.\n\n**Name Change Restrictions:**\n- **Public users**: Cannot change firstName or lastName (returns 403 error)\n- **Anonymous users**: Can change firstName and lastName\n\n**Fields:**\n- `firstName`: First name (anonymous users only)\n- `lastName`: Last name (anonymous users only)\n- `faculty`: Faculty/department (all users)\n- `bio`: Biography (all users)\n\nAll fields are optional."
                     }
                 },
                 {
@@ -2174,7 +2174,7 @@
                         ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"profileVisible\": true,\n  \"showEmail\": false,\n  \"allowMessages\": true\n}",
+                            "raw": "{\n  \"profileVisible\": true,\n  \"showEmail\": false,\n  \"allowMessages\": true,\n  \"showFriends\": true,\n  \"showLikedPosts\": false\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
@@ -2192,7 +2192,7 @@
                                 "privacy"
                             ]
                         },
-                        "description": "Update privacy settings. All fields are optional."
+                        "description": "Update privacy settings.\n\n**Fields:**\n- `profileVisible`: Show profile to others\n- `showEmail`: Show email address\n- `allowMessages`: Allow direct messages\n- `showFriends`: Show friends list (NEW)\n- `showLikedPosts`: Show liked posts (NEW)\n\nAll fields are optional."
                     }
                 },
                 {
