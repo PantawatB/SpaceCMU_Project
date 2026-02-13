@@ -23,22 +23,9 @@ export const getAllUsers = async (req: Request, res: Response) => {
 export const getUserById = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
-        let currentUserId = req.session?.activeUserId; // May be undefined if not logged in
-
-        // Fallback: Try to get userId from JWT token directly (for testing)
-        if (!currentUserId) {
-            const authHeader = req.headers.authorization;
-            if (authHeader && authHeader.startsWith("Bearer ")) {
-                try {
-                    const token = authHeader.split(" ")[1];
-                    const jwtSecret = process.env.JWT_SECRET || "fallback_secret";
-                    const decoded: any = jwt.verify(token, jwtSecret);
-                    currentUserId = decoded.id;
-                } catch (error) {
-                    // Invalid token, continue as unauthenticated
-                }
-            }
-        }
+        // sessionMiddleware ensures req.session.activeUserId is always present
+        const currentUserId = req.session!.activeUserId;
+        console.log("[getUserById] Start - target:", id, "current:", currentUserId);
 
         const user = await dbClient
             .select()
@@ -52,263 +39,297 @@ export const getUserById = async (req: Request, res: Response) => {
         }
 
         const userData = user[0];
-
-        // If not logged in, return basic user info
-        if (!currentUserId) {
-            return res.json(userData);
-        }
+        console.log("[getUserById] User found:", userData.username);
 
         const isOwnProfile = currentUserId === id && !userData.isAnonymous;
 
         // Check friendship status
-        const friendship = await dbClient
-            .select()
-            .from(friendshipsTable)
-            .where(
-                or(
-                    and(eq(friendshipsTable.userId1, currentUserId), eq(friendshipsTable.userId2, id)),
-                    and(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, currentUserId))
-                )
-            )
-            .limit(1);
-
         let friendshipStatus: "none" | "pending" | "accepted" | "blocked" = "none";
         let isPendingFrom: string | null = null;
+        let mutualFriendsCount = 0;
 
-        if (friendship.length > 0) {
-            friendshipStatus = friendship[0].status as "pending" | "accepted" | "blocked";
-            if (friendshipStatus === "pending") {
-                isPendingFrom = friendship[0].userId1 === currentUserId ? "me" : "them";
+        try {
+            const friendship = await dbClient
+                .select()
+                .from(friendshipsTable)
+                .where(
+                    or(
+                        and(eq(friendshipsTable.userId1, currentUserId), eq(friendshipsTable.userId2, id)),
+                        and(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, currentUserId))
+                    )
+                )
+                .limit(1);
+
+            if (friendship.length > 0) {
+                friendshipStatus = friendship[0].status as "pending" | "accepted" | "blocked";
+                if (friendshipStatus === "pending") {
+                    isPendingFrom = friendship[0].userId1 === currentUserId ? "me" : "them";
+                }
             }
+            console.log("[getUserById] Friendship status:", friendshipStatus);
+        } catch (e) {
+            console.error("[getUserById] Error fetching friendship:", e);
         }
 
-        // Calculate mutual friends if they are friends
-        let mutualFriendsCount = 0;
+        // Calculate mutual friends
         if (friendshipStatus === "accepted") {
-            const myFriendships = await dbClient
-                .select()
-                .from(friendshipsTable)
-                .where(
-                    and(
-                        or(eq(friendshipsTable.userId1, currentUserId), eq(friendshipsTable.userId2, currentUserId)),
-                        eq(friendshipsTable.status, "accepted")
-                    )
+            try {
+                const myFriendships = await dbClient
+                    .select()
+                    .from(friendshipsTable)
+                    .where(
+                        and(
+                            or(eq(friendshipsTable.userId1, currentUserId), eq(friendshipsTable.userId2, currentUserId)),
+                            eq(friendshipsTable.status, "accepted")
+                        )
+                    );
+                const myFriendIds = myFriendships.map(f =>
+                    f.userId1 === currentUserId ? f.userId2 : f.userId1
                 );
-
-            const myFriendIds = myFriendships.map(f =>
-                f.userId1 === currentUserId ? f.userId2 : f.userId1
-            );
-
-            const theirFriendships = await dbClient
-                .select()
-                .from(friendshipsTable)
-                .where(
-                    and(
-                        or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
-                        eq(friendshipsTable.status, "accepted")
-                    )
+                const theirFriendships = await dbClient
+                    .select()
+                    .from(friendshipsTable)
+                    .where(
+                        and(
+                            or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
+                            eq(friendshipsTable.status, "accepted")
+                        )
+                    );
+                const theirFriendIds = theirFriendships.map(f =>
+                    f.userId1 === id ? f.userId2 : f.userId1
                 );
-
-            const theirFriendIds = theirFriendships.map(f =>
-                f.userId1 === id ? f.userId2 : f.userId1
-            );
-
-            mutualFriendsCount = myFriendIds.filter(fid => theirFriendIds.includes(fid)).length;
+                mutualFriendsCount = myFriendIds.filter(fid => theirFriendIds.includes(fid)).length;
+                console.log("[getUserById] Mutual friends:", mutualFriendsCount);
+            } catch (e) {
+                console.error("[getUserById] Error calculating mutual friends:", e);
+            }
         }
 
         // === ENHANCED DATA FETCHING ===
 
         // 1. Fetch user's posts (feed)
-        const posts = await dbClient
-            .select({
-                id: postsTable.id,
-                content: postsTable.content,
-                category: postsTable.category,
-                likeCount: postsTable.likeCount,
-                commentCount: postsTable.commentCount,
-                createdAt: postsTable.createdAt,
-            })
-            .from(postsTable)
-            .where(and(
-                eq(postsTable.userId, id),
-                eq(postsTable.status, "active")
-            ))
-            .orderBy(sql`${postsTable.createdAt} DESC`)
-            .limit(20);
-
-        // Get media for each post
-        const postsWithMedia = await Promise.all(posts.map(async (post) => {
-            const media = await dbClient
-                .select()
-                .from(postMediaTable)
-                .where(eq(postMediaTable.postId, post.id));
-
-            const isLiked = currentUserId ? await dbClient
-                .select()
-                .from(likesTable)
+        let postsWithMedia: any[] = [];
+        try {
+            const posts = await dbClient
+                .select({
+                    id: postsTable.id,
+                    content: postsTable.content,
+                    category: postsTable.category,
+                    likeCount: postsTable.likeCount,
+                    commentCount: postsTable.commentCount,
+                    createdAt: postsTable.createdAt,
+                })
+                .from(postsTable)
                 .where(and(
-                    eq(likesTable.postId, post.id),
-                    eq(likesTable.userId, currentUserId)
+                    eq(postsTable.userId, id),
+                    eq(postsTable.status, "active")
                 ))
-                .limit(1)
-                .then(res => res.length > 0) : false;
+                .orderBy(sql`${postsTable.createdAt} DESC`)
+                .limit(20);
 
-            return {
-                ...post,
-                mediaUrls: media.map(m => m.mediaUrl),
-                isLiked,
-            };
-        }));
+            postsWithMedia = await Promise.all(posts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id));
+
+                const isLiked = currentUserId ? await dbClient
+                    .select()
+                    .from(likesTable)
+                    .where(and(
+                        eq(likesTable.postId, post.id),
+                        eq(likesTable.userId, currentUserId)
+                    ))
+                    .limit(1)
+                    .then(res => res.length > 0) : false;
+
+                return {
+                    ...post,
+                    mediaUrls: media.map(m => m.mediaUrl),
+                    isLiked,
+                };
+            }));
+            console.log("[getUserById] Posts fetched:", postsWithMedia.length);
+        } catch (e) {
+            console.error("[getUserById] Error fetching posts:", e);
+        }
 
         // 2. Fetch user's market items
-        const marketItems = await dbClient
-            .select({
-                id: marketItemsTable.id,
-                title: marketItemsTable.title,
-                description: marketItemsTable.description,
-                price: marketItemsTable.price,
-                imageUrl: marketItemsTable.imageUrl,
-                imageUrls: marketItemsTable.imageUrls,
-                status: marketItemsTable.status,
-                createdAt: marketItemsTable.createdAt,
-                category: {
-                    id: marketCategoriesTable.id,
-                    name: marketCategoriesTable.name,
-                }
-            })
-            .from(marketItemsTable)
-            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
-            .where(eq(marketItemsTable.sellerId, id))
-            .orderBy(sql`${marketItemsTable.createdAt} DESC`)
-            .limit(20);
+        let marketItems: any[] = [];
+        try {
+            marketItems = await dbClient
+                .select({
+                    id: marketItemsTable.id,
+                    title: marketItemsTable.title,
+                    description: marketItemsTable.description,
+                    price: marketItemsTable.price,
+                    imageUrl: marketItemsTable.imageUrl,
+                    imageUrls: marketItemsTable.imageUrls,
+                    status: marketItemsTable.status,
+                    createdAt: marketItemsTable.createdAt,
+                    category: {
+                        id: marketCategoriesTable.id,
+                        name: marketCategoriesTable.name,
+                    }
+                })
+                .from(marketItemsTable)
+                .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+                .where(eq(marketItemsTable.sellerId, id))
+                .orderBy(sql`${marketItemsTable.createdAt} DESC`)
+                .limit(20);
+            console.log("[getUserById] Market items fetched:", marketItems.length);
+        } catch (e) {
+            console.error("[getUserById] Error fetching market items:", e);
+        }
 
         // 3. Fetch friends list (with privacy check)
         const privacySettings = userData.privacySettings as any;
         const canShowFriends = isOwnProfile || privacySettings?.showFriends !== false;
 
-        let friends = null;
+        let friends: any[] | null = null;
         if (canShowFriends) {
-            const friendships = await dbClient
-                .select()
-                .from(friendshipsTable)
-                .where(
-                    and(
-                        or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
-                        eq(friendshipsTable.status, "accepted")
-                    )
-                );
+            try {
+                const friendships = await dbClient
+                    .select()
+                    .from(friendshipsTable)
+                    .where(
+                        and(
+                            or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
+                            eq(friendshipsTable.status, "accepted")
+                        )
+                    );
 
-            const friendIds = friendships.map(f => f.userId1 === id ? f.userId2 : f.userId1);
+                const friendIds = friendships.map(f => f.userId1 === id ? f.userId2 : f.userId1);
 
-            if (friendIds.length > 0) {
-                friends = await dbClient
-                    .select({
-                        id: usersTable.id,
-                        firstName: usersTable.firstName,
-                        lastName: usersTable.lastName,
-                        avatarUrl: usersTable.avatarUrl,
-                        faculty: usersTable.faculty,
-                    })
-                    .from(usersTable)
-                    .where(sql`${usersTable.id} IN ${friendIds}`)
-                    .limit(50);
-            } else {
-                friends = [];
-            }
-        }
-
-        // 4. Fetch reposts (posts where this user shared/reposted)
-        // Note: Repost functionality needs to be implemented in posts table
-        const reposts = await dbClient
-            .select({
-                id: postsTable.id,
-                content: postsTable.content,
-                createdAt: postsTable.createdAt,
-            })
-            .from(postsTable)
-            .where(and(
-                eq(postsTable.userId, id),
-                eq(postsTable.category, "shared"), // Assuming 'shared' category for reposts
-                eq(postsTable.status, "active")
-            ))
-            .orderBy(sql`${postsTable.createdAt} DESC`)
-            .limit(10);
-
-        // 5. Fetch liked posts (with privacy check)
-        const canShowLikedPosts = isOwnProfile || privacySettings?.showLikedPosts !== false;
-
-        let likedPosts = null;
-        if (canShowLikedPosts) {
-            const likes = await dbClient
-                .select({
-                    postId: likesTable.postId,
-                    createdAt: likesTable.createdAt,
-                })
-                .from(likesTable)
-                .where(eq(likesTable.userId, id))
-                .orderBy(sql`${likesTable.createdAt} DESC`)
-                .limit(20);
-
-            if (likes.length > 0) {
-                const postIds = likes.map(l => l.postId);
-                likedPosts = await dbClient
-                    .select({
-                        id: postsTable.id,
-                        content: postsTable.content,
-                        likeCount: postsTable.likeCount,
-                        createdAt: postsTable.createdAt,
-                        author: {
+                if (friendIds.length > 0) {
+                    friends = await dbClient
+                        .select({
                             id: usersTable.id,
                             firstName: usersTable.firstName,
                             lastName: usersTable.lastName,
                             avatarUrl: usersTable.avatarUrl,
-                        }
+                            faculty: usersTable.faculty,
+                        })
+                        .from(usersTable)
+                        .where(sql`${usersTable.id} IN (${sql.join(friendIds.map(fid => sql`${fid}`), sql`, `)})`)
+                        .limit(50);
+                } else {
+                    friends = [];
+                }
+                console.log("[getUserById] Friends fetched:", friends?.length);
+            } catch (e) {
+                console.error("[getUserById] Error fetching friends:", e);
+                friends = [];
+            }
+        }
+
+        // 4. Fetch reposts
+        let reposts: any[] = [];
+        try {
+            reposts = await dbClient
+                .select({
+                    id: postsTable.id,
+                    content: postsTable.content,
+                    createdAt: postsTable.createdAt,
+                })
+                .from(postsTable)
+                .where(and(
+                    eq(postsTable.userId, id),
+                    eq(postsTable.category, "shared"),
+                    eq(postsTable.status, "active")
+                ))
+                .orderBy(sql`${postsTable.createdAt} DESC`)
+                .limit(10);
+            console.log("[getUserById] Reposts fetched:", reposts.length);
+        } catch (e) {
+            console.error("[getUserById] Error fetching reposts:", e);
+        }
+
+        // 5. Fetch liked posts (with privacy check)
+        const canShowLikedPosts = isOwnProfile || privacySettings?.showLikedPosts !== false;
+
+        let likedPosts: any[] | null = null;
+        if (canShowLikedPosts) {
+            try {
+                const likes = await dbClient
+                    .select({
+                        postId: likesTable.postId,
+                        createdAt: likesTable.createdAt,
                     })
-                    .from(postsTable)
-                    .innerJoin(usersTable, eq(postsTable.userId, usersTable.id))
-                    .where(and(
-                        sql`${postsTable.id} = ANY(ARRAY[${sql.join(postIds.map(id => sql`${id}`), sql`, `)}])`,
-                        eq(postsTable.status, "active")
-                    ));
-            } else {
+                    .from(likesTable)
+                    .where(eq(likesTable.userId, id))
+                    .orderBy(sql`${likesTable.createdAt} DESC`)
+                    .limit(20);
+
+                if (likes.length > 0) {
+                    const postIds = likes.map(l => l.postId);
+                    likedPosts = await dbClient
+                        .select({
+                            id: postsTable.id,
+                            content: postsTable.content,
+                            likeCount: postsTable.likeCount,
+                            createdAt: postsTable.createdAt,
+                            author: {
+                                id: usersTable.id,
+                                firstName: usersTable.firstName,
+                                lastName: usersTable.lastName,
+                                avatarUrl: usersTable.avatarUrl,
+                            }
+                        })
+                        .from(postsTable)
+                        .innerJoin(usersTable, eq(postsTable.userId, usersTable.id))
+                        .where(and(
+                            sql`${postsTable.id} IN (${sql.join(postIds.map(pid => sql`${pid}`), sql`, `)})`,
+                            eq(postsTable.status, "active")
+                        ));
+                } else {
+                    likedPosts = [];
+                }
+                console.log("[getUserById] Liked posts fetched:", likedPosts?.length);
+            } catch (e) {
+                console.error("[getUserById] Error fetching liked posts:", e);
                 likedPosts = [];
             }
         }
 
-        // Calculate friends count (always visible, even if friends list is private)
+        // Calculate friends count
         let friendsCount = 0;
         if (friends !== null) {
             friendsCount = friends.length;
         } else {
-            // If friends list is private, still calculate count
-            const countFriendships = await dbClient
-                .select()
-                .from(friendshipsTable)
-                .where(
-                    and(
-                        or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
-                        eq(friendshipsTable.status, "accepted")
-                    )
-                );
-            friendsCount = countFriendships.length;
+            try {
+                const countFriendships = await dbClient
+                    .select()
+                    .from(friendshipsTable)
+                    .where(
+                        and(
+                            or(eq(friendshipsTable.userId1, id), eq(friendshipsTable.userId2, id)),
+                            eq(friendshipsTable.status, "accepted")
+                        )
+                    );
+                friendsCount = countFriendships.length;
+            } catch (e) {
+                console.error("[getUserById] Error counting friends:", e);
+            }
         }
 
+        console.log("[getUserById] Sending response");
         // Return comprehensive user profile
         res.json({
             ...userData,
             friendshipStatus,
             isPendingFrom,
             mutualFriendsCount,
-            friendsCount, // Always visible
+            friendsCount,
             posts: postsWithMedia,
             marketItems,
-            friends, // null if privacy disallows
+            friends,
             reposts,
-            likedPosts, // null if privacy disallows
+            likedPosts,
         });
     } catch (error) {
-        console.error("Error in getUserById:", error);
-        console.error("Error stack:", error instanceof Error ? error.stack : 'No stack trace');
+        console.error("[getUserById] FATAL ERROR:", error);
+        console.error("[getUserById] Error stack:", error instanceof Error ? error.stack : 'No stack trace');
         res.status(500).json({ message: "Error fetching user" });
     }
 };
