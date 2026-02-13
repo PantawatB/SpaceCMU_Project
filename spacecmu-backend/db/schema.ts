@@ -53,8 +53,8 @@ export const usersTable = pgTable("users", {
   // Settings (JSON for flexibility)
   // Notifications: { email: bool, push: bool, sms: bool }
   notificationSettings: jsonb("notification_settings").default({ email: true, push: true, sms: false }),
-  // Privacy: { profileVisible: bool, showEmail: bool, allowMessages: bool }
-  privacySettings: jsonb("privacy_settings").default({ profileVisible: true, showEmail: false, allowMessages: true }),
+  // Privacy: { profileVisible: bool, showEmail: bool, allowMessages: bool, showFriends: bool, showLikedPosts: bool }
+  privacySettings: jsonb("privacy_settings").default({ profileVisible: true, showEmail: false, allowMessages: true, showFriends: true, showLikedPosts: false }),
 
   theme: varchar("theme", { length: 20 }).default("light"), // light, dark, auto
   language: varchar("language", { length: 20 }).default("en"), // en, th, etc.

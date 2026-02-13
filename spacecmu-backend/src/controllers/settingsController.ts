@@ -52,9 +52,31 @@ export const updateProfile = async (req: Request, res: Response) => {
 
         const { firstName, lastName, faculty, bio } = req.body;
 
+        // Get current user to check if they're anonymous
+        const [currentUser] = await dbClient
+            .select({ isAnonymous: usersTable.isAnonymous })
+            .from(usersTable)
+            .where(eq(usersTable.id, userId));
+
+        if (!currentUser) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
         const updateData: any = {};
-        if (firstName !== undefined) updateData.firstName = firstName;
-        if (lastName !== undefined) updateData.lastName = lastName;
+
+        // Only allow name changes for anonymous users
+        if (firstName !== undefined || lastName !== undefined) {
+            if (!currentUser.isAnonymous) {
+                return res.status(403).json({
+                    message: "Public users cannot change their name. Only anonymous users can change their display name."
+                });
+            }
+            // Anonymous users can change their names
+            if (firstName !== undefined) updateData.firstName = firstName;
+            if (lastName !== undefined) updateData.lastName = lastName;
+        }
+
+        // Faculty and bio can be updated by anyone
         if (faculty !== undefined) updateData.faculty = faculty;
         if (bio !== undefined) updateData.bio = bio;
 
@@ -68,6 +90,7 @@ export const updateProfile = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 faculty: usersTable.faculty,
                 bio: usersTable.bio,
+                isAnonymous: usersTable.isAnonymous,
             });
 
         res.json({
@@ -201,7 +224,7 @@ export const updatePrivacySettings = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const { profileVisible, showEmail, allowMessages } = req.body;
+        const { profileVisible, showEmail, allowMessages, showFriends, showLikedPosts } = req.body;
 
         // Get current settings
         const [user] = await dbClient
@@ -214,11 +237,19 @@ export const updatePrivacySettings = async (req: Request, res: Response) => {
         }
 
         // Merge with new settings
-        const currentSettings = user.privacySettings as any || { profileVisible: true, showEmail: false, allowMessages: true };
+        const currentSettings = user.privacySettings as any || {
+            profileVisible: true,
+            showEmail: false,
+            allowMessages: true,
+            showFriends: true,
+            showLikedPosts: false
+        };
         const newSettings = {
             profileVisible: profileVisible !== undefined ? profileVisible : currentSettings.profileVisible,
             showEmail: showEmail !== undefined ? showEmail : currentSettings.showEmail,
             allowMessages: allowMessages !== undefined ? allowMessages : currentSettings.allowMessages,
+            showFriends: showFriends !== undefined ? showFriends : currentSettings.showFriends,
+            showLikedPosts: showLikedPosts !== undefined ? showLikedPosts : currentSettings.showLikedPosts,
         };
 
         const [updatedUser] = await dbClient
