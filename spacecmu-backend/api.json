@@ -1297,6 +1297,40 @@
                             }
                         },
                         {
+                            "name": "Get Friends List by User ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text",
+                                        "description": "Required"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/user/:userId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "user",
+                                        ":userId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "User ID to fetch friends for"
+                                        }
+                                    ]
+                                },
+                                "description": "Get friends list of a specific user. Requires authentication.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"user-uuid\",\n    \"firstName\": \"Friend\",\n    \"lastName\": \"Name\",\n    \"username\": \"friend_user\",\n    \"avatarUrl\": \"https://...\",\n    \"faculty\": \"Engineering\",\n    \"major\": \"SE\",\n    \"year\": 3\n  }\n]\n```"
+                            }
+                        },
+                        {
                             "name": "Get Friend Suggestions (People You May Know)",
                             "request": {
                                 "method": "GET",

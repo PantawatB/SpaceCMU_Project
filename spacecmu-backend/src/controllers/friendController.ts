@@ -479,3 +479,50 @@ const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => 
     return shuffled.slice(0, 10);
 };
 
+
+// Get friends list by user ID (public profile view)
+export const getFriendsByUserId = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        // Get all accepted friendships for this user
+        const friendships = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                and(
+                    or(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, userId)),
+                    eq(friendshipsTable.status, "accepted")
+                )
+            );
+
+        if (friendships.length === 0) {
+            return res.json([]);
+        }
+
+        // Get friend IDs
+        const friendIds = friendships.map(f =>
+            f.userId1 === userId ? f.userId2 : f.userId1
+        );
+
+        // Fetch user details for these friends
+        const friends = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                avatarUrl: usersTable.avatarUrl,
+                faculty: usersTable.faculty,
+                major: usersTable.major,
+                year: usersTable.year,
+            })
+            .from(usersTable)
+            .where(sql`${usersTable.id} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`);
+
+        res.json(friends);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching user friends list" });
+    }
+};
