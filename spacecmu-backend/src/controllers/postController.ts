@@ -785,6 +785,68 @@ export const getRepostedPosts = async (req: Request, res: Response) => {
     }
 };
 
+export const getRepostsByUserId = async (req: Request, res: Response) => {
+    try {
+        const currentUserId = req.session?.activeUserId;
+        if (!currentUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { userId } = req.params;
+
+        // Fetch posts that are linked to the user via repostsTable
+        const repostedPosts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                repostedAt: repostsTable.createdAt, // Optional: tracking when it was reposted
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
+            .from(repostsTable)
+            .innerJoin(postsTable, eq(repostsTable.postId, postsTable.id))
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(eq(repostsTable.userId, userId))
+            .orderBy(desc(repostsTable.createdAt));
+
+        // Fetch media for each post and format author
+        const postsWithMedia = await Promise.all(
+            repostedPosts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                return {
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                    },
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching user's reposted posts" });
+    }
+};
+
 export const getLikedPosts = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
@@ -1160,5 +1222,63 @@ export const acceptEventFromPost = async (req: Request, res: Response) => {
             message: "Error accepting event",
             error: error.message,
         });
+    }
+};
+
+// Get liked posts by user ID
+export const getLikedPostsByUserId = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+
+        // Fetch posts that are linked to the user via likesTable
+        const likedPosts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                likedAt: likesTable.createdAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
+            .from(likesTable)
+            .innerJoin(postsTable, eq(likesTable.postId, postsTable.id))
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(eq(likesTable.userId, userId))
+            .orderBy(desc(likesTable.createdAt));
+
+        // Fetch media for each post and format author
+        const postsWithMedia = await Promise.all(
+            likedPosts.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                return {
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                    },
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        res.json(postsWithMedia);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching user liked posts" });
     }
 };

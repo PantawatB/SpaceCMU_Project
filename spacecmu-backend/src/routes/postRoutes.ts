@@ -17,6 +17,8 @@ import {
     getPostsByUserId,
     getCommentsByPostId,
     acceptEventFromPost,
+    getRepostsByUserId,
+    getLikedPostsByUserId,
 } from "../controllers/postController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { uploadMultiple } from "../middleware/uploadMiddleware.js";
@@ -37,7 +39,9 @@ router.get("/saved/me", sessionMiddleware, getSavedPosts);
 router.get("/reposted/me", sessionMiddleware, getRepostedPosts);
 router.get("/liked/me", sessionMiddleware, getLikedPosts);
 router.get("/me", sessionMiddleware, getUserPosts);
-router.get("/user/:userId", getPostsByUserId); // Get posts by user ID
+router.get("/user/:userId", sessionMiddleware, getPostsByUserId); // Get posts by user ID
+router.get("/user/:userId/reposts", sessionMiddleware, getRepostsByUserId); // Get reposts by user ID
+router.get("/user/:userId/liked", sessionMiddleware, getLikedPostsByUserId); // Get liked posts by user ID
 router.post("/:postId/accept-event", sessionMiddleware, acceptEventFromPost); // Accept event from post
 router.get("/:postId/comments", getCommentsByPostId);
 

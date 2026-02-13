@@ -201,7 +201,7 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
         // Get image URLs if files were uploaded (store first image in imageUrl for backward compatibility)
         const imageUrl = files && files.length > 0 ? `/uploads/${files[0].filename}` : null;
         // Store all image URLs as JSON string
-        const imageUrls = files && files.length > 0 
+        const imageUrls = files && files.length > 0
             ? JSON.stringify(files.map(f => `/uploads/${f.filename}`))
             : null;
 
@@ -410,5 +410,50 @@ export const getMyMarketItems = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching your market items" });
+    }
+};
+
+// Get market items by user ID
+export const getMarketItemsByUserId = async (req: Request, res: Response) => {
+    try {
+        // Require authentication
+        const currentUserId = req.session?.activeUserId;
+        if (!currentUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { userId } = req.params;
+
+        const items = await dbClient
+            .select({
+                id: marketItemsTable.id,
+                title: marketItemsTable.title,
+                description: marketItemsTable.description,
+                price: marketItemsTable.price,
+                imageUrl: marketItemsTable.imageUrl,
+                imageUrls: marketItemsTable.imageUrls,
+                status: marketItemsTable.status,
+                createdAt: marketItemsTable.createdAt,
+                seller: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                    avatarUrl: usersTable.avatarUrl,
+                },
+                category: {
+                    id: marketCategoriesTable.id,
+                    name: marketCategoriesTable.name,
+                }
+            })
+            .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
+            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+            .where(eq(marketItemsTable.sellerId, userId))
+            .orderBy(desc(marketItemsTable.createdAt));
+
+        res.json(items);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching market items by user" });
     }
 };

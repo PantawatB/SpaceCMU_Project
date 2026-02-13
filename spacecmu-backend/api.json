@@ -234,7 +234,7 @@
                                         "key": "Authorization",
                                         "value": "Bearer token_here",
                                         "type": "text",
-                                        "description": "Optional. If provided, response includes friendship status."
+                                        "description": "Required. Bearer token for authentication."
                                     }
                                 ],
                                 "url": {
@@ -255,7 +255,7 @@
                                         }
                                     ]
                                 },
-                                "description": "Get user profile by ID. When authenticated and viewing another user's profile, returns additional friendship information:\n\n**Response Fields (when authenticated):**\n- `friendshipStatus`: \"none\" | \"pending\" | \"accepted\" | \"blocked\"\n- `isPendingFrom`: \"me\" | \"them\" | null (who sent the pending request)\n- `mutualFriendsCount`: number (count of mutual friends if status is \"accepted\")\n\n**Use Cases:**\n- `friendshipStatus: \"none\"` → Show \"Add Friend\" button\n- `friendshipStatus: \"pending\"` + `isPendingFrom: \"me\"` → Show \"Request Sent\"\n- `friendshipStatus: \"pending\"` + `isPendingFrom: \"them\"` → Show \"Accept/Reject\" buttons\n- `friendshipStatus: \"accepted\"` → Show \"Friends\" + mutual friends count\n\n**Note:** Friendship fields are NOT included when:\n- Not authenticated\n- Viewing own profile"
+                                "description": "Get user profile by ID. \n\n**Response Fields:**\n- `friendshipStatus`: \"none\" | \"pending\" | \"accepted\" | \"blocked\"\n- `isPendingFrom`: \"me\" | \"them\" | null (who sent the pending request)\n- `mutualFriendsCount`: number (count of mutual friends if status is \"accepted\")\n\n**Use Cases:**\n- `friendshipStatus: \"none\"` → Show \"Add Friend\" button\n- `friendshipStatus: \"pending\"` + `isPendingFrom: \"me\"` → Show \"Request Sent\"\n- `friendshipStatus: \"pending\"` + `isPendingFrom: \"them\"` → Show \"Accept/Reject\" buttons\n- `friendshipStatus: \"accepted\"` → Show \"Friends\" + mutual friends count\n\n**Note:** Friendship fields are NOT included when viewing own profile"
                             }
                         },
                         {
@@ -593,9 +593,9 @@
                                 "header": [
                                     {
                                         "key": "Authorization",
-                                        "value": "Bearer token_here",
+                                        "value": "Bearer {{token}}",
                                         "type": "text",
-                                        "description": "Required for Friends feed"
+                                        "description": "Required"
                                     }
                                 ],
                                 "url": {
@@ -611,418 +611,382 @@
                                         {
                                             "key": "category",
                                             "value": "Global",
-                                            "description": "Optional. Values: Global (default, all except Friends), Friends (friends' posts only), Announcements, Events, Questions, Marketplaces, Shops"
-                                        }
-                                    ]
-                                },
-                                "description": "Get posts by category.\n\n**Categories:**\n- **Global** (default): All posts except Friends category\n- **Friends**: Only posts from friends (requires authentication)\n- **Announcements**: Only Announcements posts\n- **Events**: Only Events posts\n- **Questions**: Only Questions posts  \n- **Marketplaces**: Only Marketplaces posts\n- **Shops**: Only Shops posts\n\n**Response includes:**\n- Post data with media array\n- Author info: firstName, lastName, displayName, avatarUrl"
-                            }
-                        },
-                        {
-                            "name": "Get User's Own Posts",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/me",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "me"
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "Delete Post",
-                            "request": {
-                                "method": "DELETE",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/:postId",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        ":postId"
-                                    ],
-                                    "variable": [
+                                            "description": "Categories: Global, Friends, Announcements, Events, Questions, Marketplaces, Shops"
+                                        },
                                         {
-                                            "key": "postId",
-                                            "value": "post-uuid-here",
-                                            "description": "UUID of the post to delete"
-                                        }
-                                    ]
-                                },
-                                "description": "Delete a post (only the post owner can delete).\n\n**Authorization:**\n- User must be authenticated\n- User must be the owner of the post\n\n**Cascade Delete:**\nWhen a post is deleted, the following related data is automatically deleted:\n- All media files in `post_media` table\n- All comments on the post\n- All likes on the post\n- All saved references to the post\n- All reposts of the post\n\n**Response:**\n```json\n{\n  \"message\": \"Post deleted successfully\"\n}\n```\n\n**Error Responses:**\n- 401: Not authenticated\n- 403: Forbidden (not the post owner)\n- 404: Post not found"
-                            }
-                        }
-                    ]
-                },
-                {
-                    "name": "Engagement (Likes)",
-                    "item": [
-                        {
-                            "name": "Like / Unlike Post (Toggle)",
-                            "request": {
-                                "method": "POST",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "body": {
-                                    "mode": "raw",
-                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                                    "options": {
-                                        "raw": {
-                                            "language": "json"
-                                        }
-                                    }
-                                },
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/like",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "like"
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "Get Post Likes",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/:postId/likes",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        ":postId",
-                                        "likes"
-                                    ],
-                                    "variable": [
+                                            "key": "cursor",
+                                            "value": "2024-01-01T00:00:00.000Z",
+                                            "description": "Timestamp for pagination (older posts)",
+                                            "disabled": true
+                                        },
                                         {
-                                            "key": "postId",
-                                            "value": "post_id_here"
+                                            "key": "limit",
+                                            "value": "20",
+                                            "description": "Number of posts to return (max 50)",
+                                            "disabled": true
                                         }
                                     ]
-                                }
-                            }
-                        }
-                    ]
-                },
-                {
-                    "name": "Comments",
-                    "item": [
-                        {
-                            "name": "Add Comment",
-                            "request": {
-                                "method": "POST",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "body": {
-                                    "mode": "raw",
-                                    "raw": "{\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
-                                    "options": {
-                                        "raw": {
-                                            "language": "json"
-                                        }
-                                    }
                                 },
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/comment",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "comment"
-                                    ]
-                                }
+                                "description": "Get posts by category. Requires authentication.\n\n**Categories:**\n- **Global** (default): All posts except Friends category\n- **Friends**: Only posts from friends (requires authentication)\n- **Announcements**: Only Announcements posts\n- **Events**: Only Events posts\n- **Questions**: Only Questions posts  \n- **Marketplaces**: Only Marketplaces posts\n- **Shops**: Only Shops posts\n\n**Response includes:**\n- Post data with media array\n- Author info: firstName, lastName, displayName, avatarUrl"
                             }
                         },
                         {
-                            "name": "Get Comments",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/:postId/comments",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        ":postId",
-                                        "comments"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "postId",
-                                            "value": "post_id_here"
-                                        }
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "Delete Comment",
-                            "request": {
-                                "method": "DELETE",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/comment/:commentId",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "comment",
-                                        ":commentId"
-                                    ],
-                                    "variable": [
-                                        {
-                                            "key": "commentId",
-                                            "value": "paste_comment_id_here"
-                                        }
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                },
-                {
-                    "name": "Reposting",
-                    "item": [
-                        {
-                            "name": "Repost Post",
-                            "request": {
-                                "method": "POST",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "body": {
-                                    "mode": "raw",
-                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                                    "options": {
-                                        "raw": {
-                                            "language": "json"
-                                        }
-                                    }
-                                },
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/repost",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "repost"
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "Get Reposted Posts",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/reposted/me",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "reposted",
-                                        "me"
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                },
-                {
-                    "name": "Social Bookmarks (Saved)",
-                    "item": [
-                        {
-                            "name": "Save / Unsave Post (Toggle)",
-                            "request": {
-                                "method": "POST",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "body": {
-                                    "mode": "raw",
-                                    "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
-                                    "options": {
-                                        "raw": {
-                                            "language": "json"
-                                        }
-                                    }
-                                },
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/save",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "save"
-                                    ]
-                                }
-                            }
-                        },
-                        {
-                            "name": "Get User's Saved Posts",
-                            "request": {
-                                "method": "GET",
-                                "header": [
-                                    {
-                                        "key": "Authorization",
-                                        "value": "Bearer token_here",
-                                        "type": "text"
-                                    }
-                                ],
-                                "url": {
-                                    "raw": "{{baseUrl}}/api/posts/saved/me",
-                                    "host": [
-                                        "{{baseUrl}}"
-                                    ],
-                                    "path": [
-                                        "api",
-                                        "posts",
-                                        "saved",
-                                        "me"
-                                    ]
-                                }
-                            }
-                        }
-                    ]
-                },
-                {
-                    "name": "Get Liked Posts",
-                    "request": {
-                        "method": "GET",
-                        "header": [
-                            {
-                                "key": "Authorization",
-                                "value": "Bearer token_here",
-                                "type": "text"
-                            }
-                        ],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/liked/me",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "liked",
-                                "me"
-                            ]
-                        },
-                        "description": "Get all posts that the current user has liked.\n\n**Response includes:**\n- Post details with author info\n- `likedAt`: Timestamp when user liked the post\n- Sorted by most recently liked\n\n**Use case:** Display user's liked posts history in their profile"
-                    }
-                },
-                {
-                    "name": "Get Posts by User ID",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/posts/user/:userId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "posts",
-                                "user",
-                                ":userId"
-                            ],
-                            "variable": [
+                            "name": "Comments",
+                            "item": [
                                 {
-                                    "key": "userId",
-                                    "value": "user_id_here",
-                                    "description": "User ID to fetch posts from"
+                                    "name": "Add Comment",
+                                    "request": {
+                                        "method": "POST",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{token}}",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"postId\": \"post_id_here\",\n  \"content\": \"Great update!\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "language": "json"
+                                                }
+                                            }
+                                        },
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/comment",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "comment"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Get Comments",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer token_here",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/:postId/comments",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                ":postId",
+                                                "comments"
+                                            ],
+                                            "variable": [
+                                                {
+                                                    "key": "postId",
+                                                    "value": "post_id_here"
+                                                }
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Delete Comment",
+                                    "request": {
+                                        "method": "DELETE",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer token_here",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/comment/:commentId",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "comment",
+                                                ":commentId"
+                                            ],
+                                            "variable": [
+                                                {
+                                                    "key": "commentId",
+                                                    "value": "paste_comment_id_here"
+                                                }
+                                            ]
+                                        }
+                                    }
                                 }
                             ]
                         },
-                        "description": "Get all posts created by a specific user. Used for viewing user profiles.\n\n**Response includes:**\n- Post details (id, content, category, likeCount, commentCount, repostCount)\n- Author info (firstName, lastName, avatarUrl)\n- Media array (sorted by order)\n- Sorted by most recent first\n\n**Use case:** Display posts on user profile pages"
-                    }
+                        {
+                            "name": "Reposting",
+                            "item": [
+                                {
+                                    "name": "Repost Post",
+                                    "request": {
+                                        "method": "POST",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer token_here",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "language": "json"
+                                                }
+                                            }
+                                        },
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/repost",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "repost"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Get Reposted Posts",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer token_here",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/reposted/me",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "reposted",
+                                                "me"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Get Reposts by User ID",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer {{token}}",
+                                                "type": "text",
+                                                "description": "Required"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/user/:userId/reposts",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "user",
+                                                ":userId",
+                                                "reposts"
+                                            ],
+                                            "variable": [
+                                                {
+                                                    "key": "userId",
+                                                    "value": "user_id_here",
+                                                    "description": "ID of the user to fetch reposts for"
+                                                }
+                                            ]
+                                        },
+                                        "description": "Get all posts reposted by a specific user. Requires authentication."
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Social Bookmarks (Saved)",
+                            "item": [
+                                {
+                                    "name": "Save / Unsave Post (Toggle)",
+                                    "request": {
+                                        "method": "POST",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer token_here",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "body": {
+                                            "mode": "raw",
+                                            "raw": "{\n  \"userId\": \"user_id_here\",\n  \"postId\": \"post_id_here\"\n}",
+                                            "options": {
+                                                "raw": {
+                                                    "language": "json"
+                                                }
+                                            }
+                                        },
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/save",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "save"
+                                            ]
+                                        }
+                                    }
+                                },
+                                {
+                                    "name": "Get User's Saved Posts",
+                                    "request": {
+                                        "method": "GET",
+                                        "header": [
+                                            {
+                                                "key": "Authorization",
+                                                "value": "Bearer token_here",
+                                                "type": "text"
+                                            }
+                                        ],
+                                        "url": {
+                                            "raw": "{{baseUrl}}/api/posts/saved/me",
+                                            "host": [
+                                                "{{baseUrl}}"
+                                            ],
+                                            "path": [
+                                                "api",
+                                                "posts",
+                                                "saved",
+                                                "me"
+                                            ]
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        {
+                            "name": "Get Liked Posts",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer token_here",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/liked/me",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "liked",
+                                        "me"
+                                    ]
+                                },
+                                "description": "Get all posts that the current user has liked.\n\n**Response includes:**\n- Post details with author info\n- `likedAt`: Timestamp when user liked the post\n- Sorted by most recently liked\n\n**Use case:** Display user's liked posts history in their profile"
+                            }
+                        },
+                        {
+                            "name": "Get Posts by User ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text",
+                                        "description": "Required"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/user/:userId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "user",
+                                        ":userId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "User ID to fetch posts from"
+                                        }
+                                    ]
+                                },
+                                "description": "Get all posts created by a specific user. Requires authentication.\n\n**Response includes:**\n- Post details (id, content, category, likeCount, commentCount, repostCount)\n- Author info (firstName, lastName, avatarUrl)\n- Media array (sorted by order)\n- Sorted by most recent first\n\n**Use case:** Display posts on user profile pages"
+                            }
+                        },
+                        {
+                            "name": "Get Liked Posts by User ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text",
+                                        "description": "Required"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/user/:userId/liked",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "user",
+                                        ":userId",
+                                        "liked"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "User ID to fetch liked posts from"
+                                        }
+                                    ]
+                                },
+                                "description": "Get all posts liked by a specific user. Requires authentication.\n\n**Response includes:**\n- Post details with author info\n- `likedAt`: Timestamp when user liked the post\n- Sorted by most recently liked"
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -1330,6 +1294,40 @@
                                         "me"
                                     ]
                                 }
+                            }
+                        },
+                        {
+                            "name": "Get Friends List by User ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text",
+                                        "description": "Required"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/user/:userId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "user",
+                                        ":userId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "userId",
+                                            "value": "user_id_here",
+                                            "description": "User ID to fetch friends for"
+                                        }
+                                    ]
+                                },
+                                "description": "Get friends list of a specific user. Requires authentication.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"user-uuid\",\n    \"firstName\": \"Friend\",\n    \"lastName\": \"Name\",\n    \"username\": \"friend_user\",\n    \"avatarUrl\": \"https://...\",\n    \"faculty\": \"Engineering\",\n    \"major\": \"SE\",\n    \"year\": 3\n  }\n]\n```"
                             }
                         },
                         {
@@ -1757,16 +1755,15 @@
                                     ],
                                     "variable": [
                                         {
-                                            "key": "roomId",
-                                            "value": "room_uuid_here"
+                                            "value": "Bearer {{token}}",
+                                            "type": "text"
                                         }
                                     ]
-                                },
-                                "description": "Get details of a specific room including all members."
+                                }
                             }
                         },
                         {
-                            "name": "Update Room",
+                            "name": "Update Room Details",
                             "request": {
                                 "method": "PATCH",
                                 "header": [
