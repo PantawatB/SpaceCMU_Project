@@ -225,6 +225,9 @@ export default function FriendsMainPage() {
   const [userSavedPosts, setUserSavedPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [activeTab, setActiveTab] = useState("Posts");
+  const [isFriend, setIsFriend] = useState(false);
+  const [isAddingFriend, setIsAddingFriend] = useState(false);
+  const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -274,6 +277,10 @@ export default function FriendsMainPage() {
       if (response.ok) {
         const userData = await response.json();
         setSelectedUser(userData);
+        
+        // Check if this user is already a friend
+        // TODO: Replace with actual API endpoint to check friendship status
+        setIsFriend(false); // Default to not friends for now
         
         // TODO: In the future, fetch user's posts using a dedicated API endpoint
         // For now, we're not fetching posts when viewing another user's profile
@@ -374,6 +381,45 @@ export default function FriendsMainPage() {
     setUserLikedPosts([]);
     setUserSavedPosts([]);
     setActiveTab("Posts");
+    setIsFriend(false);
+    setShowUnfriendConfirm(false);
+  };
+
+  // Handle add/remove friend
+  const handleFriendAction = async () => {
+    if (!selectedUser || isAddingFriend) return;
+
+    // If already friends and haven't shown confirm yet
+    if (isFriend && !showUnfriendConfirm) {
+      setShowUnfriendConfirm(true);
+      // Auto-hide confirm after 3 seconds
+      setTimeout(() => {
+        setShowUnfriendConfirm(false);
+      }, 3000);
+      return;
+    }
+
+    setIsAddingFriend(true);
+    try {
+      if (isFriend && showUnfriendConfirm) {
+        // TODO: Call API to remove friend
+        console.log("Removing friend:", selectedUser.id);
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsFriend(false);
+        setShowUnfriendConfirm(false);
+      } else {
+        // TODO: Call API to add friend
+        console.log("Adding friend:", selectedUser.id);
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 500));
+        setIsFriend(true);
+      }
+    } catch (error) {
+      console.error("Error updating friend status:", error);
+    } finally {
+      setIsAddingFriend(false);
+    }
   };
 
   // Handle like count update
@@ -630,17 +676,89 @@ export default function FriendsMainPage() {
                 </div>
 
                 {/* Name & Verified */}
-                <div className="flex items-center mt-19 ml-8">
-                  <span className="text-2xl font-bold">
-                    {selectedUser.firstName} {selectedUser.lastName}
-                  </span>
-                  <svg
-                    className="w-6 h-6 text-blue-500 ml-2"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
+                <div className="flex items-center justify-between mt-19 ml-8 mr-8">
+                  <div className="flex items-center">
+                    <span className="text-2xl font-bold">
+                      {selectedUser.firstName} {selectedUser.lastName}
+                    </span>
+                    <svg
+                      className="w-6 h-6 text-blue-500 ml-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm3.93 6.36l-4.24 4.24a1 1 0 01-1.41 0l-2.12-2.12a1 1 0 111.41-1.41l1.41 1.41 3.54-3.54a1 1 0 111.41 1.41z" />
+                    </svg>
+                  </div>
+
+                  {/* Friend/Unfriend Button */}
+                  <button
+                    onClick={handleFriendAction}
+                    disabled={isAddingFriend}
+                    className={`
+                      group relative flex items-center gap-2 px-6 py-2.5 rounded-full font-medium text-sm
+                      transition-all duration-300 ease-in-out
+                      ${isFriend 
+                        ? showUnfriendConfirm
+                          ? 'bg-red-500 text-white hover:bg-red-600 border-2 border-red-500 hover:border-red-600'
+                          : 'bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-2 border-gray-200'
+                        : 'bg-slate-600 text-white hover:bg-slate-700 hover:shadow-lg hover:shadow-slate-200 border-2 border-slate-600'
+                      }
+                      disabled:opacity-50 disabled:cursor-not-allowed
+                      transform hover:scale-105 active:scale-95
+                    `}
                   >
-                    <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm3.93 6.36l-4.24 4.24a1 1 0 01-1.41 0l-2.12-2.12a1 1 0 111.41-1.41l1.41 1.41 3.54-3.54a1 1 0 111.41 1.41z" />
-                  </svg>
+                    {isAddingFriend ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{isFriend ? 'Removing...' : 'Adding...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        {isFriend ? (
+                          showUnfriendConfirm ? (
+                            <>
+                              <svg 
+                                className="w-4 h-4 transition-transform group-hover:scale-110" 
+                                fill="none" 
+                                stroke="currentColor" 
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                              <span>Click to Confirm</span>
+                            </>
+                          ) : (
+                            <>
+                              <svg 
+                                className="w-4 h-4 transition-transform group-hover:scale-110" 
+                                fill="currentColor" 
+                                viewBox="0 0 20 20"
+                              >
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                              <span className="group-hover:hidden">Friends</span>
+                              <span className="hidden group-hover:inline">Unfriend</span>
+                            </>
+                          )
+                        ) : (
+                          <>
+                            <svg 
+                              className="w-4 h-4 transition-transform group-hover:scale-110" 
+                              fill="none" 
+                              stroke="currentColor" 
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                            </svg>
+                            <span>Add Friend</span>
+                          </>
+                        )}
+                      </>
+                    )}
+                  </button>
                 </div>
 
                 {/* Bio */}
