@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
@@ -34,6 +34,7 @@ const profiles = [
 
 export default function Sidebar({ menuItems }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { user, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext } = useUser();
   
   const [showTutorial, setShowTutorial] = useState(false);
@@ -523,27 +524,52 @@ export default function Sidebar({ menuItems }: SidebarProps) {
 
         {/* Menu */}
         <nav className="space-y-3">
-          {currentMenuItems.map((item) =>
-            item.link ? (
-              <Link
-                href={item.link}
-                key={item.name}
-                onClick={() => handleMenuItemClick(item)}
-                className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
-                  pathname === item.link
-                    ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
-                    : "text-gray-500 hover:text-black hover:bg-gray-100"
-                }`}
-              >
-                <span className="w-5 h-5 flex items-center justify-center">
-                  {item.icon}
-                </span>
-                <span
-                  className={pathname === item.link ? "text-base" : "text-sm"}
+          {currentMenuItems.map((item) => {
+            // Check if this is Friends menu and we're already viewing a user profile
+            const isFriendsWithUserId = item.name === "Friends" && pathname === "/Friends" && searchParams.get('userId');
+            
+            return item.link ? (
+              isFriendsWithUserId ? (
+                // Render as button instead of Link to prevent navigation
+                <button
+                  key={item.name}
+                  onClick={() => handleMenuItemClick(item)}
+                  className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
+                    pathname === item.link
+                      ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
+                      : "text-gray-500 hover:text-black hover:bg-gray-100"
+                  }`}
                 >
-                  {item.name}
-                </span>
-              </Link>
+                  <span className="w-5 h-5 flex items-center justify-center">
+                    {item.icon}
+                  </span>
+                  <span
+                    className={pathname === item.link ? "text-base" : "text-sm"}
+                  >
+                    {item.name}
+                  </span>
+                </button>
+              ) : (
+                <Link
+                  href={item.link}
+                  key={item.name}
+                  onClick={() => handleMenuItemClick(item)}
+                  className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
+                    pathname === item.link
+                      ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
+                      : "text-gray-500 hover:text-black hover:bg-gray-100"
+                  }`}
+                >
+                  <span className="w-5 h-5 flex items-center justify-center">
+                    {item.icon}
+                  </span>
+                  <span
+                    className={pathname === item.link ? "text-base" : "text-sm"}
+                  >
+                    {item.name}
+                  </span>
+                </Link>
+              )
             ) : (
               <button
                 key={item.name}
@@ -554,8 +580,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 </span>
                 <span className="text-sm">{item.name}</span>
               </button>
-            )
-          )}
+            );
+          })}
         </nav>
       </div>
       <div className="pt-6">
