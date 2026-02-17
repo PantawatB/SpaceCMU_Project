@@ -23,6 +23,11 @@ export const createEvent = async (req: Request, res: Response) => {
             })
             .returning();
         res.status(201).json(newEvent[0]);
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created event", `Created event: ${title}`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error creating event" });

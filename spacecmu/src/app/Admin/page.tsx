@@ -72,7 +72,7 @@ export default function AdminPage() {
   return (
     <div className="flex min-h-screen bg-white">
       <Sidebar />
-      
+
       <div className="flex-1 p-8">
         {/* Header */}
         <div className="mb-8">
@@ -85,11 +85,10 @@ export default function AdminPage() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                activeTab === tab.id
+              className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${activeTab === tab.id
                   ? "bg-black text-white"
                   : "bg-white text-gray-600 hover:bg-gray-100"
-              }`}
+                }`}
             >
               <span className="mr-2">{tab.icon}</span>
               {tab.name}
@@ -145,14 +144,14 @@ export default function AdminPage() {
                   />
                 </div>
               </div>
-              
+
               {/* User List */}
               {(() => {
-                const filteredUsers = mockUsers.filter((user) => 
+                const filteredUsers = mockUsers.filter((user) =>
                   user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                   user.username.toLowerCase().includes(searchQuery.toLowerCase())
                 );
-                
+
                 if (filteredUsers.length === 0) {
                   return (
                     <div className="bg-white p-8 rounded-xl border border-gray-100 text-center">
@@ -161,7 +160,7 @@ export default function AdminPage() {
                     </div>
                   );
                 }
-                
+
                 return filteredUsers.map((user) => (
                   <div key={user.id} className="bg-white p-4 rounded-xl border border-gray-100 hover:shadow-md transition-all">
                     <div className="flex items-center justify-between">
@@ -175,11 +174,10 @@ export default function AdminPage() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          user.status === "active" 
-                            ? "bg-green-50 text-green-700" 
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${user.status === "active"
+                            ? "bg-green-50 text-green-700"
                             : "bg-red-50 text-red-700"
-                        }`}>
+                          }`}>
                           {user.status === "active" ? "✓ Active" : "✕ Banned"}
                         </span>
                         {user.status === "active" ? (
@@ -214,11 +212,10 @@ export default function AdminPage() {
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-sm font-semibold text-gray-900">{post.author}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                          post.status === "active" 
-                            ? "bg-green-50 text-green-700" 
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${post.status === "active"
+                            ? "bg-green-50 text-green-700"
                             : "bg-red-50 text-red-700"
-                        }`}>
+                          }`}>
                           {post.status === "active" ? "✓" : "✕"}
                         </span>
                       </div>
@@ -259,21 +256,19 @@ export default function AdminPage() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => setAnnouncementType("global")}
-                    className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all ${
-                      announcementType === "global"
+                    className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all ${announcementType === "global"
                         ? "bg-black text-white"
                         : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     🌐 Global
                   </button>
                   <button
                     onClick={() => setAnnouncementType("private")}
-                    className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all ${
-                      announcementType === "private"
+                    className={`flex-1 py-3 rounded-xl font-medium text-sm transition-all ${announcementType === "private"
                         ? "bg-black text-white"
                         : "bg-gray-50 text-gray-600 hover:bg-gray-100"
-                    }`}
+                      }`}
                   >
                     👤 Private
                   </button>

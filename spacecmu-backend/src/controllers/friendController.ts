@@ -16,6 +16,11 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             .values({ userId1, userId2, status: "pending" })
             .returning();
         res.status(201).json(request[0]);
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId1, "Sent friend request", `Sent request to user ${userId2}`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error sending friend request" });
@@ -77,6 +82,16 @@ export const respondToRequest = async (req: Request, res: Response) => {
         }
 
         res.json({ message: `Friend request ${status}`, friendship: updated[0] });
+
+        if (status === "accepted") {
+            // Log Activity for receiver (person who accepted)
+            const userId = req.session?.activeUserId;
+            if (userId) {
+                await import("../utils/activityLogger.js").then(({ logActivity }) => {
+                    logActivity(userId, "Accepted friend request", `Accepted friend request ID: ${requestId}`, req);
+                });
+            }
+        }
     } catch (error) {
         console.error("Error in respondToRequest:", error);
         res.status(500).json({ message: "Error responding to friend request" });
@@ -174,6 +189,11 @@ export const deleteFriend = async (req: Request, res: Response) => {
             .where(eq(usersTable.id, friendId));
 
         res.json({ message: "Friend deleted successfully", friendship: friendship[0] });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Removed friend", `Removed friend ${friendId}`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error deleting friend" });

@@ -214,6 +214,15 @@ export const callback = async (req: Request, res: Response) => {
             // We don't block the login if session recording fails, but we log it.
         }
 
+        // 6. Log Activity
+        try {
+            await import("../utils/activityLogger.js").then(({ logActivity }) => {
+                logActivity(user.id, "Logged in", "User logged in via CMU EntraID", req);
+            });
+        } catch (logError) {
+            console.error("Failed to log activity:", logError);
+        }
+
         // Redirect to frontend Feeds page
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
         res.redirect(`${frontendUrl}/Feeds`);
