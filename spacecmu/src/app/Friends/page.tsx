@@ -222,7 +222,6 @@ export default function FriendsMainPage() {
   const [userPosts, setUserPosts] = useState<Post[]>([]);
   const [userRepostedPosts, setUserRepostedPosts] = useState<Post[]>([]);
   const [userLikedPosts, setUserLikedPosts] = useState<Post[]>([]);
-  const [userSavedPosts, setUserSavedPosts] = useState<Post[]>([]);
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [activeTab, setActiveTab] = useState("Posts");
   const [isFriend, setIsFriend] = useState(false);
@@ -259,7 +258,6 @@ export default function FriendsMainPage() {
           setUserPosts([]);
           setUserRepostedPosts([]);
           setUserLikedPosts([]);
-          setUserSavedPosts([]);
           setActiveTab("Posts");
           loadedUserIdRef.current = null;
         }
@@ -282,12 +280,77 @@ export default function FriendsMainPage() {
         // TODO: Replace with actual API endpoint to check friendship status
         setIsFriend(false); // Default to not friends for now
         
-        // TODO: In the future, fetch user's posts using a dedicated API endpoint
-        // For now, we're not fetching posts when viewing another user's profile
-        setUserPosts([]);
+        // Fetch user's posts
+        setLoadingPosts(true);
+        try {
+          const postsResponse = await fetch(
+            `${API_CONFIG.BASE_URL}/api/posts/user/${userId}`,
+            {
+              credentials: "include",
+            }
+          );
+
+          if (postsResponse.ok) {
+            const postsData = await postsResponse.json();
+            const postsArray = Array.isArray(postsData) ? postsData : [];
+            setUserPosts(postsArray);
+          } else {
+            console.error("Failed to fetch user posts");
+            setUserPosts([]);
+          }
+        } catch (postError) {
+          console.error("Error fetching user posts:", postError);
+          setUserPosts([]);
+        }
+
+        // Fetch user's reposts
+        try {
+          const repostsResponse = await fetch(
+            `${API_CONFIG.BASE_URL}/api/posts/user/${userId}/reposts`,
+            {
+              credentials: "include",
+            }
+          );
+
+          if (repostsResponse.ok) {
+            const repostsData = await repostsResponse.json();
+            const repostsArray = Array.isArray(repostsData) ? repostsData : [];
+            setUserRepostedPosts(repostsArray);
+          } else {
+            console.error("Failed to fetch user reposts");
+            setUserRepostedPosts([]);
+          }
+        } catch (repostError) {
+          console.error("Error fetching user reposts:", repostError);
+          setUserRepostedPosts([]);
+        }
+
+        // Fetch user's liked posts
+        try {
+          const likedResponse = await fetch(
+            `${API_CONFIG.BASE_URL}/api/posts/user/${userId}/liked`,
+            {
+              credentials: "include",
+            }
+          );
+
+          if (likedResponse.ok) {
+            const likedData = await likedResponse.json();
+            const likedArray = Array.isArray(likedData) ? likedData : [];
+            setUserLikedPosts(likedArray);
+          } else {
+            console.error("Failed to fetch user liked posts");
+            setUserLikedPosts([]);
+          }
+        } catch (likedError) {
+          console.error("Error fetching user liked posts:", likedError);
+          setUserLikedPosts([]);
+        }
+
         setLoadingPosts(false);
       } else {
         console.error("Failed to fetch user data");
+        setLoadingPosts(false);
       }
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -379,7 +442,6 @@ export default function FriendsMainPage() {
     setUserPosts([]);
     setUserRepostedPosts([]);
     setUserLikedPosts([]);
-    setUserSavedPosts([]);
     setActiveTab("Posts");
     setIsFriend(false);
     setShowUnfriendConfirm(false);
@@ -910,29 +972,6 @@ export default function FriendsMainPage() {
                     </svg>
                     Liked
                   </button>
-                  <button
-                    onClick={() => setActiveTab("Saved")}
-                    className={`px-6 py-3 font-medium flex items-center gap-2 ${
-                      activeTab === "Saved"
-                        ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
-                        : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
-                    }`}
-                  >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                      />
-                    </svg>
-                    Saved
-                  </button>
                 </div>
 
                 {/* Tab Content */}
@@ -1120,44 +1159,6 @@ export default function FriendsMainPage() {
                           </p>
                           <p className="text-gray-400 text-sm mt-2">
                             ยังไม่มีโพสต์ที่ไลก์ไว้
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {activeTab === "Saved" && (
-                    <div className="space-y-6">
-                      {userSavedPosts.length > 0 ? (
-                        userSavedPosts.map((post) => (
-                          <PostCard
-                            key={post.id}
-                            post={post}
-                            onLikeUpdate={handleLikeUpdate}
-                            onRepostUpdate={handleRepostUpdate}
-                            onSaveUpdate={handleSaveUpdate}
-                          />
-                        ))
-                      ) : (
-                        <div className="text-center py-12">
-                          <svg
-                            className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                            />
-                          </svg>
-                          <p className="text-gray-500 text-lg">
-                            ผู้ใช้คนนี้ยังไม่ได้บันทึกอะไรไว้
-                          </p>
-                          <p className="text-gray-400 text-sm mt-2">
-                            ยังไม่มีโพสต์ที่บันทึกไว้
                           </p>
                         </div>
                       )}
