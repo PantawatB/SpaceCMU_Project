@@ -407,6 +407,11 @@ export const updateBio = async (req: Request, res: Response) => {
         }
 
         res.json({ message: "Bio updated successfully", user: updatedUser[0] });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Updated bio", `Updated bio`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error updating bio" });
@@ -458,6 +463,11 @@ export const updateAvatar = async (req: Request, res: Response) => {
             .returning();
 
         res.json({ message: "Avatar updated successfully", user: updatedUser[0] });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Updated avatar", `Updated avatar`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error updating avatar" });

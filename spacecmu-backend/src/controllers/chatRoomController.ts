@@ -90,6 +90,11 @@ export const createDirectRoom = async (req: Request, res: Response) => {
             room: newRoom[0],
             isNew: true
         });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created direct chat", `Created chat with user ${otherUserId}`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error creating direct room" });
@@ -144,6 +149,11 @@ export const createGroupRoom = async (req: Request, res: Response) => {
         res.status(201).json({
             message: "Group room created successfully",
             room: newRoom[0],
+        });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created group chat", `Created group chat: ${name}`, req);
         });
     } catch (error) {
         console.error(error);

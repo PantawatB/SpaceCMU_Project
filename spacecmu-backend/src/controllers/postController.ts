@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable } from "../../db/schema.js";
-import { eq, desc, and, sql, lt } from "drizzle-orm";
+import { eq, desc, and, sql, lt, ne } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 // --- Post Management ---
@@ -92,7 +92,8 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     .where(
                         and(
                             sql`${postsTable.userId} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`,
-                            eq(postsTable.category, 'Friends')
+                            eq(postsTable.category, 'Friends'),
+                            ne(postsTable.status, 'banned')
                         )
                     )
                     .orderBy(desc(postsTable.createdAt))
@@ -155,7 +156,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     })
                     .from(postsTable)
                     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-                    .where(eq(postsTable.category, category as string))
+                    .where(and(eq(postsTable.category, category as string), ne(postsTable.status, 'banned')))
                     .orderBy(desc(postsTable.createdAt))
                     .limit(limit + 1);
 
@@ -226,7 +227,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
             })
             .from(postsTable)
             .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-            .where(whereConditions)
+            .where(and(whereConditions, ne(postsTable.status, 'banned')))
             .orderBy(desc(postsTable.createdAt))
             .limit(limit + 1); // Fetch one extra to check if there's more
 
@@ -291,6 +292,12 @@ export const createPost = async (req: Request, res: Response) => {
                 category: category || "Global",
             })
             .returning();
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created post", `Created a post with content: ${content?.substring(0, 50)}...`, req);
+        });
+
         res.status(201).json(newPost[0]);
     } catch (error: any) {
         console.error("DEBUG createPost Error:", error);
@@ -358,6 +365,13 @@ export const createPostWithMedia = async (req: Request, res: Response) => {
             .where(eq(postMediaTable.postId, newPost.id))
             .orderBy(postMediaTable.order);
 
+
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created media post", `Created a post with media/event`, req);
+        });
+
         res.status(201).json({
             ...newPost,
             media: media,
@@ -402,6 +416,11 @@ export const deletePost = async (req: Request, res: Response) => {
             .where(eq(postsTable.id, postId));
 
         res.json({ message: "Post deleted successfully" });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Deleted post", `Deleted post ID: ${postId}`, req);
+        });
     } catch (error) {
         console.error("deletePost Error:", error);
         res.status(500).json({ message: "Error deleting post" });
@@ -457,6 +476,7 @@ export const likePost = async (req: Request, res: Response) => {
                 message: "Unliked",
                 likeCount: updatedPost[0]?.likeCount || 0
             });
+
         } else {
             // Like
             await dbClient
@@ -476,6 +496,11 @@ export const likePost = async (req: Request, res: Response) => {
                 .from(postsTable)
                 .where(eq(postsTable.id, postId))
                 .limit(1);
+
+            // Log Activity
+            await import("../utils/activityLogger.js").then(({ logActivity }) => {
+                logActivity(userId, "Liked post", `Liked post ID: ${postId}`, req);
+            });
 
             return res.status(201).json({
                 message: "Liked",
@@ -536,6 +561,11 @@ export const addComment = async (req: Request, res: Response) => {
             .where(eq(postsTable.id, String(postId)));
 
         res.status(201).json(newComment[0]);
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Added comment", `Commented on post ${postId}: ${content?.substring(0, 50)}...`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error adding comment" });
@@ -695,6 +725,7 @@ export const repostPost = async (req: Request, res: Response) => {
                 message: "Post unreposted",
                 repostCount: updatedPost[0]?.repostCount || 0
             });
+
         } else {
             // Repost
             await dbClient
@@ -713,6 +744,11 @@ export const repostPost = async (req: Request, res: Response) => {
                 .from(postsTable)
                 .where(eq(postsTable.id, postId))
                 .limit(1);
+
+            // Log Activity
+            await import("../utils/activityLogger.js").then(({ logActivity }) => {
+                logActivity(userId, "Reposted post", `Reposted post ID: ${postId}`, req);
+            });
 
             return res.status(200).json({
                 message: "Post reposted",

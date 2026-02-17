@@ -2262,6 +2262,254 @@
                     }
                 }
             ]
+        },
+        {
+            "name": "09. Admin",
+            "item": [
+                {
+                    "name": "Get Dashboard Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/stats",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "stats"
+                            ]
+                        },
+                        "description": "Get admin dashboard statistics. **Admin only**.\n\n**Response:**\n```json\n{\n  \"totalUsers\": 10,\n  \"activeUsers\": 5,\n  \"totalPosts\": 20,\n  \"bannedUsers\": 1\n}\n```"
+                    }
+                },
+                {
+                    "name": "Ban User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/users/:userId/ban",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "users",
+                                ":userId",
+                                "ban"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Ban a user by setting their status to 'banned'. **Admin only**."
+                    }
+                },
+                {
+                    "name": "Unban User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/users/:userId/unban",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "users",
+                                ":userId",
+                                "unban"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Unban a user by setting their status to 'active'. **Admin only**."
+                    }
+                },
+                {
+                    "name": "Ban Post",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/posts/:postId/ban",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "posts",
+                                ":postId",
+                                "ban"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "postId",
+                                    "value": "post_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Ban a post by setting its status to 'banned'. Banned posts are hidden from feeds. **Admin only**."
+                    }
+                },
+                {
+                    "name": "Unban Post",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/posts/:postId/unban",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "posts",
+                                ":postId",
+                                "unban"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "postId",
+                                    "value": "post_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Unban a post by setting its status to 'active'. **Admin only**."
+                    }
+                },
+                {
+                    "name": "Create Announcement",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"content\": \"System maintenance at midnight.\",\n    \"type\": \"global\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/announcements",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "announcements"
+                            ]
+                        },
+                        "description": "Create a new announcement.\n\n**Body Parameters:**\n- `content` (string, required): The message content.\n- `type` (string, required): 'global' or 'private'.\n- `targetUserId` (string, optional): Required if type is 'private'.\n\n**Admin only**."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get User Announcements",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/announcements",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "announcements"
+                            ]
+                        },
+                        "description": "Fetch announcements for the current user. Returns global announcements and private announcements targeted at the user."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Activity Logs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/activities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "activities"
+                            ]
+                        },
+                        "description": "Fetch system activity logs. **Admin only**."
+                    },
+                    "response": []
+                }
+            ]
         }
     ],
     "variable": [

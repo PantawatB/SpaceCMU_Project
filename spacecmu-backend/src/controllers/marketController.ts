@@ -151,6 +151,11 @@ export const createMarketItem = async (req: Request, res: Response) => {
             .where(eq(marketItemsTable.id, insertedItem.id));
 
         res.status(201).json(fullItem[0]);
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created market item", `Created item: ${title}`, req);
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error creating market item" });
@@ -245,6 +250,11 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
             .where(eq(marketItemsTable.id, insertedItem.id));
 
         res.status(201).json(fullItem[0]);
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Created market item", `Created item: ${title}`, req);
+        });
     } catch (error) {
         console.error('Error creating market item:', error);
         res.status(500).json({ message: "Error creating market item", error: error instanceof Error ? error.message : 'Unknown error' });
@@ -372,6 +382,11 @@ export const contactSeller = async (req: Request, res: Response) => {
                 itemTitle: marketItem.title,
                 sentMessage: newMessage[0]
             }
+        });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(buyerId, "Contacted seller", `Contacted seller for item: ${marketItem.title}`, req);
         });
     } catch (error) {
         console.error(error);
