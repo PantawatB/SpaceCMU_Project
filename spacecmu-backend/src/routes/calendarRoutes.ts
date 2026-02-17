@@ -6,6 +6,7 @@ import {
     updateEventStatus,
     deleteEvent,
     toggleEventStatus,
+    getTodayEvents,
 } from "../controllers/calendarController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 
@@ -13,6 +14,7 @@ const router = Router();
 
 router.post("/", sessionMiddleware, createEvent);
 router.get("/all", sessionMiddleware, getAllEvents); // Get ALL events
+router.get("/today", sessionMiddleware, getTodayEvents); // Get Today's events
 router.get("/me", sessionMiddleware, getUserEvents); // Get events by date
 router.patch("/:eventId/status", sessionMiddleware, updateEventStatus);
 router.patch("/:eventId/toggle", sessionMiddleware, toggleEventStatus); // Toggle between success/unsuccess

@@ -435,3 +435,77 @@ export const toggleEventStatus = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error toggling event status" });
     }
 };
+
+export const getTodayEvents = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const today = new Date();
+        const startOfToday = new Date(today.setHours(0, 0, 0, 0));
+        const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+
+        const { and, gte, lte } = await import("drizzle-orm");
+
+        const events = await dbClient
+            .select()
+            .from(calendarEventsTable)
+            .where(
+                and(
+                    eq(calendarEventsTable.userId, userId),
+                    gte(calendarEventsTable.startTime, startOfToday),
+                    lte(calendarEventsTable.startTime, endOfToday)
+                )
+            )
+            .orderBy(calendarEventsTable.startTime);
+
+        // Reuse countdown logic
+        const now = new Date();
+        const eventsWithCountdown = events.map(event => {
+            const startTime = new Date(event.startTime);
+            const endTime = event.endTime ? new Date(event.endTime) : null;
+            const diffMs = startTime.getTime() - now.getTime();
+            const totalSeconds = Math.floor(diffMs / 1000);
+            const isUpcoming = startTime > now;
+            const isPast = endTime ? endTime < now : startTime < now;
+            const isOngoing = !isUpcoming && !isPast;
+
+            let countdown;
+            if (isUpcoming) {
+                const absDiffMs = Math.abs(diffMs);
+                const years = Math.floor(absDiffMs / (1000 * 60 * 60 * 24 * 365));
+                const months = Math.floor((absDiffMs % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
+                const days = Math.floor((absDiffMs % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((absDiffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((absDiffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                countdown = { years, months, days, hours, minutes, totalSeconds, isUpcoming: true, isPast: false, isOngoing: false };
+            } else if (isOngoing) {
+                countdown = { years: 0, months: 0, days: 0, hours: 0, minutes: 0, totalSeconds: 0, isUpcoming: false, isPast: false, isOngoing: true };
+            } else {
+                const endTimeToUse = endTime || startTime;
+                const timeSinceMs = now.getTime() - endTimeToUse.getTime();
+                const absTimeSinceMs = Math.abs(timeSinceMs);
+                const years = Math.floor(absTimeSinceMs / (1000 * 60 * 60 * 24 * 365));
+                const months = Math.floor((absTimeSinceMs % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
+                const days = Math.floor((absTimeSinceMs % (1000 * 60 * 60 * 24 * 30)) / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((absTimeSinceMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((absTimeSinceMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                countdown = {
+                    years: 0, months: 0, days: 0, hours: 0, minutes: 0, totalSeconds: 0,
+                    isUpcoming: false, isPast: true, isOngoing: false,
+                    timeSince: { years, months, days, hours, minutes, totalSeconds: Math.floor(timeSinceMs / 1000) }
+                };
+            }
+            return { ...event, countdown };
+        });
+
+        res.json(eventsWithCountdown);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching today's events" });
+    }
+};

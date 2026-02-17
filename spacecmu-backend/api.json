@@ -1331,6 +1331,40 @@
                             }
                         },
                         {
+                            "name": "Get Friendship Status",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text",
+                                        "description": "Required"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/friends/status/:otherUserId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "friends",
+                                        "status",
+                                        ":otherUserId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "otherUserId",
+                                            "value": "other_user_id_here",
+                                            "description": "User ID to check status with"
+                                        }
+                                    ]
+                                },
+                                "description": "Check friendship status between current user and another user.\n\n**Response status values:**\n- `not_friend`: No relationship\n- `friend`: Accepted friendship\n- `pending`: Pending request\n- `self`: Checking own status\n\n**Response Example:**\n```json\n{\n  \"status\": \"pending\",\n  \"pendingDirection\": \"sent\",\n  \"requestId\": \"req-uuid\"\n}\n```\n- `pendingDirection`: \"sent\" (by me) | \"received\" (from them) | null\n- `requestId`: ID of the friendship record (useful for accepting/rejecting/canceling)"
+                            }
+                        },
+                        {
                             "name": "Get Friend Suggestions (People You May Know)",
                             "request": {
                                 "method": "GET",
@@ -1448,6 +1482,31 @@
                             ]
                         },
                         "description": "Get ALL user calendar events without date filtering.\n\n**Returns:**\n- All events with countdown for upcoming events\n- All events with timeSince for past events\n- Useful for displaying all events in a list or calendar overview"
+                    }
+                },
+                {
+                    "name": "Get Today's Events",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/calendar/today",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "calendar",
+                                "today"
+                            ]
+                        },
+                        "description": "Get events strictly for the current day (based on server time).\n\n**Response includes:**\n- All events starting between 00:00 and 23:59 today.\n- Countdown/TimeSince logic included."
                     }
                 },
                 {

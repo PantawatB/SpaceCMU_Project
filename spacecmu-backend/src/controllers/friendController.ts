@@ -546,3 +546,48 @@ export const getFriendsByUserId = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error fetching user friends list" });
     }
 };
+
+export const getFriendshipStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { otherUserId } = req.params;
+
+        if (userId === otherUserId) {
+            return res.json({ status: "self", pendingDirection: null, requestId: null });
+        }
+
+        const friendship = await dbClient.query.friendshipsTable.findFirst({
+            where: or(
+                and(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, otherUserId)),
+                and(eq(friendshipsTable.userId1, otherUserId), eq(friendshipsTable.userId2, userId))
+            ),
+        });
+
+        if (!friendship) {
+            return res.json({ status: "not_friend", pendingDirection: null, requestId: null });
+        }
+
+        if (friendship.status === "accepted") {
+            return res.json({ status: "friend", pendingDirection: null, requestId: friendship.id });
+        }
+
+        if (friendship.status === "pending") {
+            const isSender = friendship.userId1 === userId;
+            return res.json({
+                status: "pending",
+                pendingDirection: isSender ? "sent" : "received",
+                requestId: friendship.id
+            });
+        }
+
+        // Fallback for blocked or other statuses if any
+        return res.json({ status: friendship.status, pendingDirection: null, requestId: friendship.id });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching friendship status" });
+    }
+};
