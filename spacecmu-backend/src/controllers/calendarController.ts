@@ -509,3 +509,48 @@ export const getTodayEvents = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error fetching today's events" });
     }
 };
+
+// Get events by specific date
+export const getEventsByDate = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { date } = req.query;
+        if (!date) {
+            return res.status(400).json({ message: "date query param is required (YYYY-MM-DD)" });
+        }
+
+        const { and, gte, lte } = await import("drizzle-orm");
+
+        // Parse the date and build start/end of day boundaries
+        const targetDate = new Date(date as string);
+        if (isNaN(targetDate.getTime())) {
+            return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+        }
+
+        const startOfDay = new Date(targetDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(targetDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const events = await dbClient
+            .select()
+            .from(calendarEventsTable)
+            .where(
+                and(
+                    eq(calendarEventsTable.userId, userId),
+                    gte(calendarEventsTable.startTime, startOfDay),
+                    lte(calendarEventsTable.startTime, endOfDay)
+                )
+            )
+            .orderBy(calendarEventsTable.startTime);
+
+        res.json(events);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching events by date" });
+    }
+};
