@@ -6,6 +6,7 @@ import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
 import { API_CONFIG } from "@/lib/config";
+import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -852,7 +853,7 @@ export default function FeedsMainPage() {
               <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={activeUser?.avatarUrl || "/noobcat.png"}
+                  src={apiService.getImageUrl(activeUser?.avatarUrl) || "/noobcat.png"}
                   alt="avatar"
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />

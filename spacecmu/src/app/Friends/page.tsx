@@ -7,6 +7,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { User } from "@/types/user";
 import { API_CONFIG } from "@/lib/config";
+import { apiService } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 
 interface PostMedia {
@@ -578,7 +579,7 @@ export default function FriendsMainPage() {
                             <div className="relative shrink-0">
                               <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
                                 <Image
-                                  src={user.avatarUrl || "/tanjiro.jpg"}
+                                  src={apiService.getImageUrl(user.avatarUrl) || "/tanjiro.jpg"}
                                   alt={`${user.firstName} ${user.lastName}`}
                                   width={48}
                                   height={48}
@@ -698,7 +699,7 @@ export default function FriendsMainPage() {
                   {selectedUser.bannerUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={selectedUser.bannerUrl}
+                      src={apiService.getImageUrl(selectedUser.bannerUrl) || ""}
                       alt="Profile Banner"
                       className="w-full h-full object-cover"
                     />
@@ -712,7 +713,7 @@ export default function FriendsMainPage() {
                   <div className="rounded-full border-4 border-white p-1 bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={selectedUser.avatarUrl || "/tanjiro.jpg"}
+                      src={apiService.getImageUrl(selectedUser.avatarUrl) || "/tanjiro.jpg"}
                       alt="Profile Avatar"
                       className="w-[90px] h-[90px] rounded-full object-cover"
                     />
@@ -1231,7 +1232,7 @@ export default function FriendsMainPage() {
                             <div className="relative shrink-0">
                               <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
                                 <Image
-                                  src={user.avatarUrl || "/tanjiro.jpg"}
+                                  src={apiService.getImageUrl(user.avatarUrl) || "/tanjiro.jpg"}
                                   alt={`${user.firstName} ${user.lastName}`}
                                   width={48}
                                   height={48}

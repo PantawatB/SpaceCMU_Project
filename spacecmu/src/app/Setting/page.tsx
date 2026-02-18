@@ -6,12 +6,14 @@ import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
 export default function SettingPage() {
-  const { activeUser } = useUser();
+  const { activeUser, refreshUser } = useUser();
   const [activeTab, setActiveTab] = useState("profile");
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
   const [newPhoto, setNewPhoto] = useState<string | null>(null);
+  const [newPhotoFile, setNewPhotoFile] = useState<File | null>(null);
   const [newBanner, setNewBanner] = useState<string | null>(null);
+  const [newBannerFile, setNewBannerFile] = useState<File | null>(null);
   const [bio, setBio] = useState(activeUser?.bio || "");
   const [notifications, setNotifications] = useState({
     email: true,
@@ -27,6 +29,19 @@ export default function SettingPage() {
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+      
+      // Validate file type
+      if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+        alert('Only JPG, PNG, or GIF files are allowed');
+        return;
+      }
+      
+      setNewPhotoFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setNewPhoto(reader.result as string);
@@ -38,6 +53,19 @@ export default function SettingPage() {
   const handleBannerUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Validate file size (5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File size must be less than 5MB');
+        return;
+      }
+      
+      // Validate file type
+      if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
+        alert('Only JPG, PNG, or GIF files are allowed');
+        return;
+      }
+      
+      setNewBannerFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setNewBanner(reader.result as string);
@@ -46,28 +74,76 @@ export default function SettingPage() {
     }
   };
 
-  const handleSavePhoto = () => {
-    // TODO: Implement photo save logic
-    console.log("Saving new photo:", newPhoto);
-    setShowPhotoModal(false);
-    setNewPhoto(null);
+  const handleSavePhoto = async () => {
+    if (!newPhotoFile) {
+      alert('Please select a photo first');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('avatar', newPhotoFile);
+
+      const response = await apiService.patchFormData<{ message: string; user: { id: string; avatarUrl: string } }>(
+        '/api/users/profile/avatar',
+        formData
+      );
+
+      console.log('Avatar updated:', response);
+      alert('Profile photo updated successfully!');
+      
+      // Refresh user data
+      await refreshUser();
+      
+      setShowPhotoModal(false);
+      setNewPhoto(null);
+      setNewPhotoFile(null);
+    } catch (error) {
+      console.error('Error updating avatar:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update profile photo. Please try again.');
+    }
   };
 
-  const handleSaveBanner = () => {
-    // TODO: Implement banner save logic
-    console.log("Saving new banner:", newBanner);
-    setShowBannerModal(false);
-    setNewBanner(null);
+  const handleSaveBanner = async () => {
+    if (!newBannerFile) {
+      alert('Please select a banner first');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('banner', newBannerFile);
+
+      const response = await apiService.patchFormData<{ message: string; bannerUrl: string }>(
+        '/api/settings/banner',
+        formData
+      );
+
+      console.log('Banner updated:', response);
+      alert('Banner updated successfully!');
+      
+      // Refresh user data
+      await refreshUser();
+      
+      setShowBannerModal(false);
+      setNewBanner(null);
+      setNewBannerFile(null);
+    } catch (error) {
+      console.error('Error updating banner:', error);
+      alert(error instanceof Error ? error.message : 'Failed to update banner. Please try again.');
+    }
   };
 
   const handleCancelPhoto = () => {
     setShowPhotoModal(false);
     setNewPhoto(null);
+    setNewPhotoFile(null);
   };
 
   const handleCancelBanner = () => {
     setShowBannerModal(false);
     setNewBanner(null);
+    setNewBannerFile(null);
   };
 
   const handleSaveBio = async () => {
@@ -213,7 +289,7 @@ export default function SettingPage() {
                     {activeUser?.bannerUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={activeUser.bannerUrl}
+                        src={apiService.getImageUrl(activeUser.bannerUrl) || ""}
                         alt="Banner"
                         className="w-full h-full object-cover"
                       />
@@ -239,7 +315,7 @@ export default function SettingPage() {
                 <div className="flex items-center gap-6">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={activeUser?.avatarUrl || "/tanjiro.jpg"}
+                    src={apiService.getImageUrl(activeUser?.avatarUrl) || "/tanjiro.jpg"}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover"
                   />
@@ -663,7 +739,7 @@ export default function SettingPage() {
                   <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={activeUser?.avatarUrl || "/tanjiro.jpg"}
+                      src={apiService.getImageUrl(activeUser?.avatarUrl) || "/tanjiro.jpg"}
                       alt="Current Profile"
                       className="w-full h-full object-cover"
                     />
@@ -794,7 +870,7 @@ export default function SettingPage() {
                     {activeUser?.bannerUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={activeUser.bannerUrl}
+                        src={apiService.getImageUrl(activeUser.bannerUrl) || ""}
                         alt="Current Banner"
                         className="w-full h-full object-cover"
                       />
