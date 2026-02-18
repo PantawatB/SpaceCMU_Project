@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { API_CONFIG } from "@/lib/config";
+import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
 
 
@@ -556,7 +557,7 @@ export default function PostCard({
       <div className="flex items-center gap-3 mb-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={post.author?.avatarUrl || "/noobcat.png"}
+          src={apiService.getImageUrl(post.author?.avatarUrl) || "/noobcat.png"}
           alt="avatar"
           className="w-10 h-10 rounded-full object-cover"
         />
@@ -661,7 +662,7 @@ export default function PostCard({
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                          src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                          src={apiService.getImageUrl(media.mediaUrl) || ""}
                           alt={`Post media ${index + 1}`}
                           className="transition-transform duration-300 group-hover:scale-[1.02] rounded-2xl"
                         style={{
@@ -691,7 +692,7 @@ export default function PostCard({
                       </>
                     ) : (
                       <video
-                        src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                        src={apiService.getImageUrl(media.mediaUrl) || ""}
                         controls
                         preload="metadata"
                         className="rounded-2xl"
@@ -898,7 +899,7 @@ export default function PostCard({
                     <div className="relative shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={comment.author?.avatarUrl || "/noobcat.png"}
+                        src={apiService.getImageUrl(comment.author?.avatarUrl) || "/noobcat.png"}
                         alt="avatar"
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -922,14 +923,14 @@ export default function PostCard({
                               >
                                 {media.mediaType === "video" ? (
                                   <video
-                                    src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                                    src={apiService.getImageUrl(media.mediaUrl) || ""}
                                     controls
                                     className="w-full h-auto max-h-48 object-cover"
                                   />
                                 ) : (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img
-                                    src={`${API_CONFIG.BASE_URL}${media.mediaUrl}`}
+                                    src={apiService.getImageUrl(media.mediaUrl) || ""}
                                     alt="Comment media"
                                     className="w-full h-auto max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
                                   />
@@ -956,7 +957,7 @@ export default function PostCard({
                 <div className="flex items-start gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={activeUser?.avatarUrl || "/noobcat.png"}
+                    src={apiService.getImageUrl(activeUser?.avatarUrl) || "/noobcat.png"}
                     alt="avatar"
                     className="w-10 h-10 rounded-full object-cover shrink-0 mt-1"
                   />
@@ -1283,7 +1284,7 @@ export default function PostCard({
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={`${API_CONFIG.BASE_URL}${post.media.filter((m) => m.mediaType === "image")[selectedImageIndex]?.mediaUrl}`}
+              src={apiService.getImageUrl(post.media.filter((m) => m.mediaType === "image")[selectedImageIndex]?.mediaUrl) || ""}
               alt={`Full size ${selectedImageIndex + 1}`}
               className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
             />
@@ -1291,7 +1292,7 @@ export default function PostCard({
 
           {/* Download Button */}
           <a
-            href={`${API_CONFIG.BASE_URL}${post.media.filter((m) => m.mediaType === "image")[selectedImageIndex]?.mediaUrl}`}
+            href={apiService.getImageUrl(post.media.filter((m) => m.mediaType === "image")[selectedImageIndex]?.mediaUrl) || "#"}
             download
             target="_blank"
             rel="noopener noreferrer"

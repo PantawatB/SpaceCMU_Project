@@ -7,6 +7,7 @@ import TokenErrorPopup from "../../components/TokenErrorPopup";
 import { useState, useEffect } from "react";
 import { useUser } from "@/contexts/UserContext";
 import { API_CONFIG } from "@/lib/config";
+import { apiService } from "@/lib/api";
 
 interface PostMedia {
   id: number;
@@ -323,7 +324,9 @@ export default function ProfileMainPage() {
   // Get display name
   const displayName = `${activeUser.firstName} ${activeUser.lastName}`;
   // Get avatar URL with fallback
-  const avatarUrl = activeUser.avatarUrl || "/tanjiro.jpg";
+  const avatarUrl = apiService.getImageUrl(activeUser.avatarUrl) || "/tanjiro.jpg";
+  // Get banner URL
+  const bannerUrl = apiService.getImageUrl(activeUser.bannerUrl);
   // Get bio with fallback
   const bio = activeUser.bio || "This user has no bio yet.";
   // Get faculty display
@@ -449,10 +452,10 @@ export default function ProfileMainPage() {
             <div className="bg-white rounded-2xl shadow relative overflow-hidden">
               {/* Cover Image */}
               <div className="h-40 w-full relative">
-                {activeUser.bannerUrl ? (
+                {bannerUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={activeUser.bannerUrl}
+                    src={bannerUrl}
                     alt="Profile Banner"
                     className="w-full h-full object-cover"
                   />

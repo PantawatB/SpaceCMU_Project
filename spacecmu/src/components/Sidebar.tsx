@@ -485,12 +485,12 @@ export default function Sidebar({ menuItems }: SidebarProps) {
               ? { 
                   name: user ? `${user.firstName} ${user.lastName}` : profile.name,
                   username: user?.username ? `@${user.username}` : profile.username,
-                  avatar: user?.avatarUrl || profile.avatar
+                  avatar: apiService.getImageUrl(user?.avatarUrl) || profile.avatar
                 }
               : {
                   name: anonymousAccount?.firstName || profile.name,
                   username: anonymousAccount?.username ? `@${anonymousAccount.username}` : profile.username,
-                  avatar: anonymousAccount?.avatarUrl || profile.avatar
+                  avatar: apiService.getImageUrl(anonymousAccount?.avatarUrl) || profile.avatar
                 };
 
             return (

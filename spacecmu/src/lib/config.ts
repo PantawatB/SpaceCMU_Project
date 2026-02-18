@@ -42,4 +42,9 @@ export const API_ENDPOINTS = {
     LIST: '/api/notifications',
     MARK_READ: (notificationId: string) => `/api/notifications/${notificationId}/read`,
   },
+  SETTINGS: {
+    AVATAR: '/api/users/profile/avatar',
+    BANNER: '/api/settings/banner',
+    PROFILE: '/api/users/profile',
+  },
 } as const;

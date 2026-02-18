@@ -19,8 +19,8 @@ router.get("/me", sessionMiddleware, getUserSettings);
 
 // Profile settings
 router.patch("/profile", sessionMiddleware, updateProfile);
-router.post("/banner", sessionMiddleware, upload.single("banner"), uploadBanner);
-router.post("/avatar", sessionMiddleware, upload.single("avatar"), uploadAvatar);
+router.patch("/banner", sessionMiddleware, upload.single("banner"), uploadBanner);
+router.patch("/avatar", sessionMiddleware, upload.single("avatar"), uploadAvatar);
 
 // Notification preferences
 router.patch("/notifications", sessionMiddleware, updateNotificationPreferences);
