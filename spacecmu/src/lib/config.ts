@@ -33,6 +33,10 @@ export const API_ENDPOINTS = {
   CALENDAR: {
     EVENTS: '/api/calendar',
     CREATE: '/api/calendar',
+    BY_DATE: (date: string) => `/api/calendar/date?date=${date}`,
+    TODAY: '/api/calendar/today',
+    TOGGLE: (eventId: string) => `/api/calendar/${eventId}/toggle`,
+    DELETE: (eventId: string) => `/api/calendar/${eventId}`,
   },
   MESSAGES: {
     LIST: '/api/messages',

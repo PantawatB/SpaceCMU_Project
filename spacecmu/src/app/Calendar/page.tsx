@@ -1,25 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import NoteCard from "../../components/NoteCard";
+import { API_CONFIG, API_ENDPOINTS } from "@/lib/config";
 
 export default function CalendarPage() {
   const today = new Date();
-  const [currentMonth, setCurrentMonth] = useState(today.getMonth()); // Start with current month
-  const [currentYear, setCurrentYear] = useState(today.getFullYear()); // Start with current year
+  const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+  const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(today.getDate()); // Selected day
-  const [selectedMonth, setSelectedMonth] = useState(today.getMonth()); // Selected month
-  const [selectedYear, setSelectedYear] = useState(today.getFullYear()); // Selected year
+  const [selectedDate, setSelectedDate] = useState(today.getDate());
+  const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
+  const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [showAddTaskPopup, setShowAddTaskPopup] = useState(false);
   const [showDayViewPopup, setShowDayViewPopup] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDetails, setTaskDetails] = useState("");
   const [taskTime, setTaskTime] = useState("17:00");
-  
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // Store tasks by date (key format: "YYYY-MM-DD")
   const [tasks, setTasks] = useState<Record<string, Array<{
     title: string;
@@ -28,6 +30,58 @@ export default function CalendarPage() {
     id: string;
     completed: boolean;
   }>>>({});
+
+  // ─── Helpers ────────────────────────────────────────────────────────────────
+  const dateKey = useCallback(
+    (d: number, m: number, y: number) =>
+      `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+    []
+  );
+
+  /** Fetch events for a given date from the backend and merge into local state */
+  const fetchEventsForDate = useCallback(
+    async (d: number, m: number, y: number) => {
+      const key = dateKey(d, m, y);
+      try {
+        const res = await fetch(
+          `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.BY_DATE(key)}`,
+          { credentials: "include" }
+        );
+        if (!res.ok) return;
+        const events: Array<{
+          id: string;
+          title: string;
+          description: string;
+          startTime: string;
+          status: string;
+        }> = await res.json();
+
+        const mapped = events.map((e) => ({
+          id: e.id,
+          title: e.title,
+          details: e.description ?? "",
+          time: new Date(e.startTime).toTimeString().slice(0, 5),
+          completed: e.status === "completed",
+        }));
+
+        setTasks((prev) => ({ ...prev, [key]: mapped }));
+      } catch (err) {
+        console.error("Failed to fetch events:", err);
+      }
+    },
+    [dateKey]
+  );
+
+  // Load events for today on mount
+  useEffect(() => {
+    fetchEventsForDate(today.getDate(), today.getMonth(), today.getFullYear());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reload events whenever the selected date changes
+  useEffect(() => {
+    fetchEventsForDate(selectedDate, selectedMonth, selectedYear);
+  }, [selectedDate, selectedMonth, selectedYear, fetchEventsForDate]);
 
   const months = [
     "JANUARY",
@@ -326,8 +380,8 @@ export default function CalendarPage() {
                   {/* Note Content Area */}
                   <div className="p-4 flex-1 overflow-y-auto min-h-0">
                     {(() => {
-                      const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
-                      const dayTasks = tasks[dateKey] || [];
+                      const key = dateKey(selectedDate, selectedMonth, selectedYear);
+                      const dayTasks = tasks[key] || [];
                       
                       if (dayTasks.length === 0) {
                         return (
@@ -384,17 +438,30 @@ export default function CalendarPage() {
                               title={task.title}
                               details={task.details}
                               time={task.time}
+                              date={key}
                               completed={task.completed}
-                              onSuccess={() => setTasks(prev => ({
-                                ...prev,
-                                [dateKey]: prev[dateKey].map(t => 
-                                  t.id === task.id ? { ...t, completed: true } : t
-                                )
-                              }))}
-                              onDelete={() => setTasks(prev => ({
-                                ...prev,
-                                [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
-                              }))}
+                              onSuccess={async () => {
+                                await fetch(
+                                  `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
+                                  { method: "PATCH", credentials: "include" }
+                                );
+                                setTasks(prev => ({
+                                  ...prev,
+                                  [key]: prev[key].map(t =>
+                                    t.id === task.id ? { ...t, completed: true } : t
+                                  )
+                                }));
+                              }}
+                              onDelete={async () => {
+                                await fetch(
+                                  `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
+                                  { method: "DELETE", credentials: "include" }
+                                );
+                                setTasks(prev => ({
+                                  ...prev,
+                                  [key]: prev[key].filter(t => t.id !== task.id)
+                                }));
+                              }}
                             />
                           ))}
                           
@@ -412,17 +479,30 @@ export default function CalendarPage() {
                               title={task.title}
                               details={task.details}
                               time={task.time}
+                              date={key}
                               completed={task.completed}
-                              onSuccess={() => setTasks(prev => ({
-                                ...prev,
-                                [dateKey]: prev[dateKey].map(t => 
-                                  t.id === task.id ? { ...t, completed: false } : t
-                                )
-                              }))}
-                              onDelete={() => setTasks(prev => ({
-                                ...prev,
-                                [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
-                              }))}
+                              onSuccess={async () => {
+                                await fetch(
+                                  `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
+                                  { method: "PATCH", credentials: "include" }
+                                );
+                                setTasks(prev => ({
+                                  ...prev,
+                                  [key]: prev[key].map(t =>
+                                    t.id === task.id ? { ...t, completed: false } : t
+                                  )
+                                }));
+                              }}
+                              onDelete={async () => {
+                                await fetch(
+                                  `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
+                                  { method: "DELETE", credentials: "include" }
+                                );
+                                setTasks(prev => ({
+                                  ...prev,
+                                  [key]: prev[key].filter(t => t.id !== task.id)
+                                }));
+                              }}
                             />
                           ))}
                         </div>
@@ -491,8 +571,8 @@ export default function CalendarPage() {
             {/* Content */}
             <div className="p-6 flex-1 overflow-y-auto">
               {(() => {
-                const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
-                const dayTasks = tasks[dateKey] || [];
+                const key = dateKey(selectedDate, selectedMonth, selectedYear);
+                const dayTasks = tasks[key] || [];
                 
                 if (dayTasks.length === 0) {
                   return (
@@ -538,17 +618,30 @@ export default function CalendarPage() {
                         title={task.title}
                         details={task.details}
                         time={task.time}
+                        date={key}
                         completed={task.completed}
-                        onSuccess={() => setTasks(prev => ({
-                          ...prev,
-                          [dateKey]: prev[dateKey].map(t => 
-                            t.id === task.id ? { ...t, completed: true } : t
-                          )
-                        }))}
-                        onDelete={() => setTasks(prev => ({
-                          ...prev,
-                          [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
-                        }))}
+                        onSuccess={async () => {
+                          await fetch(
+                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
+                            { method: "PATCH", credentials: "include" }
+                          );
+                          setTasks(prev => ({
+                            ...prev,
+                            [key]: prev[key].map(t =>
+                              t.id === task.id ? { ...t, completed: true } : t
+                            )
+                          }));
+                        }}
+                        onDelete={async () => {
+                          await fetch(
+                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
+                            { method: "DELETE", credentials: "include" }
+                          );
+                          setTasks(prev => ({
+                            ...prev,
+                            [key]: prev[key].filter(t => t.id !== task.id)
+                          }));
+                        }}
                       />
                     ))}
                     
@@ -566,17 +659,30 @@ export default function CalendarPage() {
                         title={task.title}
                         details={task.details}
                         time={task.time}
+                        date={key}
                         completed={task.completed}
-                        onSuccess={() => setTasks(prev => ({
-                          ...prev,
-                          [dateKey]: prev[dateKey].map(t => 
-                            t.id === task.id ? { ...t, completed: false } : t
-                          )
-                        }))}
-                        onDelete={() => setTasks(prev => ({
-                          ...prev,
-                          [dateKey]: prev[dateKey].filter(t => t.id !== task.id)
-                        }))}
+                        onSuccess={async () => {
+                          await fetch(
+                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
+                            { method: "PATCH", credentials: "include" }
+                          );
+                          setTasks(prev => ({
+                            ...prev,
+                            [key]: prev[key].map(t =>
+                              t.id === task.id ? { ...t, completed: false } : t
+                            )
+                          }));
+                        }}
+                        onDelete={async () => {
+                          await fetch(
+                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
+                            { method: "DELETE", credentials: "include" }
+                          );
+                          setTasks(prev => ({
+                            ...prev,
+                            [key]: prev[key].filter(t => t.id !== task.id)
+                          }));
+                        }}
                       />
                     ))}
                   </div>
@@ -650,31 +756,62 @@ export default function CalendarPage() {
                 </h2>
 
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    // Create date key
-                    const dateKey = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
-                    
-                    // Create new task
-                    const newTask = {
-                      id: Date.now().toString(),
-                      title: taskTitle,
-                      details: taskDetails,
-                      time: taskTime,
-                      completed: false,
-                    };
-                    
-                    // Add task to the tasks object
-                    setTasks(prev => ({
-                      ...prev,
-                      [dateKey]: [...(prev[dateKey] || []), newTask]
-                    }));
-                    
-                    setShowAddTaskPopup(false);
-                    // Reset form
-                    setTaskTitle("");
-                    setTaskDetails("");
-                    setTaskTime("17:00");
+                    setIsSubmitting(true);
+
+                    // Build ISO datetime from selected date + time
+                    const [hours, minutes] = taskTime.split(":").map(Number);
+                    const startDateTime = new Date(
+                      selectedYear,
+                      selectedMonth,
+                      selectedDate,
+                      hours,
+                      minutes
+                    );
+
+                    try {
+                      const res = await fetch(
+                        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.CREATE}`,
+                        {
+                          method: "POST",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            title: taskTitle,
+                            description: taskDetails,
+                            startTime: startDateTime.toISOString(),
+                            type: "event",
+                          }),
+                        }
+                      );
+
+                      if (res.ok) {
+                        const created = await res.json();
+                        const key = dateKey(selectedDate, selectedMonth, selectedYear);
+                        const newTask = {
+                          id: created.id,
+                          title: created.title,
+                          details: created.description ?? taskDetails,
+                          time: taskTime,
+                          completed: created.status === "completed",
+                        };
+                        setTasks((prev) => ({
+                          ...prev,
+                          [key]: [...(prev[key] || []), newTask],
+                        }));
+                      } else {
+                        console.error("Failed to create event:", await res.text());
+                      }
+                    } catch (err) {
+                      console.error("Error creating event:", err);
+                    } finally {
+                      setIsSubmitting(false);
+                      setShowAddTaskPopup(false);
+                      setTaskTitle("");
+                      setTaskDetails("");
+                      setTaskTime("17:00");
+                    }
                   }}
                   className="space-y-6"
                 >
@@ -749,9 +886,10 @@ export default function CalendarPage() {
                   <div className="flex gap-3 pt-4">
                     <button
                       type="submit"
-                      className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                      disabled={isSubmitting}
+                      className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      เพิ่มงาน
+                      {isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มงาน"}
                     </button>
                     <button
                       type="button"
