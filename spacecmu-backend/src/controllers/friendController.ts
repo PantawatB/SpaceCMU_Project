@@ -105,7 +105,9 @@ export const getFriendsList = async (req: Request, res: Response) => {
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
-        const friends = await dbClient
+
+        // Get all accepted friendships
+        const friendships = await dbClient
             .select()
             .from(friendshipsTable)
             .where(
@@ -114,6 +116,31 @@ export const getFriendsList = async (req: Request, res: Response) => {
                     eq(friendshipsTable.status, "accepted")
                 )
             );
+
+        if (friendships.length === 0) {
+            return res.json([]);
+        }
+
+        // Determine the friend's ID in each friendship
+        const friendIds = friendships.map(f =>
+            f.userId1 === userId ? f.userId2 : f.userId1
+        );
+
+        // Fetch user details for all friends
+        const friends = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                avatarUrl: usersTable.avatarUrl,
+                bannerUrl: usersTable.bannerUrl,
+                bio: usersTable.bio,
+                friendsCount: usersTable.friendsCount,
+            })
+            .from(usersTable)
+            .where(sql`${usersTable.id} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`);
+
         res.json(friends);
     } catch (error) {
         console.error(error);
