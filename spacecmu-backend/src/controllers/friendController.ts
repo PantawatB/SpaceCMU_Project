@@ -137,6 +137,8 @@ export const getPendingRequests = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 username: usersTable.username,
                 avatarUrl: usersTable.avatarUrl,
+                bannerUrl: usersTable.bannerUrl,
+                bio: usersTable.bio,
                 createdAt: friendshipsTable.createdAt
             })
             .from(friendshipsTable)

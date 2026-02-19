@@ -17,5 +17,10 @@
     "./src/**/*",
     "./db/**/*",
     "./scripts/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "./db/test_avatar_upload.ts"
   ]
 }
