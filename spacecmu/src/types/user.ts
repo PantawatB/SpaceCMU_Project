@@ -36,6 +36,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   anonymousUserId?: string;
+  friendshipStatus?: 'none' | 'friends' | 'pending' | 'blocked';
+  isPendingFrom?: 'me' | 'them';
+  mutualFriendsCount?: number;
 }
 
 export interface AnonymousAccount {

@@ -4,7 +4,6 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import React, { useState, useEffect, useRef } from "react";
-import Image from "next/image";
 import { User } from "@/types/user";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
@@ -36,62 +35,134 @@ interface Post {
   media?: PostMedia[];
 }
 
+// Friend request from API
+interface FriendRequest {
+  requestId: string;
+  senderId: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  createdAt: string;
+}
+
 // Friend card component
 interface FriendCardProps {
+  requestId: string;
   name: string;
+  username: string;
   bio: string;
-  followed: boolean;
-  onFollow: () => void;
-  onRemove: () => void;
+  avatarUrl?: string | null;
+  bannerUrl?: string | null;
+  onAccept: (requestId: string) => void;
+  onReject: (requestId: string) => void;
+  onChat?: (requestId: string) => void;
 }
-function FriendCard({ name, bio, followed, onFollow, onRemove }: FriendCardProps) {
+function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAccept, onReject, onChat }: FriendCardProps) {
+  const [loading, setLoading] = React.useState<"accept" | "reject" | null>(null);
+  const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/noobcat.png" : "/noobcat.png";
+  const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) : null;
+
+  const handleAccept = async () => {
+    setLoading("accept");
+    await onAccept(requestId);
+    setLoading(null);
+  };
+
+  const handleReject = async () => {
+    setLoading("reject");
+    await onReject(requestId);
+    setLoading(null);
+  };
+
   return (
-    <div className="relative rounded-xl overflow-hidden flex flex-col items-center shadow-lg bg-white font-Roboto-light mb-6 w-full">
-      <div className="h-16 sm:h-20 md:h-24 w-full bg-gray-500"></div>
-      <div className="top-24 z-10 flex items-center flex-col gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-3 sm:py-4 md:py-5">
-        <div className="-mt-10 sm:-mt-12 md:-mt-16">
-          <Image
-            src="/tanjiro.jpg"
-            alt="Profile Avatar"
-            width={60}
-            height={60}
-            className="rounded-full border-2 border-white shadow sm:w-[65px] sm:h-[65px] md:w-[75px] md:h-[75px]"
+    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
+      {/* Cover banner */}
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
+        {bannerSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={bannerSrc}
+            alt="banner"
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-400" />
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col items-center px-4 pb-5 pt-0 w-full">
+        {/* Avatar overlapping banner */}
+        <div className="-mt-10 sm:-mt-12 mb-3 shrink-0 z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imgSrc}
+            alt={name}
+            className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
           />
         </div>
-        <div className="flex items-center flex-col">
-          <p title="name" className="text-black font-Roboto-md text-sm sm:text-base">
-            {name}
-          </p>
-          <p title="bio" className="text-xs text-gray-500 font-medium text-center">
-            {bio}
-          </p>
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+
+        {/* Name */}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight">
+          {name}
+        </p>
+
+        {/* Username */}
+        <p className="text-xs text-gray-400 text-center mt-0.5">
+          @{username}
+        </p>
+
+        {/* Bio */}
+        <p className="text-xs sm:text-sm text-gray-500 text-center line-clamp-2 w-full px-2 mt-1 mb-4 leading-relaxed min-h-10 overflow-hidden">
+          {bio || <span className="italic text-gray-300">No bio yet</span>}
+        </p>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 w-full justify-center">
+          {/* Accept */}
           <button
-            className={`bg-gray-600 transition-all gradient text-xs sm:text-sm md:text-[15px] text-white px-2 sm:px-2.5 md:px-3 py-1 sm:py-1.5 rounded-full flex items-center gap-1 ${followed ? "" : "opacity-50"}`}
-            onClick={onFollow}
+            disabled={loading !== null}
+            onClick={handleAccept}
+            className="flex-1 text-sm font-medium text-white py-2 rounded-full transition-all bg-slate-700 hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
           >
-            {followed ? "Accept" : "Friend"}
+            {loading === "accept" ? (
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : "Accept"}
           </button>
+          {/* Reject */}
           <button
-            className="bg-gray-200/65 hover:bg-gray-200 transition-colors p-1.5 sm:p-2 rounded-full"
-            onClick={onRemove}
+            disabled={loading !== null}
+            onClick={handleReject}
+            className="flex-1 text-sm font-medium text-gray-600 py-2 rounded-full transition-all bg-gray-100 hover:bg-red-100 hover:text-red-600 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth="1.5"
-              stroke="currentColor"
-              className="w-4 h-4 sm:w-5 sm:h-5"
+            {loading === "reject" ? (
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : "Reject"}
+          </button>
+          {/* Chat */}
+          {onChat && (
+            <button
+              disabled={loading !== null}
+              onClick={() => onChat(requestId)}
+              title="Chat"
+              className="w-9 h-9 shrink-0 rounded-full transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
-              />
-            </svg>
-          </button>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -125,9 +196,9 @@ function HorizontalScrollSection({ title, items }: { title: string; items: Frien
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6 md:gap-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {visibleItems.map((f, idx) => (
-          <div key={idx} className="max-w-xs mx-auto sm:mx-0 w-full">
+          <div key={idx} className="w-full">
             <FriendCard {...f} />
           </div>
         ))}
@@ -137,78 +208,51 @@ function HorizontalScrollSection({ title, items }: { title: string; items: Frien
 }
 
 // Mock data
-const friendRequests: FriendCardProps[] = [
-  {
-    name: "People 1",
-    bio: "In the business of making things happen",
-    followed: true,
-    onFollow: () => {},
-    onRemove: () => {},
-  },
-  {
-    name: "People 2",
-    bio: "Coffee lover & developer",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
-  },
-  {
-    name: "People 3",
-    bio: "Frontend wizard & cat lover",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
-  },
-  {
-    name: "People 4",
-    bio: "Backend engineer, runner",
-    followed: true,
-    onFollow: () => {},
-    onRemove: () => {},
-  },
-  {
-    name: "Anna Ivanova",
-    bio: "UX/UI designer, traveler",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
-  },
-];
 const peopleYouMayKnow: FriendCardProps[] = [
   {
+    requestId: "mock-1",
     name: "People 5",
+    username: "people5",
     bio: "Design is my passion",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
+    onAccept: () => {},
+    onReject: () => {},
+    onChat: (id) => console.log("Chat with", id),
   },
   {
+    requestId: "mock-2",
     name: "People 6",
+    username: "people6",
     bio: "Always learning",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
+    onAccept: () => {},
+    onReject: () => {},
+    onChat: (id) => console.log("Chat with", id),
   },
   {
+    requestId: "mock-3",
     name: "People 7",
+    username: "people7",
     bio: "Fullstack developer",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
+    onAccept: () => {},
+    onReject: () => {},
+    onChat: (id) => console.log("Chat with", id),
   },
   {
+    requestId: "mock-4",
     name: "People 8",
+    username: "people8",
     bio: "Marketing & growth hacker",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
+    onAccept: () => {},
+    onReject: () => {},
+    onChat: (id) => console.log("Chat with", id),
   },
   {
+    requestId: "mock-5",
     name: "Tomás García",
+    username: "tomas_garcia",
     bio: "React Native expert",
-    followed: false,
-    onFollow: () => {},
-    onRemove: () => {},
+    onAccept: () => {},
+    onReject: () => {},
+    onChat: (id) => console.log("Chat with", id),
   },
 ];
 
@@ -226,11 +270,82 @@ export default function FriendsMainPage() {
   const [loadingPosts, setLoadingPosts] = useState(false);
   const [activeTab, setActiveTab] = useState("Posts");
   const [isFriend, setIsFriend] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [isPendingFromMe, setIsPendingFromMe] = useState(false);
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
+  const [friendRequests, setFriendRequests] = useState<FriendCardProps[]>([]);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
+
+  const handleAcceptRequest = async (requestId: string) => {
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, status: "accepted" }),
+      });
+      if (res.ok) {
+        setFriendRequests((prev) => prev.filter((r) => r.requestId !== requestId));
+      } else {
+        console.error("Failed to accept friend request");
+      }
+    } catch (err) {
+      console.error("Error accepting friend request:", err);
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, status: "rejected" }),
+      });
+      if (res.ok) {
+        setFriendRequests((prev) => prev.filter((r) => r.requestId !== requestId));
+      } else {
+        console.error("Failed to reject friend request");
+      }
+    } catch (err) {
+      console.error("Error rejecting friend request:", err);
+    }
+  };
+
+  // Load friend requests from API
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/requests/me`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data: FriendRequest[] = await res.json();
+          const mapped: FriendCardProps[] = data.map((req) => ({
+            requestId: req.requestId,
+            name: `${req.firstName} ${req.lastName}`,
+            username: req.username,
+            bio: req.bio ?? "",
+            avatarUrl: req.avatarUrl,
+            bannerUrl: req.bannerUrl,
+            onAccept: handleAcceptRequest,
+            onReject: handleRejectRequest,
+            onChat: () => {
+              // TODO: integrate chat API
+              console.log("Open chat with sender:", req.senderId);
+            },
+          }));
+          setFriendRequests(mapped);
+        }
+      } catch (err) {
+        console.error("Failed to load friend requests:", err);
+      }
+    };
+    load();
+  }, []); // intentionally empty — handlers are stable
 
   // Load user from URL params on mount and when URL changes
   useEffect(() => {
@@ -277,9 +392,11 @@ export default function FriendsMainPage() {
         const userData = await response.json();
         setSelectedUser(userData);
         
-        // Check if this user is already a friend
-        // TODO: Replace with actual API endpoint to check friendship status
-        setIsFriend(false); // Default to not friends for now
+        // Set friendship status from API response
+        const status = userData.friendshipStatus as string | undefined;
+        setIsFriend(status === 'friends' || status === 'accepted');
+        setIsPending(status === 'pending');
+        setIsPendingFromMe(userData.isPendingFrom === 'me');
         
         // Fetch user's posts
         setLoadingPosts(true);
@@ -445,6 +562,8 @@ export default function FriendsMainPage() {
     setUserLikedPosts([]);
     setActiveTab("Posts");
     setIsFriend(false);
+    setIsPending(false);
+    setIsPendingFromMe(false);
     setShowUnfriendConfirm(false);
   };
 
@@ -465,18 +584,43 @@ export default function FriendsMainPage() {
     setIsAddingFriend(true);
     try {
       if (isFriend && showUnfriendConfirm) {
-        // TODO: Call API to remove friend
-        console.log("Removing friend:", selectedUser.id);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setIsFriend(false);
-        setShowUnfriendConfirm(false);
+        // Remove friend
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${selectedUser.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (res.ok) {
+          setIsFriend(false);
+          setShowUnfriendConfirm(false);
+        } else {
+          console.error("Failed to remove friend");
+        }
+      } else if (isPending && isPendingFromMe) {
+        // Cancel pending friend request — same DELETE endpoint, no status check on backend
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${selectedUser.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (res.ok) {
+          setIsPending(false);
+          setIsPendingFromMe(false);
+        } else {
+          console.error("Failed to cancel friend request");
+        }
       } else {
-        // TODO: Call API to add friend
-        console.log("Adding friend:", selectedUser.id);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setIsFriend(true);
+        // Send friend request — body field is userId2
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/request`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId2: selectedUser.id }),
+        });
+        if (res.ok) {
+          setIsPending(true);
+          setIsPendingFromMe(true);
+        } else {
+          console.error("Failed to send friend request");
+        }
       }
     } catch (error) {
       console.error("Error updating friend status:", error);
@@ -764,7 +908,9 @@ export default function FriendsMainPage() {
                         ? showUnfriendConfirm
                           ? 'bg-red-500 text-white hover:bg-red-600 border-2 border-red-500 hover:border-red-600'
                           : 'bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-2 border-gray-200'
-                        : 'bg-slate-600 text-white hover:bg-slate-700 hover:shadow-lg hover:shadow-slate-200 border-2 border-slate-600'
+                        : isPending
+                          ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:text-red-600 border-2 border-yellow-300 hover:border-red-300'
+                          : 'bg-slate-600 text-white hover:bg-slate-700 hover:shadow-lg hover:shadow-slate-200 border-2 border-slate-600'
                       }
                       disabled:opacity-50 disabled:cursor-not-allowed
                       transform hover:scale-105 active:scale-95
@@ -776,7 +922,7 @@ export default function FriendsMainPage() {
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                         </svg>
-                        <span>{isFriend ? 'Removing...' : 'Adding...'}</span>
+                        <span>{isFriend ? 'Removing...' : isPending ? 'Cancelling...' : 'Adding...'}</span>
                       </>
                     ) : (
                       <>
@@ -806,6 +952,25 @@ export default function FriendsMainPage() {
                               <span className="hidden group-hover:inline">Unfriend</span>
                             </>
                           )
+                        ) : isPending ? (
+                          <>
+                            <svg
+                              className="w-4 h-4 transition-transform group-hover:scale-110"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {isPendingFromMe ? (
+                              <>
+                                <span className="group-hover:hidden">Pending</span>
+                                <span className="hidden group-hover:inline">Cancel Request</span>
+                              </>
+                            ) : (
+                              <span>Accept Request</span>
+                            )}
+                          </>
                         ) : (
                           <>
                             <svg 
