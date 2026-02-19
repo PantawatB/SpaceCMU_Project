@@ -5,6 +5,8 @@ import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
 import { useState, useEffect } from "react";
+import React from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
@@ -35,11 +37,158 @@ interface Post {
   media?: PostMedia[];
 }
 
+interface Friend {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  friendsCount: number | null;
+}
+
+function FriendProfileCard({
+  friend,
+  friendName,
+  friendImgSrc,
+  friendBannerSrc,
+  onUnfriend,
+}: {
+  friend: Friend;
+  friendName: string;
+  friendImgSrc: string;
+  friendBannerSrc: string | null;
+  onUnfriend: (id: string) => void;
+}) {
+  const router = useRouter();
+  const [loading, setLoading] = React.useState<"unfriend" | null>(null);
+  const [confirm, setConfirm] = React.useState(false);
+
+  const handleUnfriend = async () => {
+    if (!confirm) {
+      setConfirm(true);
+      setTimeout(() => setConfirm(false), 3000);
+      return;
+    }
+    setLoading("unfriend");
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${friend.id}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        onUnfriend(friend.id);
+      }
+    } catch (err) {
+      console.error("Error removing friend:", err);
+    } finally {
+      setLoading(null);
+      setConfirm(false);
+    }
+  };
+
+  return (
+    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
+      {/* Cover banner */}
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
+        {friendBannerSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={friendBannerSrc}
+            alt="banner"
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-400" />
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col items-center px-4 pb-5 pt-0 w-full">
+        {/* Avatar overlapping banner */}
+        <div className="-mt-10 sm:-mt-12 mb-3 shrink-0 z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={friendImgSrc}
+            alt={friendName}
+            className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
+          />
+        </div>
+
+        {/* Name */}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight">
+          {friendName}
+        </p>
+
+        {/* Username */}
+        {friend.username && (
+          <p className="text-xs text-gray-400 text-center mt-0.5">
+            @{friend.username}
+          </p>
+        )}
+
+        {/* Bio */}
+        <p className="text-xs sm:text-sm text-gray-500 text-center line-clamp-2 w-full px-2 mt-1 mb-4 leading-relaxed min-h-10 overflow-hidden">
+          {friend.bio || <span className="italic text-gray-300">No bio yet</span>}
+        </p>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 w-full justify-center">
+          {/* Unfriend */}
+          <button
+            disabled={loading !== null}
+            onClick={handleUnfriend}
+            className={`flex-1 text-sm font-medium py-2 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${
+              confirm
+                ? "bg-red-500 text-white hover:bg-red-600"
+                : "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-600"
+            }`}
+          >
+            {loading === "unfriend" ? (
+              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : confirm ? "Confirm?" : "Unfriend"}
+          </button>
+          {/* View Profile */}
+          <button
+            disabled={loading !== null}
+            title="View Profile"
+            onClick={() => router.push(`/Friends?userId=${friend.id}`)}
+            className="flex-1 text-sm font-medium py-2 rounded-full transition-all bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            View Profile
+          </button>
+          {/* Chat */}
+          <button
+            disabled={loading !== null}
+            title="Chat"
+            className="w-9 h-9 shrink-0 rounded-full transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ProfileMainPage() {
   const { activeUser } = useUser();
   const [activeTab, setActiveTab] = useState("Posts");
   const [myPosts, setMyPosts] = useState<Post[]>([]);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
+  const [friends, setFriends] = useState<Friend[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
   const [repostedPosts, setRepostedPosts] = useState<Post[]>([]);
   const [savedPosts, setSavedPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
@@ -317,6 +466,29 @@ export default function ProfileMainPage() {
     };
 
     fetchSavedPosts();
+  }, [activeTab, activeUser]);
+
+  // Fetch friends list when "Friends" tab is active
+  useEffect(() => {
+    const fetchFriends = async () => {
+      if (activeTab !== 'Friends' || !activeUser) return;
+      setFriendsLoading(true);
+      try {
+        const response = await fetch(`${API_CONFIG.BASE_URL}/api/friends/me`, {
+          credentials: 'include',
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setFriends(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Error fetching friends:', err);
+        setFriends([]);
+      } finally {
+        setFriendsLoading(false);
+      }
+    };
+    fetchFriends();
   }, [activeTab, activeUser]);
 
   if (!activeUser) return null;
@@ -771,48 +943,57 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Friends" && (
-                <div className="text-center py-12">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    strokeWidth={2}
-                    stroke="currentColor"
-                    className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                  >
-                    <circle
-                      cx="8"
-                      cy="8"
-                      r="3"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                    <circle
-                      cx="16"
-                      cy="8"
-                      r="3"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      fill="none"
-                    />
-                    <path
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      d="M2 20c0-3 3-5 6-5s6 2 6 5"
-                      fill="none"
-                    />
-                    <path
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      d="M12 20c0-3 3-5 6-5s6 2 6 5"
-                      fill="none"
-                    />
-                  </svg>
-                  <p className="text-gray-500 text-lg">รายการเพื่อนของคุณ</p>
-                  <p className="text-gray-400 text-sm mt-2">
-                    คุณมีเพื่อน {activeUser.friendsCount} คน
-                  </p>
+                <div className="py-2">
+                  {/* Loading */}
+                  {friendsLoading && (
+                    <div className="flex justify-center py-16">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600" />
+                    </div>
+                  )}
+
+                  {/* Empty state — same style as other tabs */}
+                  {!friendsLoading && friends.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth={2}
+                        stroke="currentColor"
+                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                      >
+                        <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                        <circle cx="16" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                        <path stroke="currentColor" strokeWidth="2" d="M2 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
+                        <path stroke="currentColor" strokeWidth="2" d="M12 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">รายการเพื่อนของคุณ</p>
+                      <p className="text-gray-400 text-sm mt-2">
+                        คุณมีเพื่อน {activeUser.friendsCount} คน
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Friends grid — same card as FriendCard on the Friends page */}
+                  {!friendsLoading && friends.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                      {friends.map((friend) => {
+                        const friendImgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/noobcat.png" : "/noobcat.png";
+                        const friendBannerSrc = friend.bannerUrl ? apiService.getImageUrl(friend.bannerUrl) : null;
+                        const friendName = `${friend.firstName ?? ''} ${friend.lastName ?? ''}`.trim() || 'Unknown';
+                        return (
+                          <FriendProfileCard
+                            key={friend.id}
+                            friend={friend}
+                            friendName={friendName}
+                            friendImgSrc={friendImgSrc}
+                            friendBannerSrc={friendBannerSrc}
+                            onUnfriend={(id) => setFriends((prev) => prev.filter((f) => f.id !== id))}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
