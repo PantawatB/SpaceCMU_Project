@@ -562,9 +562,9 @@ export const getFriendsByUserId = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 username: usersTable.username,
                 avatarUrl: usersTable.avatarUrl,
-                faculty: usersTable.faculty,
-                major: usersTable.major,
-                year: usersTable.year,
+                bannerUrl: usersTable.bannerUrl,
+                bio: usersTable.bio,
+                friendsCount: usersTable.friendsCount,
             })
             .from(usersTable)
             .where(sql`${usersTable.id} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`);

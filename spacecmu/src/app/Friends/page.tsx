@@ -8,6 +8,7 @@ import { User } from "@/types/user";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useUser } from "@/contexts/UserContext";
 
 interface PostMedia {
   id: number;
@@ -169,8 +170,107 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
   );
 }
 
-function HorizontalScrollSection({ title, items }: { title: string; items: FriendCardProps[] }) {
-  const [startIdx, setStartIdx] = React.useState(0);
+// Friend data returned from /api/friends/user/:userId
+interface UserFriend {
+  id: string;
+  firstName: string | null;
+  lastName: string | null;
+  username: string | null;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  friendsCount: number | null;
+}
+
+// Card shown when viewing another user's friends list (no Unfriend)
+function UserFriendCard({
+  friend,
+  isSelf,
+  onViewProfile,
+}: {
+  friend: UserFriend;
+  isSelf: boolean;
+  onViewProfile: (id: string) => void;
+}) {
+  const imgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/noobcat.png" : "/noobcat.png";
+  const bannerSrc = friend.bannerUrl ? apiService.getImageUrl(friend.bannerUrl) : null;
+  const name = `${friend.firstName ?? ""} ${friend.lastName ?? ""}`.trim() || "Unknown";
+
+  return (
+    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
+      {/* Cover banner */}
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
+        {bannerSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bannerSrc} alt="banner" className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }} />
+        ) : (
+          <div className="w-full h-full bg-gray-400" />
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="flex flex-col items-center px-4 pb-5 pt-0 w-full">
+        {/* Avatar overlapping banner */}
+        <div className="-mt-10 sm:-mt-12 mb-3 shrink-0 z-10 relative">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imgSrc} alt={name}
+            className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }} />
+          {isSelf && (
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow">
+              You
+            </span>
+          )}
+        </div>
+
+        {/* Name */}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight mt-1">
+          {name}
+        </p>
+
+        {/* Username */}
+        {friend.username && (
+          <p className="text-xs text-gray-400 text-center mt-0.5">@{friend.username}</p>
+        )}
+
+        {/* Bio */}
+        <p className="text-xs sm:text-sm text-gray-500 text-center line-clamp-2 w-full px-2 mt-1 mb-4 leading-relaxed min-h-10 overflow-hidden">
+          {friend.bio || <span className="italic text-gray-300">No bio yet</span>}
+        </p>
+
+        {/* Actions */}
+        {isSelf ? (
+          <p className="text-xs text-blue-400 font-medium py-2">นี่คือคุณ</p>
+        ) : (
+          <div className="flex items-center gap-2 w-full justify-center">
+            {/* View Profile */}
+            <button
+              onClick={() => onViewProfile(friend.id)}
+              className="flex-1 text-sm font-medium py-2 rounded-full transition-all bg-slate-700 text-white hover:bg-slate-800 flex items-center justify-center gap-1"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              View Profile
+            </button>
+            {/* Chat */}
+            <button
+              title="Chat"
+              className="w-9 h-9 shrink-0 rounded-full transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 flex items-center justify-center"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HorizontalScrollSection({ title, items }: { title: string; items: FriendCardProps[] }) {  const [startIdx, setStartIdx] = React.useState(0);
   const visibleCount = 4;
   const canGoBack = startIdx > 0;
   const canGoNext = startIdx + visibleCount < items.length;
@@ -259,6 +359,7 @@ const peopleYouMayKnow: FriendCardProps[] = [
 export default function FriendsMainPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { activeUser } = useUser();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -275,6 +376,8 @@ export default function FriendsMainPage() {
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendCardProps[]>([]);
+  const [selectedUserFriends, setSelectedUserFriends] = useState<UserFriend[]>([]);
+  const [selectedUserFriendsLoading, setSelectedUserFriendsLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -560,6 +663,7 @@ export default function FriendsMainPage() {
     setUserPosts([]);
     setUserRepostedPosts([]);
     setUserLikedPosts([]);
+    setSelectedUserFriends([]);
     setActiveTab("Posts");
     setIsFriend(false);
     setIsPending(false);
@@ -629,9 +733,31 @@ export default function FriendsMainPage() {
     }
   };
 
+  // Fetch selected user's friends when Friends tab is active
+  useEffect(() => {
+    if (activeTab !== "Friends" || !selectedUser) return;
+    const fetchSelectedUserFriends = async () => {
+      setSelectedUserFriendsLoading(true);
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/user/${selectedUser.id}`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSelectedUserFriends(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Error fetching user friends:", err);
+        setSelectedUserFriends([]);
+      } finally {
+        setSelectedUserFriendsLoading(false);
+      }
+    };
+    fetchSelectedUserFriends();
+  }, [activeTab, selectedUser]);
+
   // Handle like count update
-  const handleLikeUpdate = (postId: number, newLikeCount: number) => {
-    setUserPosts(prevPosts =>
+  const handleLikeUpdate = (postId: number, newLikeCount: number) => {    setUserPosts(prevPosts =>
       prevPosts.map(post =>
         post.id === postId ? { ...post, likeCount: newLikeCount } : post
       )
@@ -1210,48 +1336,43 @@ export default function FriendsMainPage() {
                   )}
 
                   {activeTab === "Friends" && (
-                    <div className="text-center py-12">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                      >
-                        <circle
-                          cx="8"
-                          cy="8"
-                          r="3"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          fill="none"
-                        />
-                        <circle
-                          cx="16"
-                          cy="8"
-                          r="3"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          fill="none"
-                        />
-                        <path
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          d="M2 20c0-3 3-5 6-5s6 2 6 5"
-                          fill="none"
-                        />
-                        <path
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          d="M12 20c0-3 3-5 6-5s6 2 6 5"
-                          fill="none"
-                        />
-                      </svg>
-                      <p className="text-gray-500 text-lg">รายการเพื่อนของผู้ใช้คนนี้</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        มีเพื่อน {selectedUser.friendsCount} คน
-                      </p>
+                    <div className="py-2">
+                      {/* Loading */}
+                      {selectedUserFriendsLoading && (
+                        <div className="flex justify-center py-16">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600" />
+                        </div>
+                      )}
+
+                      {/* Empty state */}
+                      {!selectedUserFriendsLoading && selectedUserFriends.length === 0 && (
+                        <div className="text-center py-12">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-16 h-16 text-gray-300 mx-auto mb-4">
+                            <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                            <circle cx="16" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                            <path stroke="currentColor" strokeWidth="2" d="M2 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
+                            <path stroke="currentColor" strokeWidth="2" d="M12 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
+                          </svg>
+                          <p className="text-gray-500 text-lg">รายการเพื่อนของผู้ใช้คนนี้</p>
+                          <p className="text-gray-400 text-sm mt-2">มีเพื่อน {selectedUser.friendsCount} คน</p>
+                        </div>
+                      )}
+
+                      {/* Friends grid */}
+                      {!selectedUserFriendsLoading && selectedUserFriends.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {selectedUserFriends.map((friend) => (
+                            <UserFriendCard
+                              key={friend.id}
+                              friend={friend}
+                              isSelf={activeUser?.id === friend.id}
+                              onViewProfile={(id) => {
+                                router.push(`/Friends?userId=${id}`);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
