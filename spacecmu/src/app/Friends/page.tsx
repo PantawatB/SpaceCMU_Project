@@ -578,12 +578,12 @@ export default function FriendsMainPage() {
                             {/* Avatar */}
                             <div className="relative shrink-0">
                               <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
-                                <Image
-                                  src={apiService.getImageUrl(user.avatarUrl) || "/tanjiro.jpg"}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={apiService.getImageUrl(user.avatarUrl) || "/noobcat.png"}
                                   alt={`${user.firstName} ${user.lastName}`}
-                                  width={48}
-                                  height={48}
                                   className="rounded-full object-cover w-full h-full"
+                                  onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
                                 />
                               </div>
                             </div>
@@ -1231,12 +1231,12 @@ export default function FriendsMainPage() {
                             {/* Avatar */}
                             <div className="relative shrink-0">
                               <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
-                                <Image
-                                  src={apiService.getImageUrl(user.avatarUrl) || "/tanjiro.jpg"}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={apiService.getImageUrl(user.avatarUrl) || "/noobcat.png"}
                                   alt={`${user.firstName} ${user.lastName}`}
-                                  width={48}
-                                  height={48}
                                   className="rounded-full object-cover w-full h-full"
+                                  onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
                                 />
                               </div>
                             </div>
