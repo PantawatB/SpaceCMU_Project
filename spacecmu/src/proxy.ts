@@ -9,6 +9,7 @@ export function proxy(request: NextRequest) {
         "/Feeds",
         "/Profile",
         "/Market",
+        "/Chat",
         "/Friends",
         "/Calendar",
         "/Setting",
