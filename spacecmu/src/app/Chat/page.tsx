@@ -3,6 +3,25 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import Sidebar from "../../components/Sidebar";
 import Image from "next/image";
+import { apiService } from "@/lib/api";
+
+interface Suggestion {
+  id: number;
+  displayName: string;
+  username: string;
+  avatar: string;
+}
+
+interface FriendApiItem {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  friendsCount: number;
+}
 
 interface Chat {
   id: number;
@@ -118,7 +137,53 @@ export default function ChatPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [messagesState, setMessagesState] = useState<Record<number, Message[]>>(mockMessagesMap);
   const [chats, setChats] = useState<Chat[]>(mockChats);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsError, setSuggestionsError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // New message modal state
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  const [newChatSearch, setNewChatSearch] = useState("");
+  const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
+
+  // derive label จาก search text โดยตรง
+  const suggestionLabel = newChatSearch.trim() === "" ? "Suggested" : "Results";
+
+  const mapApiItems = (items: FriendApiItem[]): Suggestion[] =>
+    items.slice(0, 10).map((f) => ({
+      id: parseInt(f.id.replace(/-/g, "").slice(0, 8), 16),
+      displayName: `${f.firstName} ${f.lastName}`.trim() || f.username,
+      username: f.username,
+      avatar: f.avatarUrl ? (apiService.getImageUrl(f.avatarUrl) ?? "") : "",
+    }));
+
+  // ฟังก์ชัน fetch แยก เรียกได้จากทั้ง effect และปุ่ม "ลองใหม่"
+  const fetchSuggestions = React.useCallback(async (query: string) => {
+    setSuggestionsError(false);
+    try {
+      const endpoint = query.trim() === ""
+        ? "/api/friends/me"
+        : `/api/users/search?query=${encodeURIComponent(query.trim())}`;
+      const data = await apiService.get<FriendApiItem[]>(endpoint);
+      setSuggestions(mapApiItems(data));
+    } catch {
+      setSuggestionsError(true);
+    }
+  }, []);
+
+  // เปิด modal → load friends ทันที
+  useEffect(() => {
+    if (!isNewChatOpen) return;
+    const id = setTimeout(() => fetchSuggestions(""), 0);
+    return () => clearTimeout(id);
+  }, [isNewChatOpen, fetchSuggestions]);
+
+  // debounce search เมื่อพิมพ์
+  useEffect(() => {
+    if (!isNewChatOpen) return;
+    const timer = setTimeout(() => fetchSuggestions(newChatSearch), 300);
+    return () => clearTimeout(timer);
+  }, [newChatSearch, isNewChatOpen, fetchSuggestions]);
 
   const filteredChats = chats.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -184,6 +249,172 @@ export default function ChatPage() {
       <div className="flex-none h-screen sticky top-0 z-30">
         <Sidebar />
       </div>
+
+      {/* New Message Modal */}
+      {isNewChatOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              setIsNewChatOpen(false);
+              setNewChatSearch("");
+              setSelectedSuggestions([]);
+            }}
+          />
+
+          {/* Modal */}
+          <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[600px]">
+            {/* Modal Header */}
+            <div className="flex-none flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <button
+                onClick={() => {
+                  setIsNewChatOpen(false);
+                  setNewChatSearch("");
+                  setSelectedSuggestions([]);
+                }}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h2 className="text-gray-900 font-semibold text-base">New message</h2>
+              <div className="w-8" />
+            </div>
+
+            {/* To: Search bar */}
+            <div className="flex-none flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+              <span className="text-gray-400 text-sm font-medium flex-none">To:</span>
+              <input
+                type="text"
+                placeholder="Search..."
+                value={newChatSearch}
+                onChange={(e) => setNewChatSearch(e.target.value)}
+                autoFocus
+                className="flex-1 bg-transparent text-gray-800 text-sm placeholder-gray-300 focus:outline-none"
+              />
+            </div>
+
+            {/* Suggested / Results label */}
+            <div className="flex-none px-5 pt-4 pb-2">
+              <p className="text-gray-900 font-semibold text-sm">{suggestionLabel}</p>
+            </div>
+
+            {/* Suggestions List — fixed height, always scrollable */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {suggestionsError ? (
+                /* Error state — ไม่แสดง mock data */
+                <div className="flex flex-col items-center justify-center h-full gap-3 px-6 text-center">
+                  <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center">
+                    <svg className="w-6 h-6 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">ไม่สามารถโหลดรายชื่อได้</p>
+                    <p className="text-xs text-gray-400 mt-1">เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง</p>
+                  </div>
+                  <button
+                    onClick={() => fetchSuggestions(newChatSearch)}
+                    className="text-xs text-slate-600 font-medium px-4 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors"
+                  >
+                    ลองใหม่
+                  </button>
+                </div>
+              ) : suggestions
+                .filter((s) =>
+                  newChatSearch === "" ||
+                  s.displayName.toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                  s.username.toLowerCase().includes(newChatSearch.toLowerCase())
+                )
+                .length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
+                  <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  </svg>
+                  <p className="text-sm text-gray-400">No results</p>
+                </div>
+              ) : (
+                suggestions
+                  .filter((s) =>
+                    newChatSearch === "" ||
+                    s.displayName.toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                    s.username.toLowerCase().includes(newChatSearch.toLowerCase())
+                  )
+                  .map((s) => {
+                    const isSelected = selectedSuggestions.includes(s.id);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() =>
+                          setSelectedSuggestions((prev) =>
+                            isSelected ? prev.filter((id) => id !== s.id) : [...prev, s.id]
+                          )
+                        }
+                        className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors text-left"
+                      >
+                        {/* Avatar — ใช้ <img> ธรรมดาเพื่อหลีกเลี่ยง next/image domain restriction */}
+                        <div className="relative flex-none w-12 h-12">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={s.avatar || "/noobcat.png"}
+                            alt={s.displayName}
+                            className="rounded-full object-cover w-12 h-12"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = "/noobcat.png";
+                            }}
+                          />
+                        </div>
+
+                        {/* Name & username */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-900 font-semibold text-sm truncate">{s.displayName}</p>
+                          <p className="text-gray-400 text-xs truncate">{s.username}</p>
+                        </div>
+
+                        {/* Selection circle */}
+                        <div
+                          className={`flex-none w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                            isSelected
+                              ? "bg-slate-700 border-slate-700"
+                              : "border-gray-300 bg-transparent"
+                          }`}
+                        >
+                          {isSelected && (
+                            <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })
+              )}
+            </div>
+
+            {/* Chat Button */}
+            <div className="flex-none px-5 py-4 border-t border-gray-100">
+              <button
+                disabled={selectedSuggestions.length === 0}
+                onClick={() => {
+                  // TODO: open/create chat with selected users
+                  setIsNewChatOpen(false);
+                  setNewChatSearch("");
+                  setSelectedSuggestions([]);
+                }}
+                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
+                  selectedSuggestions.length > 0
+                    ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-300 cursor-not-allowed"
+                }`}
+              >
+                Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Chat Layout */}
       <main className="flex-1 flex h-screen overflow-hidden min-w-0">
@@ -368,6 +599,7 @@ export default function ChatPage() {
               </div>
               {/* New Chat Button */}
               <button
+                onClick={() => setIsNewChatOpen(true)}
                 className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 transition-colors text-gray-600"
                 title="New message"
               >
