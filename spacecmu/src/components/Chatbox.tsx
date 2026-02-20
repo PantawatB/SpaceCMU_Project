@@ -208,12 +208,12 @@ const Chatbox = () => {
               </>
             ) : (
               <>
-                {/* Individual Chat - Mobile */}
-                <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white">
+                {/* Individual Chat Header - Mobile */}
+                <div className="flex-none flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-white">
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setSelectedChat(null)}
-                      className="text-gray-400 hover:text-gray-600 transition p-2"
+                      className="text-gray-400 hover:text-gray-600 transition p-1.5 rounded-full hover:bg-gray-100"
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -221,7 +221,7 @@ const Chatbox = () => {
                         viewBox="0 0 24 24"
                         strokeWidth={2.5}
                         stroke="currentColor"
-                        className="w-6 h-6"
+                        className="w-5 h-5"
                       >
                         <path
                           strokeLinecap="round"
@@ -239,17 +239,17 @@ const Chatbox = () => {
                         alt="chat"
                         width={44}
                         height={44}
-                        className="rounded-full object-cover"
+                        className="rounded-full object-cover w-11 h-11"
                       />
                       {mockChats.find((c) => c.id === selectedChat)?.online && (
-                        <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
                       )}
                     </div>
                     <div>
-                      <h4 className="font-bold text-base text-gray-800">
+                      <h4 className="font-semibold text-base text-gray-900 leading-tight">
                         {mockChats.find((c) => c.id === selectedChat)?.name}
                       </h4>
-                      <p className="text-xs text-gray-400">
+                      <p className={`text-xs leading-tight ${mockChats.find((c) => c.id === selectedChat)?.online ? "text-green-500" : "text-gray-400"}`}>
                         {mockChats.find((c) => c.id === selectedChat)?.online
                           ? "Active now"
                           : "Offline"}
@@ -259,48 +259,81 @@ const Chatbox = () => {
                 </div>
 
                 {/* Messages - Mobile */}
-                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-gray-50">
-                  {mockMessages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={`flex ${msg.isMine ? "justify-end" : "justify-start"}`}
-                    >
+                <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 bg-gray-50">
+                  {mockMessages.map((msg, idx) => {
+                    const prevMsg = mockMessages[idx - 1];
+                    const showAvatar = !msg.isMine && (!prevMsg || prevMsg.isMine);
+                    return (
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                          msg.isMine
-                            ? "bg-blue-500 text-white rounded-br-sm"
-                            : "bg-white text-gray-800 rounded-bl-sm shadow-sm"
-                        }`}
+                        key={msg.id}
+                        className={`flex items-end gap-2 ${msg.isMine ? "justify-end" : "justify-start"}`}
                       >
-                        <p className="text-sm">{msg.text}</p>
-                        <span
-                          className={`text-xs mt-1 block ${
-                            msg.isMine ? "text-blue-100" : "text-gray-400"
-                          }`}
-                        >
-                          {msg.time}
-                        </span>
+                        {/* Receiver avatar */}
+                        {!msg.isMine && (
+                          <div className="w-7 h-7 flex-none">
+                            {showAvatar ? (
+                              <Image
+                                src={mockChats.find((c) => c.id === selectedChat)?.avatar || "/noobcat.png"}
+                                alt="avatar"
+                                width={28}
+                                height={28}
+                                className="rounded-full object-cover w-7 h-7"
+                              />
+                            ) : (
+                              <div className="w-7 h-7" />
+                            )}
+                          </div>
+                        )}
+                        <div className={`max-w-[72%] flex flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
+                          <div
+                            className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
+                              msg.isMine
+                                ? "bg-slate-700 text-white rounded-br-sm"
+                                : "bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100"
+                            }`}
+                          >
+                            {msg.text}
+                          </div>
+                          <span className="text-[11px] text-gray-400 mt-0.5 px-1">{msg.time}</span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Message Input - Mobile */}
-                <div className="px-4 py-4 border-t border-gray-100 bg-white">
+                <div className="flex-none px-4 py-4 border-t border-gray-100 bg-white">
                   <div className="flex items-center gap-2">
+                    {/* Attachment */}
+                    <button className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                    </button>
+
                     <input
                       type="text"
                       placeholder="Type a message..."
                       value={chatMessage}
                       onChange={(e) => setChatMessage(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter" && chatMessage.trim()) {
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey && chatMessage.trim()) {
+                          e.preventDefault();
                           console.log("Send message:", chatMessage);
                           setChatMessage("");
                         }
                       }}
-                      className="flex-1 px-4 py-3 rounded-full bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                      className="flex-1 px-4 py-2.5 rounded-full bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition"
                     />
+
+                    {/* Emoji */}
+                    <button className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+
+                    {/* Send */}
                     <button
                       onClick={() => {
                         if (chatMessage.trim()) {
@@ -308,21 +341,15 @@ const Chatbox = () => {
                           setChatMessage("");
                         }
                       }}
-                      className="bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white rounded-full p-3 transition"
+                      disabled={!chatMessage.trim()}
+                      className={`flex-none w-9 h-9 flex items-center justify-center rounded-full transition-all ${
+                        chatMessage.trim()
+                          ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm active:bg-slate-900"
+                          : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                      }`}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-                        />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                       </svg>
                     </button>
                   </div>
@@ -437,13 +464,13 @@ const Chatbox = () => {
 
       {/* Individual Chat View */}
       {selectedChat && (
-        <div className="bg-white rounded-2xl shadow-2xl w-80 h-[520px] flex flex-col">
+        <div className="bg-white rounded-2xl shadow-2xl w-80 h-[520px] flex flex-col overflow-hidden">
           {/* Chat Header */}
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <div className="flex items-center gap-3">
+          <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-gray-100 bg-white">
+            <div className="flex items-center gap-2.5">
               <button
                 onClick={() => setSelectedChat(null)}
-                className="text-gray-400 hover:text-gray-600 transition"
+                className="text-gray-400 hover:text-gray-600 transition p-1 rounded-full hover:bg-gray-100"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -451,7 +478,7 @@ const Chatbox = () => {
                   viewBox="0 0 24 24"
                   strokeWidth={2.5}
                   stroke="currentColor"
-                  className="w-5 h-5"
+                  className="w-4 h-4"
                 >
                   <path
                     strokeLinecap="round"
@@ -467,19 +494,19 @@ const Chatbox = () => {
                     "/noobcat.png"
                   }
                   alt="chat"
-                  width={40}
-                  height={40}
-                  className="rounded-full object-cover"
+                  width={36}
+                  height={36}
+                  className="rounded-full object-cover w-9 h-9"
                 />
                 {mockChats.find((c) => c.id === selectedChat)?.online && (
-                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white"></div>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white" />
                 )}
               </div>
               <div>
-                <h4 className="font-bold text-sm text-gray-800">
+                <h4 className="font-semibold text-sm text-gray-900 leading-tight">
                   {mockChats.find((c) => c.id === selectedChat)?.name}
                 </h4>
-                <p className="text-xs text-gray-400">
+                <p className={`text-xs leading-tight ${mockChats.find((c) => c.id === selectedChat)?.online ? "text-green-500" : "text-gray-400"}`}>
                   {mockChats.find((c) => c.id === selectedChat)?.online
                     ? "Active now"
                     : "Offline"}
@@ -491,7 +518,7 @@ const Chatbox = () => {
                 setSelectedChat(null);
                 setIsChatOpen(false);
               }}
-              className="text-gray-400 hover:text-gray-600 transition"
+              className="text-gray-400 hover:text-gray-600 transition p-1 rounded-full hover:bg-gray-100"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -499,61 +526,94 @@ const Chatbox = () => {
                 viewBox="0 0 24 24"
                 strokeWidth={2.5}
                 stroke="currentColor"
-                className="w-5 h-5"
+                className="w-4 h-4"
               >
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  d="M19.5 8.25l-7.5 7.5-7.5-7.5"
+                  d="M6 18L18 6M6 6l12 12"
                 />
               </svg>
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-gray-50">
-            {mockMessages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex ${msg.isMine ? "justify-end" : "justify-start"}`}
-              >
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2 bg-gray-50">
+            {mockMessages.map((msg, idx) => {
+              const prevMsg = mockMessages[idx - 1];
+              const showAvatar = !msg.isMine && (!prevMsg || prevMsg.isMine);
+              return (
                 <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                    msg.isMine
-                      ? "bg-blue-500 text-white rounded-br-sm"
-                      : "bg-white text-gray-800 rounded-bl-sm shadow-sm"
-                  }`}
+                  key={msg.id}
+                  className={`flex items-end gap-1.5 ${msg.isMine ? "justify-end" : "justify-start"}`}
                 >
-                  <p className="text-sm">{msg.text}</p>
-                  <span
-                    className={`text-xs mt-1 block ${
-                      msg.isMine ? "text-blue-100" : "text-gray-400"
-                    }`}
-                  >
-                    {msg.time}
-                  </span>
+                  {/* Receiver avatar */}
+                  {!msg.isMine && (
+                    <div className="w-6 h-6 flex-none">
+                      {showAvatar ? (
+                        <Image
+                          src={mockChats.find((c) => c.id === selectedChat)?.avatar || "/noobcat.png"}
+                          alt="avatar"
+                          width={24}
+                          height={24}
+                          className="rounded-full object-cover w-6 h-6"
+                        />
+                      ) : (
+                        <div className="w-6 h-6" />
+                      )}
+                    </div>
+                  )}
+                  <div className={`max-w-[72%] flex flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
+                    <div
+                      className={`px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${
+                        msg.isMine
+                          ? "bg-slate-700 text-white rounded-br-sm"
+                          : "bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100"
+                      }`}
+                    >
+                      {msg.text}
+                    </div>
+                    <span className="text-[10px] text-gray-400 mt-0.5 px-1">{msg.time}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Message Input */}
-          <div className="px-4 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
-            <div className="flex items-center gap-2">
+          <div className="flex-none px-3 py-3 border-t border-gray-100 bg-white rounded-b-2xl">
+            <div className="flex items-center gap-1.5">
+              {/* Attachment */}
+              <button className="flex-none w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                </svg>
+              </button>
+
               <input
                 type="text"
                 placeholder="Type a message..."
                 value={chatMessage}
                 onChange={(e) => setChatMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === "Enter" && chatMessage.trim()) {
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && chatMessage.trim()) {
+                    e.preventDefault();
                     // TODO: Send message API call
                     console.log("Send message:", chatMessage);
                     setChatMessage("");
                   }
                 }}
-                className="flex-1 px-4 py-2 rounded-full bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-200"
+                className="flex-1 px-3 py-2 rounded-full bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition"
               />
+
+              {/* Emoji */}
+              <button className="flex-none w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </button>
+
+              {/* Send */}
               <button
                 onClick={() => {
                   if (chatMessage.trim()) {
@@ -562,21 +622,15 @@ const Chatbox = () => {
                     setChatMessage("");
                   }
                 }}
-                className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-2 transition"
+                disabled={!chatMessage.trim()}
+                className={`flex-none w-8 h-8 flex items-center justify-center rounded-full transition-all ${
+                  chatMessage.trim()
+                    ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
+                    : "bg-gray-100 text-gray-300 cursor-not-allowed"
+                }`}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-5 h-5"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"
-                  />
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                 </svg>
               </button>
             </div>
