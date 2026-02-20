@@ -14,6 +14,7 @@ import { upload } from "../middleware/uploadMiddleware.js";
 const router = Router();
 
 router.get("/items", sessionMiddleware, getMarketItems);
+router.get("/items/me", sessionMiddleware, getMyMarketItems); // Get current user's items
 router.get("/user/:userId/items", sessionMiddleware, getMarketItemsByUserId); // Get items by user ID
 router.get("/categories", sessionMiddleware, getAllCategories);
 router.post("/items", sessionMiddleware, createMarketItem);

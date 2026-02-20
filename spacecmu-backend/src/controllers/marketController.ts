@@ -409,14 +409,22 @@ export const getMyMarketItems = async (req: Request, res: Response) => {
                 description: marketItemsTable.description,
                 price: marketItemsTable.price,
                 imageUrl: marketItemsTable.imageUrl,
+                imageUrls: marketItemsTable.imageUrls,
                 status: marketItemsTable.status,
                 createdAt: marketItemsTable.createdAt,
+                seller: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                    avatarUrl: usersTable.avatarUrl,
+                },
                 category: {
                     id: marketCategoriesTable.id,
                     name: marketCategoriesTable.name,
                 }
             })
             .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
             .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
             .where(eq(marketItemsTable.sellerId, userId))
             .orderBy(desc(marketItemsTable.createdAt));

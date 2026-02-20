@@ -3,6 +3,7 @@
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
+import MarketCard from "../../components/MarketCard";
 import React, { useState, useEffect, useRef } from "react";
 import { User } from "@/types/user";
 import { API_CONFIG } from "@/lib/config";
@@ -180,6 +181,26 @@ interface UserFriend {
   bannerUrl: string | null;
   bio: string | null;
   friendsCount: number | null;
+}
+
+interface MarketItemSeller {
+  id: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
+
+interface MarketItemAPI {
+  id: string;
+  title: string;
+  description: string;
+  price: string;
+  imageUrl: string | null;
+  imageUrls: string | null;
+  status: string;
+  createdAt: string;
+  seller: MarketItemSeller;
+  category: string | null;
 }
 
 // Card shown when viewing another user's friends list (no Unfriend)
@@ -519,6 +540,11 @@ export default function FriendsMainPage() {
   const [friendRequests, setFriendRequests] = useState<FriendCardProps[]>([]);
   const [selectedUserFriends, setSelectedUserFriends] = useState<UserFriend[]>([]);
   const [selectedUserFriendsLoading, setSelectedUserFriendsLoading] = useState(false);
+  const [selectedUserMarketItems, setSelectedUserMarketItems] = useState<MarketItemAPI[]>([]);
+  const [marketItemsLoading, setMarketItemsLoading] = useState(false);
+  const [marketItemsError, setMarketItemsError] = useState<string | null>(null);
+  const [selectedMarketItem, setSelectedMarketItem] = useState<MarketItemAPI | null>(null);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -805,6 +831,9 @@ export default function FriendsMainPage() {
     setUserRepostedPosts([]);
     setUserLikedPosts([]);
     setSelectedUserFriends([]);
+    setSelectedUserMarketItems([]);
+    setMarketItemsError(null);
+    setSelectedMarketItem(null);
     setActiveTab("Posts");
     setIsFriend(false);
     setIsPending(false);
@@ -895,6 +924,31 @@ export default function FriendsMainPage() {
       }
     };
     fetchSelectedUserFriends();
+  }, [activeTab, selectedUser]);
+
+  // Fetch selected user's market items when "Your Market Items" tab is active
+  useEffect(() => {
+    if (activeTab !== "Your Market Items" || !selectedUser) return;
+    const fetchUserMarketItems = async () => {
+      setMarketItemsLoading(true);
+      setMarketItemsError(null);
+      try {
+        const res = await fetch(
+          `${API_CONFIG.BASE_URL}/api/market/user/${selectedUser.id}/items`,
+          { credentials: "include" }
+        );
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setSelectedUserMarketItems(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error fetching user market items:", err);
+        setMarketItemsError("ไม่สามารถโหลดรายการสินค้าได้");
+        setSelectedUserMarketItems([]);
+      } finally {
+        setMarketItemsLoading(false);
+      }
+    };
+    fetchUserMarketItems();
   }, [activeTab, selectedUser]);
 
   // Handle like count update
@@ -1455,24 +1509,74 @@ export default function FriendsMainPage() {
                   )}
 
                   {activeTab === "Your Market Items" && (
-                    <div className="text-center py-12">
-                      <svg
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                        />
-                      </svg>
-                      <p className="text-gray-500 text-lg">ผู้ใช้คนนี้ยังไม่มีสินค้าในตลาด</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        ยังไม่มีสินค้าที่ลงขาย
-                      </p>
+                    <div>
+                      {/* Loading */}
+                      {marketItemsLoading && (
+                        <div className="text-center py-12">
+                          <div className="text-gray-500">กำลังโหลดสินค้า...</div>
+                        </div>
+                      )}
+
+                      {/* Error */}
+                      {marketItemsError && (
+                        <div className="text-center py-12">
+                          <div className="text-red-500">{marketItemsError}</div>
+                        </div>
+                      )}
+
+                      {/* Empty state */}
+                      {!marketItemsLoading && !marketItemsError && selectedUserMarketItems.length === 0 && (
+                        <div className="text-center py-12">
+                          <svg
+                            className="w-16 h-16 text-gray-300 mx-auto mb-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+                            />
+                          </svg>
+                          <p className="text-gray-500 text-lg">ผู้ใช้คนนี้ยังไม่มีสินค้าในตลาด</p>
+                          <p className="text-gray-400 text-sm mt-2">ยังไม่มีสินค้าที่ลงขาย</p>
+                        </div>
+                      )}
+
+                      {/* Market Items Grid */}
+                      {!marketItemsLoading && !marketItemsError && selectedUserMarketItems.length > 0 && (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                          {selectedUserMarketItems.map((item) => {
+                            const imageUrl = item.imageUrl
+                              ? item.imageUrl.startsWith("http")
+                                ? item.imageUrl
+                                : `${API_CONFIG.BASE_URL}${item.imageUrl}`
+                              : undefined;
+                            const sellerAvatarUrl = item.seller.avatarUrl
+                              ? item.seller.avatarUrl.startsWith("http")
+                                ? item.seller.avatarUrl
+                                : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`
+                              : "/noobcat.png";
+                            return (
+                              <MarketCard
+                                key={item.id}
+                                price={`฿${parseFloat(item.price).toFixed(0)}`}
+                                title={item.title}
+                                jobTitle={item.description}
+                                image={imageUrl}
+                                sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
+                                sellerImage={sellerAvatarUrl}
+                                onViewClick={() => {
+                                  setSelectedMarketItem(item);
+                                  setCurrentImageIndex(0);
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1765,6 +1869,185 @@ export default function FriendsMainPage() {
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />
+
+      {/* Market Item Detail Popup */}
+      {selectedMarketItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/30 backdrop-blur-sm"
+            onClick={() => { setSelectedMarketItem(null); setCurrentImageIndex(0); }}
+          />
+
+          {/* Modal */}
+          <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] max-h-[85vh] overflow-hidden">
+            {/* Close Button */}
+            <button
+              onClick={() => { setSelectedMarketItem(null); setCurrentImageIndex(0); }}
+              className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors bg-white rounded-full p-2 shadow-lg"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <div className="flex flex-col md:flex-row h-full overflow-y-auto">
+              {/* Left — Images */}
+              <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative">
+                <div className="w-full aspect-square max-w-md bg-white rounded-2xl overflow-hidden shadow-md relative flex items-center justify-center">
+                  {(() => {
+                    let images: string[] = [];
+                    if (selectedMarketItem.imageUrls) {
+                      try {
+                        const parsed = JSON.parse(selectedMarketItem.imageUrls);
+                        images = Array.isArray(parsed) ? parsed : [];
+                      } catch { /* ignore */ }
+                    }
+                    if (images.length === 0 && selectedMarketItem.imageUrl) {
+                      images = [selectedMarketItem.imageUrl];
+                    }
+                    const total = images.length;
+                    const currentUrl = images[currentImageIndex] || null;
+
+                    if (currentUrl) {
+                      const fullUrl = currentUrl.startsWith("http")
+                        ? currentUrl
+                        : `${API_CONFIG.BASE_URL}${currentUrl}`;
+                      return (
+                        <>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={fullUrl} alt={selectedMarketItem.title} className="w-full h-full object-contain" />
+                          {total > 1 && (
+                            <>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p === 0 ? total - 1 : p - 1)); }}
+                                className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setCurrentImageIndex((p) => (p === total - 1 ? 0 : p + 1)); }}
+                                className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10"
+                              >
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                </svg>
+                              </button>
+                              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm z-10">
+                                {currentImageIndex + 1} / {total}
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    }
+                    return (
+                      <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                        <svg className="w-32 h-32 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Right — Details */}
+              <div className="w-full md:w-1/2 p-8 flex flex-col">
+                <div className="mb-6">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-3">{selectedMarketItem.title}</h2>
+                  <span className="text-4xl font-bold text-orange-600">
+                    ฿{parseFloat(selectedMarketItem.price).toFixed(0)}
+                  </span>
+                </div>
+
+                <div className="border-t border-gray-200 my-4" />
+
+                <div className="mb-6 flex-1">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">รายละเอียดสินค้า</h3>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">{selectedMarketItem.description}</p>
+                </div>
+
+                {selectedMarketItem.category && (
+                  <div className="mb-6">
+                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">หมวดหมู่</h3>
+                    <span className="inline-block bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm">
+                      {selectedMarketItem.category}
+                    </span>
+                  </div>
+                )}
+
+                <div className="border-t border-gray-200 my-4" />
+
+                {/* Seller info */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">ผู้ขาย</h3>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={
+                          selectedMarketItem.seller.avatarUrl
+                            ? selectedMarketItem.seller.avatarUrl.startsWith("http")
+                              ? selectedMarketItem.seller.avatarUrl
+                              : `${API_CONFIG.BASE_URL}${selectedMarketItem.seller.avatarUrl}`
+                            : "/noobcat.png"
+                        }
+                        alt={`${selectedMarketItem.seller.firstName} ${selectedMarketItem.seller.lastName}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">
+                        {selectedMarketItem.seller.firstName} {selectedMarketItem.seller.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {activeUser?.id === selectedMarketItem.seller.id ? "ผู้ขาย (คุณ)" : "ผู้ขาย"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Contact Seller Button — ซ่อนถ้าสินค้าเป็นของเราเอง */}
+                {activeUser?.id === selectedMarketItem.seller.id ? (
+                  <div className="w-full bg-gray-100 text-gray-400 py-4 px-6 rounded-xl font-semibold text-lg flex items-center justify-center gap-3 cursor-not-allowed select-none">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                    สินค้าของคุณ
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      // TODO: implement contact seller chat API
+                      console.log("Contact seller:", selectedMarketItem.seller.id);
+                    }}
+                    className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                    </svg>
+                    ทักแชทหาผู้ขาย
+                  </button>
+                )}
+
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-gray-400">
+                    โพสต์เมื่อ{" "}
+                    {new Date(selectedMarketItem.createdAt).toLocaleDateString("th-TH", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
