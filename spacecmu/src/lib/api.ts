@@ -282,6 +282,10 @@ class ApiService {
     return this.get<GodActivity[]>('/api/god/activities');
   }
 
+  async searchUsers(query: string): Promise<GodUser[]> {
+    return this.get<GodUser[]>(`/api/users/search?query=${encodeURIComponent(query)}`);
+  }
+
   // Add more API methods as needed
 }
 
