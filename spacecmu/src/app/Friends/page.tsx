@@ -270,6 +270,109 @@ function UserFriendCard({
   );
 }
 
+// "People you may know" card
+interface SuggestedPersonCardProps {
+  id: string;
+  name: string;
+  username: string;
+  bio: string;
+  avatarUrl?: string | null;
+  bannerUrl?: string | null;
+  onAddFriend: (id: string) => void;
+  onViewProfile: (id: string) => void;
+  onChat: (id: string) => void;
+}
+function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, onAddFriend, onViewProfile, onChat }: SuggestedPersonCardProps) {
+  const [added, setAdded] = React.useState(false);
+  const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/noobcat.png" : "/noobcat.png";
+  const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) : null;
+
+  const handleAddFriend = () => {
+    setAdded(true);
+    onAddFriend(id);
+  };
+
+  return (
+    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
+      {/* Cover banner */}
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
+        {bannerSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={bannerSrc} alt="banner" className="w-full h-full object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }} />
+        ) : (
+          <div className="w-full h-full bg-gray-400" />
+        )}
+      </div>
+      {/* Body */}
+      <div className="flex flex-col items-center px-4 pb-5 pt-0 w-full">
+        {/* Avatar overlapping banner */}
+        <div className="-mt-10 sm:-mt-12 mb-3 shrink-0 z-10">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imgSrc} alt={name}
+            className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
+            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }} />
+        </div>
+        {/* Name */}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight">
+          {name}
+        </p>
+        {/* Username */}
+        <p className="text-xs text-gray-400 text-center mt-0.5">@{username}</p>
+        {/* Bio */}
+        <p className="text-xs sm:text-sm text-gray-500 text-center line-clamp-2 w-full px-2 mt-1 mb-4 leading-relaxed min-h-10 overflow-hidden">
+          {bio || <span className="italic text-gray-300">No bio yet</span>}
+        </p>
+        {/* Actions: [+ Add Friend] [👤 View Profile] [💬] */}
+        <div className="flex items-center gap-2 w-full justify-center">
+          {/* Add Friend */}
+          <button
+            onClick={handleAddFriend}
+            disabled={added}
+            className={`flex-1 text-sm font-medium py-2 rounded-full transition-all flex items-center justify-center gap-1 ${added ? "bg-green-100 text-green-600 cursor-default" : "bg-slate-700 text-white hover:bg-slate-800"}`}
+          >
+            {added ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Requested
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                </svg>
+                Add Friend
+              </>
+            )}
+          </button>
+          {/* View Profile */}
+          <button
+            onClick={() => onViewProfile(id)}
+            className="flex-1 text-sm font-medium py-2 rounded-full transition-all bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            View Profile
+          </button>
+          {/* Chat */}
+          <button
+            onClick={() => onChat(id)}
+            title="Chat"
+            className="w-9 h-9 shrink-0 rounded-full transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 flex items-center justify-center"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function HorizontalScrollSection({ title, items }: { title: string; items: FriendCardProps[] }) {  const [startIdx, setStartIdx] = React.useState(0);
   const visibleCount = 4;
   const canGoBack = startIdx > 0;
@@ -307,51 +410,89 @@ function HorizontalScrollSection({ title, items }: { title: string; items: Frien
   );
 }
 
-// Mock data
-const peopleYouMayKnow: FriendCardProps[] = [
+function HorizontalScrollSectionSuggested({ title, items }: { title: string; items: SuggestedPersonCardProps[] }) {
+  const [startIdx, setStartIdx] = React.useState(0);
+  const visibleCount = 4;
+  const canGoBack = startIdx > 0;
+  const canGoNext = startIdx + visibleCount < items.length;
+  const visibleItems = items.slice(startIdx, startIdx + visibleCount);
+  return (
+    <section className="mb-10 relative">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base sm:text-lg font-semibold">{title}</h2>
+        <div className="flex gap-2 ml-auto">
+          <button
+            onClick={() => setStartIdx(Math.max(0, startIdx - visibleCount))}
+            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoBack ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!canGoBack}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <button
+            onClick={() => setStartIdx(Math.min(items.length - visibleCount, startIdx + visibleCount))}
+            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}`}
+            disabled={!canGoNext}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {visibleItems.map((p, idx) => (
+          <div key={idx} className="w-full">
+            <SuggestedPersonCard {...p} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// Mock data – "People you may know"
+const peopleYouMayKnow: SuggestedPersonCardProps[] = [
   {
-    requestId: "mock-1",
+    id: "mock-1",
     name: "People 5",
     username: "people5",
     bio: "Design is my passion",
-    onAccept: () => {},
-    onReject: () => {},
+    onAddFriend: (id) => console.log("Add friend", id),
+    onViewProfile: (id) => console.log("View profile", id),
     onChat: (id) => console.log("Chat with", id),
   },
   {
-    requestId: "mock-2",
+    id: "mock-2",
     name: "People 6",
     username: "people6",
     bio: "Always learning",
-    onAccept: () => {},
-    onReject: () => {},
+    onAddFriend: (id) => console.log("Add friend", id),
+    onViewProfile: (id) => console.log("View profile", id),
     onChat: (id) => console.log("Chat with", id),
   },
   {
-    requestId: "mock-3",
+    id: "mock-3",
     name: "People 7",
     username: "people7",
     bio: "Fullstack developer",
-    onAccept: () => {},
-    onReject: () => {},
+    onAddFriend: (id) => console.log("Add friend", id),
+    onViewProfile: (id) => console.log("View profile", id),
     onChat: (id) => console.log("Chat with", id),
   },
   {
-    requestId: "mock-4",
+    id: "mock-4",
     name: "People 8",
     username: "people8",
     bio: "Marketing & growth hacker",
-    onAccept: () => {},
-    onReject: () => {},
+    onAddFriend: (id) => console.log("Add friend", id),
+    onViewProfile: (id) => console.log("View profile", id),
     onChat: (id) => console.log("Chat with", id),
   },
   {
-    requestId: "mock-5",
+    id: "mock-5",
     name: "Tomás García",
     username: "tomas_garcia",
     bio: "React Native expert",
-    onAccept: () => {},
-    onReject: () => {},
+    onAddFriend: (id) => console.log("Add friend", id),
+    onViewProfile: (id) => console.log("View profile", id),
     onChat: (id) => console.log("Chat with", id),
   },
 ];
@@ -1613,7 +1754,7 @@ export default function FriendsMainPage() {
                 title="Friend Requests"
                 items={friendRequests}
               />
-              <HorizontalScrollSection
+              <HorizontalScrollSectionSuggested
                 title="People you may know"
                 items={peopleYouMayKnow}
               />
