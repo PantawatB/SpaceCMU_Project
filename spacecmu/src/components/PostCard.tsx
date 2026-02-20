@@ -557,7 +557,7 @@ export default function PostCard({
       <div className="flex items-center gap-3 mb-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={apiService.getImageUrl(post.author?.avatarUrl) || "/noobcat.png"}
+          src={apiService.getImageUrl(post.author?.avatarUrl) || "/default-avatar.svg"}
           alt="avatar"
           className="w-10 h-10 rounded-full object-cover"
         />
@@ -899,7 +899,7 @@ export default function PostCard({
                     <div className="relative shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={apiService.getImageUrl(comment.author?.avatarUrl) || "/noobcat.png"}
+                        src={apiService.getImageUrl(comment.author?.avatarUrl) || "/default-avatar.svg"}
                         alt="avatar"
                         className="w-10 h-10 rounded-full object-cover"
                       />
@@ -957,7 +957,7 @@ export default function PostCard({
                 <div className="flex items-start gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={apiService.getImageUrl(activeUser?.avatarUrl) || "/noobcat.png"}
+                    src={apiService.getImageUrl(activeUser?.avatarUrl) || "/default-avatar.svg"}
                     alt="avatar"
                     className="w-10 h-10 rounded-full object-cover shrink-0 mt-1"
                   />

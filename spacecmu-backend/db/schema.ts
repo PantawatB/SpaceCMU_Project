@@ -13,7 +13,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-export const userRoleEnum = pgEnum("user_role", ["user", "admin"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin", "god"]);
 export const userStatusEnum = pgEnum("user_status", ["active", "banned"]);
 export const postStatusEnum = pgEnum("post_status", ["active", "banned"]);
 export const friendshipStatusEnum = pgEnum("friendship_status", ["pending", "accepted", "blocked"]);

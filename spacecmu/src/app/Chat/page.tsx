@@ -44,7 +44,7 @@ const mockChats: Chat[] = [
   {
     id: 1,
     name: "John Doe",
-    avatar: "/noobcat.png",
+    avatar: "/default-avatar.svg",
     lastMessage: "Hey! How are you?",
     time: "2m ago",
     unread: 2,
@@ -53,7 +53,7 @@ const mockChats: Chat[] = [
   {
     id: 2,
     name: "Jane Smith",
-    avatar: "/tanjiro.jpg",
+    avatar: "/default-avatar.svg",
     lastMessage: "See you tomorrow!",
     time: "1h ago",
     unread: 0,
@@ -358,11 +358,11 @@ export default function ChatPage() {
                         <div className="relative flex-none w-12 h-12">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={s.avatar || "/noobcat.png"}
+                            src={s.avatar || "/default-avatar.svg"}
                             alt={s.displayName}
                             className="rounded-full object-cover w-12 h-12"
                             onError={(e) => {
-                              (e.currentTarget as HTMLImageElement).src = "/noobcat.png";
+                              (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg";
                             }}
                           />
                         </div>

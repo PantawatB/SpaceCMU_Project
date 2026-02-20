@@ -64,7 +64,7 @@ interface FriendCardProps {
 }
 function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAccept, onReject, onChat }: FriendCardProps) {
   const [loading, setLoading] = React.useState<"accept" | "reject" | null>(null);
-  const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/noobcat.png" : "/noobcat.png";
+  const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) : null;
 
   const handleAccept = async () => {
@@ -105,7 +105,7 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
             src={imgSrc}
             alt={name}
             className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
+            onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }}
           />
         </div>
 
@@ -213,7 +213,7 @@ function UserFriendCard({
   isSelf: boolean;
   onViewProfile: (id: string) => void;
 }) {
-  const imgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/noobcat.png" : "/noobcat.png";
+  const imgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = friend.bannerUrl ? apiService.getImageUrl(friend.bannerUrl) : null;
   const name = `${friend.firstName ?? ""} ${friend.lastName ?? ""}`.trim() || "Unknown";
 
@@ -237,7 +237,7 @@ function UserFriendCard({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imgSrc} alt={name}
             className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }} />
+            onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }} />
           {isSelf && (
             <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap shadow">
               You
@@ -305,7 +305,7 @@ interface SuggestedPersonCardProps {
 }
 function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, onAddFriend, onViewProfile, onChat }: SuggestedPersonCardProps) {
   const [added, setAdded] = React.useState(false);
-  const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/noobcat.png" : "/noobcat.png";
+  const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) : null;
 
   const handleAddFriend = () => {
@@ -332,7 +332,7 @@ function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, on
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={imgSrc} alt={name}
             className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }} />
+            onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }} />
         </div>
         {/* Name */}
         <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight">
@@ -1045,10 +1045,10 @@ export default function FriendsMainPage() {
                               <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={apiService.getImageUrl(user.avatarUrl) || "/noobcat.png"}
+                                  src={apiService.getImageUrl(user.avatarUrl) || "/default-avatar.svg"}
                                   alt={`${user.firstName} ${user.lastName}`}
                                   className="rounded-full object-cover w-full h-full"
-                                  onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
+                                  onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }}
                                 />
                               </div>
                             </div>
@@ -1178,7 +1178,7 @@ export default function FriendsMainPage() {
                   <div className="rounded-full border-4 border-white p-1 bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={apiService.getImageUrl(selectedUser.avatarUrl) || "/tanjiro.jpg"}
+                      src={apiService.getImageUrl(selectedUser.avatarUrl) || "/default-avatar.svg"}
                       alt="Profile Avatar"
                       className="w-[90px] h-[90px] rounded-full object-cover"
                     />
@@ -1558,7 +1558,7 @@ export default function FriendsMainPage() {
                               ? item.seller.avatarUrl.startsWith("http")
                                 ? item.seller.avatarUrl
                                 : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`
-                              : "/noobcat.png";
+                              : "/default-avatar.svg";
                             return (
                               <MarketCard
                                 key={item.id}
@@ -1764,10 +1764,10 @@ export default function FriendsMainPage() {
                               <div className="w-12 h-12 rounded-full overflow-hidden ring-2 ring-gray-100 group-hover:ring-blue-200 transition-all">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
-                                  src={apiService.getImageUrl(user.avatarUrl) || "/noobcat.png"}
+                                  src={apiService.getImageUrl(user.avatarUrl) || "/default-avatar.svg"}
                                   alt={`${user.firstName} ${user.lastName}`}
                                   className="rounded-full object-cover w-full h-full"
-                                  onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
+                                  onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }}
                                 />
                               </div>
                             </div>
@@ -1993,7 +1993,7 @@ export default function FriendsMainPage() {
                             ? selectedMarketItem.seller.avatarUrl.startsWith("http")
                               ? selectedMarketItem.seller.avatarUrl
                               : `${API_CONFIG.BASE_URL}${selectedMarketItem.seller.avatarUrl}`
-                            : "/noobcat.png"
+                            : "/default-avatar.svg"
                         }
                         alt={`${selectedMarketItem.seller.firstName} ${selectedMarketItem.seller.lastName}`}
                         className="w-full h-full object-cover"

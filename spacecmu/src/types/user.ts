@@ -24,7 +24,7 @@ export interface User {
   avatarUrl: string | null;
   bannerUrl: string | null;
   friendsCount: number;
-  role: 'user' | 'admin';
+  role: 'user' | 'admin' | 'god';
   status: 'active' | 'inactive' | 'suspended';
   lastActiveAt: string | null;
   notificationSettings: NotificationSettings;
