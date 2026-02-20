@@ -1,6 +1,42 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 import { UserMeResponse } from '@/types/user';
 
+export interface GodStats {
+  totalUsers: number;
+  totalAdmins: number;
+  totalBanned: number;
+  totalPosts: number;
+  activeSessions: number;
+}
+
+export interface GodUser {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string | null;
+  email: string;
+  role: 'user' | 'admin' | 'god';
+  status: 'active' | 'banned';
+  isAnonymous: boolean;
+  createdAt: string;
+  lastActiveAt: string | null;
+}
+
+export interface GodActivity {
+  id: string;
+  action: string;
+  details: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+  user: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+  } | null;
+}
+
 class ApiService {
   private baseURL: string;
 
@@ -11,13 +47,19 @@ class ApiService {
   /**
    * Get full URL for uploaded images
    * Converts relative paths like "/uploads/image.jpg" to "http://localhost:3001/uploads/image.jpg"
+   * Paths that don't start with "/uploads/" are treated as Next.js public files (served as-is).
    */
   getImageUrl(relativePath: string | null | undefined): string | null {
     if (!relativePath) return null;
     if (relativePath.startsWith('http://') || relativePath.startsWith('https://')) {
       return relativePath;
     }
-    return `${this.baseURL}${relativePath}`;
+    // Only prepend backend base URL for actual uploaded files
+    if (relativePath.startsWith('/uploads/')) {
+      return `${this.baseURL}${relativePath}`;
+    }
+    // Anything else (e.g. "/default-avatar.svg") is a Next.js public asset — return as-is
+    return relativePath;
   }
 
   /**
@@ -217,6 +259,27 @@ class ApiService {
 
   async switchMode(mode: 'PUBLIC' | 'ANONYMOUS'): Promise<void> {
     return this.post<void>(API_ENDPOINTS.AUTH.SWITCH_MODE, { mode });
+  }
+
+  // God API methods
+  async getGodStats(): Promise<GodStats> {
+    return this.get<GodStats>('/api/god/stats');
+  }
+
+  async getGodUsers(): Promise<GodUser[]> {
+    return this.get<GodUser[]>('/api/god/users');
+  }
+
+  async setGodUserRole(userId: string, role: 'user' | 'admin'): Promise<{ message: string; user: { id: string; role: string } }> {
+    return this.patch<{ message: string; user: { id: string; role: string } }>(`/api/god/users/${userId}/role`, { role });
+  }
+
+  async setGodUserStatus(userId: string, status: 'active' | 'banned'): Promise<{ message: string; user: { id: string; status: string } }> {
+    return this.patch<{ message: string; user: { id: string; status: string } }>(`/api/god/users/${userId}/status`, { status });
+  }
+
+  async getGodActivities(): Promise<GodActivity[]> {
+    return this.get<GodActivity[]>('/api/god/activities');
   }
 
   // Add more API methods as needed

@@ -30,7 +30,7 @@ const Chatbox = () => {
     {
       id: 1,
       name: "John Doe",
-      avatar: "/noobcat.png",
+      avatar: "/default-avatar.svg",
       lastMessage: "Hey! How are you?",
       time: "2m ago",
       unread: 2,
@@ -39,7 +39,7 @@ const Chatbox = () => {
     {
       id: 2,
       name: "Jane Smith",
-      avatar: "/noobcat.png",
+      avatar: "/default-avatar.svg",
       lastMessage: "See you tomorrow!",
       time: "1h ago",
       unread: 0,
@@ -48,7 +48,7 @@ const Chatbox = () => {
     {
       id: 3,
       name: "Mike Wilson",
-      avatar: "/noobcat.png",
+      avatar: "/default-avatar.svg",
       lastMessage: "Thanks for your help!",
       time: "3h ago",
       unread: 1,
@@ -234,7 +234,7 @@ const Chatbox = () => {
                       <Image
                         src={
                           mockChats.find((c) => c.id === selectedChat)?.avatar ||
-                          "/noobcat.png"
+                          "/default-avatar.svg"
                         }
                         alt="chat"
                         width={44}
@@ -273,7 +273,7 @@ const Chatbox = () => {
                           <div className="w-7 h-7 flex-none">
                             {showAvatar ? (
                               <Image
-                                src={mockChats.find((c) => c.id === selectedChat)?.avatar || "/noobcat.png"}
+                                src={mockChats.find((c) => c.id === selectedChat)?.avatar || "/default-avatar.svg"}
                                 alt="avatar"
                                 width={28}
                                 height={28}
@@ -491,7 +491,7 @@ const Chatbox = () => {
                 <Image
                   src={
                     mockChats.find((c) => c.id === selectedChat)?.avatar ||
-                    "/noobcat.png"
+                    "/default-avatar.svg"
                   }
                   alt="chat"
                   width={36}
@@ -552,7 +552,7 @@ const Chatbox = () => {
                     <div className="w-6 h-6 flex-none">
                       {showAvatar ? (
                         <Image
-                          src={mockChats.find((c) => c.id === selectedChat)?.avatar || "/noobcat.png"}
+                          src={mockChats.find((c) => c.id === selectedChat)?.avatar || "/default-avatar.svg"}
                           alt="avatar"
                           width={24}
                           height={24}

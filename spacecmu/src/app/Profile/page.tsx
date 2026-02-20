@@ -135,7 +135,7 @@ function FriendProfileCard({
             src={friendImgSrc}
             alt={friendName}
             className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).src = "/noobcat.png"; }}
+            onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }}
           />
         </div>
 
@@ -548,7 +548,7 @@ export default function ProfileMainPage() {
   // Get display name
   const displayName = `${activeUser.firstName} ${activeUser.lastName}`;
   // Get avatar URL with fallback
-  const avatarUrl = apiService.getImageUrl(activeUser.avatarUrl) || "/tanjiro.jpg";
+  const avatarUrl = apiService.getImageUrl(activeUser.avatarUrl) || "/default-avatar.svg";
   // Get banner URL
   const bannerUrl = apiService.getImageUrl(activeUser.bannerUrl);
   // Get bio with fallback
@@ -1024,7 +1024,7 @@ export default function ProfileMainPage() {
                           ? item.seller.avatarUrl.startsWith('http')
                             ? item.seller.avatarUrl
                             : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`
-                          : "/noobcat.png";
+                          : "/default-avatar.svg";
                         return (
                           <MarketCard
                             key={item.id}
@@ -1082,7 +1082,7 @@ export default function ProfileMainPage() {
                   {!friendsLoading && friends.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                       {friends.map((friend) => {
-                        const friendImgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/noobcat.png" : "/noobcat.png";
+                        const friendImgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
                         const friendBannerSrc = friend.bannerUrl ? apiService.getImageUrl(friend.bannerUrl) : null;
                         const friendName = `${friend.firstName ?? ''} ${friend.lastName ?? ''}`.trim() || 'Unknown';
                         return (
@@ -1399,7 +1399,7 @@ export default function ProfileMainPage() {
                             ? selectedMarketItem.seller.avatarUrl.startsWith('http')
                               ? selectedMarketItem.seller.avatarUrl
                               : `${API_CONFIG.BASE_URL}${selectedMarketItem.seller.avatarUrl}`
-                            : "/noobcat.png"}
+                            : "/default-avatar.svg"}
                           alt={`${selectedMarketItem.seller.firstName} ${selectedMarketItem.seller.lastName}`}
                           className="w-full h-full object-cover"
                         />

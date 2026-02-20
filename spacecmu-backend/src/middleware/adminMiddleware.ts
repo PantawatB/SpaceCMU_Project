@@ -10,8 +10,8 @@ export const adminMiddleware = (
         return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Check role
-    if (req.activeUser.role !== "admin") {
+    // Check role — god also passes admin checks
+    if (req.activeUser.role !== "admin" && req.activeUser.role !== "god") {
         return res.status(403).json({ message: "Forbidden: Admin access only" });
     }
 

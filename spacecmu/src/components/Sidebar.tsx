@@ -15,19 +15,21 @@ interface SidebarProps {
   menuItems?: SidebarMenuItem[]; // ทำให้เป็น optional
 }
 
+const DEFAULT_AVATAR = "/default-avatar.svg";
+
 const profiles = [
   {
     type: "PUBLIC" as const,
-    name: "Kamado Tanjiro",
-    username: "@6506xxxxx",
-    avatar: "/tanjiro.jpg",
+    name: "User",
+    username: "@user",
+    avatar: DEFAULT_AVATAR,
     bg: "bg-gradient-to-tr from-purple-400 via-cyan-300 to-yellow-300",
   },
   {
     type: "ANONYMOUS" as const,
-    name: "Noobcat",
+    name: "Anonymous",
     username: "@anonymous",
-    avatar: "/noobcat.png",
+    avatar: DEFAULT_AVATAR,
     bg: "bg-gray-400",
   },
 ];
@@ -35,7 +37,7 @@ const profiles = [
 export default function Sidebar({ menuItems }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext } = useUser();
+  const { user, activeUser, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext } = useUser();
   
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -262,26 +264,56 @@ export default function Sidebar({ menuItems }: SidebarProps) {
       ),
       link: "/Setting",
     },
-    {
-      name: "Admin",
-      icon: (
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2}
-          stroke="currentColor"
-          className="w-5 h-5"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46"
-          />
-        </svg>
-      ),
-      link: "/Admin",
-    },
+    ...(activeUser?.role === "admin" || activeUser?.role === "god"
+      ? [
+          {
+            name: "Admin",
+            icon: (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46"
+                />
+              </svg>
+            ),
+            link: "/Admin",
+          },
+        ]
+      : []),
+    ...(activeUser?.role === "god"
+      ? [
+          {
+            name: "God",
+            icon: (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+                className="w-5 h-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 3l1.5 4.5H18l-3.75 2.7 1.5 4.5L12 12l-3.75 2.7 1.5-4.5L6 7.5h4.5L12 3z"
+                />
+                <circle cx="12" cy="20" r="1.5" fill="currentColor" stroke="none" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.5c0-1.657 1.343-2.5 3-2.5s3 .843 3 2.5" />
+              </svg>
+            ),
+            link: "/God",
+          },
+        ]
+      : []),
   ];
 
   const currentMenuItems = menuItems || defaultMenuItems;
@@ -297,7 +329,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
       title: "Profile",
       content:
         "จัดการโปรไฟล์ของคุณ เปลี่ยนสถานะเป็น Public หรือ Anonymous ได้ตามต้องการ",
-      image: "/tanjiro.jpg",
+      image: "/default-avatar.svg",
     },
     {
       title: "Feeds",
@@ -505,12 +537,12 @@ export default function Sidebar({ menuItems }: SidebarProps) {
               ? { 
                   name: user ? `${user.firstName} ${user.lastName}` : profile.name,
                   username: user?.username ? `@${user.username}` : profile.username,
-                  avatar: apiService.getImageUrl(user?.avatarUrl) || profile.avatar
+                  avatar: apiService.getImageUrl(user?.avatarUrl) ?? DEFAULT_AVATAR
                 }
               : {
                   name: anonymousAccount?.firstName || profile.name,
                   username: anonymousAccount?.username ? `@${anonymousAccount.username}` : profile.username,
-                  avatar: apiService.getImageUrl(anonymousAccount?.avatarUrl) || profile.avatar
+                  avatar: apiService.getImageUrl(anonymousAccount?.avatarUrl) ?? DEFAULT_AVATAR
                 };
 
             return (
@@ -528,6 +560,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     src={displayData.avatar}
                     alt={displayData.name}
                     className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                    onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
                   />
                   {activeProfile === idx && (
                     <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>

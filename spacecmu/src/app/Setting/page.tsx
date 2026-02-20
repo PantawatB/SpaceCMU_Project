@@ -315,7 +315,7 @@ export default function SettingPage() {
                 <div className="flex items-center gap-6">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={apiService.getImageUrl(activeUser?.avatarUrl) || "/tanjiro.jpg"}
+                    src={apiService.getImageUrl(activeUser?.avatarUrl) || "/default-avatar.svg"}
                     alt="Profile"
                     className="w-20 h-20 rounded-full object-cover"
                   />
@@ -739,7 +739,7 @@ export default function SettingPage() {
                   <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={apiService.getImageUrl(activeUser?.avatarUrl) || "/tanjiro.jpg"}
+                      src={apiService.getImageUrl(activeUser?.avatarUrl) || "/default-avatar.svg"}
                       alt="Current Profile"
                       className="w-full h-full object-cover"
                     />

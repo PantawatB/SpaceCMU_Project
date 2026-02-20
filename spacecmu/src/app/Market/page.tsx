@@ -259,7 +259,7 @@ export default function MarketMainPage() {
                     ? (item.seller.avatarUrl.startsWith('http')
                         ? item.seller.avatarUrl
                         : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`)
-                    : "/noobcat.png";
+                    : "/default-avatar.svg";
 
                   console.log('Market Item:', {
                     title: item.title,
@@ -340,7 +340,7 @@ export default function MarketMainPage() {
                   jobTitle={productDescription || "รายละเอียดสินค้า..."}
                   image={imagePreviews.length > 0 ? imagePreviews[0] : undefined}
                   sellerName="Your Name"
-                  sellerImage="/noobcat.png"
+                  sellerImage="/default-avatar.svg"
                 />
               </div>
 
@@ -821,7 +821,7 @@ export default function MarketMainPage() {
                           ? (selectedProduct.seller.avatarUrl.startsWith('http')
                               ? selectedProduct.seller.avatarUrl
                               : `${API_CONFIG.BASE_URL}${selectedProduct.seller.avatarUrl}`)
-                          : "/noobcat.png"}
+                          : "/default-avatar.svg"}
                         alt={`${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`}
                         className="w-full h-full object-cover"
                       />

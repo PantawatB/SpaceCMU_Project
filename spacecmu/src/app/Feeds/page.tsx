@@ -362,7 +362,7 @@ export default function FeedsMainPage() {
     author: {
       name: i % 2 === 0 ? "Kamado Tanjiro" : "Noobcat",
       info: i % 2 === 0 ? "65,Engineering" : "Anonymous",
-      avatar: i % 2 === 0 ? "/tanjiro.jpg" : "/noobcat.png",
+      avatar: i % 2 === 0 ? "/default-avatar.svg" : "/default-avatar.svg",
     },
     content:
       i % 2 === 0
@@ -853,7 +853,7 @@ export default function FeedsMainPage() {
               <div className="flex items-start gap-2 sm:gap-3 mb-2 sm:mb-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={apiService.getImageUrl(activeUser?.avatarUrl) || "/noobcat.png"}
+                  src={apiService.getImageUrl(activeUser?.avatarUrl) || "/default-avatar.svg"}
                   alt="avatar"
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />

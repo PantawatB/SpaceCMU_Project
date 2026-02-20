@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
+import { useUser } from "@/contexts/UserContext";
 
 // Mock Data
 const mockUsers = [
@@ -25,11 +27,27 @@ const mockActivities = [
 ];
 
 export default function AdminPage() {
+  const router = useRouter();
+  const { activeUser, isLoading } = useUser();
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [selectedUser, setSelectedUser] = useState("");
   const [announcementText, setAnnouncementText] = useState("");
   const [announcementType, setAnnouncementType] = useState("global");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Role guard — ตรวจจาก activeUser.role ถ้า god เข้าได้เลยไม่สน mode
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-white">
+        <div className="w-7 h-7 rounded-full border-2 border-gray-200 border-t-gray-800 animate-spin" />
+      </div>
+    );
+  }
+  if (activeUser?.role !== "admin" && activeUser?.role !== "god") {
+    router.replace("/Feeds");
+    return null;
+  }
 
   const tabs = [
     { id: "dashboard", name: "Dashboard", icon: "📊" },
