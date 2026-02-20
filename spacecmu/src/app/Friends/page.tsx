@@ -82,17 +82,15 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
   return (
     <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
       {/* Cover banner */}
-      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
-        {bannerSrc ? (
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
+        {bannerSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={bannerSrc}
             alt="banner"
             className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-        ) : (
-          <div className="w-full h-full bg-gray-400" />
         )}
       </div>
 
@@ -220,13 +218,11 @@ function UserFriendCard({
   return (
     <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
       {/* Cover banner */}
-      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
-        {bannerSrc ? (
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
+        {bannerSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={bannerSrc} alt="banner" className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }} />
-        ) : (
-          <div className="w-full h-full bg-gray-400" />
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         )}
       </div>
 
@@ -316,13 +312,11 @@ function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, on
   return (
     <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
       {/* Cover banner */}
-      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
-        {bannerSrc ? (
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
+        {bannerSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={bannerSrc} alt="banner" className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }} />
-        ) : (
-          <div className="w-full h-full bg-gray-400" />
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         )}
       </div>
       {/* Body */}

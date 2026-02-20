@@ -112,17 +112,15 @@ function FriendProfileCard({
   return (
     <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
       {/* Cover banner */}
-      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden">
-        {friendBannerSrc ? (
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
+        {friendBannerSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={friendBannerSrc}
             alt="banner"
             className="w-full h-full object-cover"
-            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; (e.target as HTMLImageElement).parentElement!.classList.add("bg-gray-400"); }}
+            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
-        ) : (
-          <div className="w-full h-full bg-gray-400" />
         )}
       </div>
 
