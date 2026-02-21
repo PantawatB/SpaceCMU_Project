@@ -13,7 +13,7 @@ import {
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
-export const userRoleEnum = pgEnum("user_role", ["user", "admin", "god"]);
+export const userRoleEnum = pgEnum("user_role", ["user", "admin", "god", "official_account"]);
 export const userStatusEnum = pgEnum("user_status", ["active", "banned"]);
 export const postStatusEnum = pgEnum("post_status", ["active", "banned"]);
 export const friendshipStatusEnum = pgEnum("friendship_status", ["pending", "accepted", "blocked"]);
@@ -358,3 +358,46 @@ export const sessionsTable = pgTable("sessions", {
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
+
+// --- Official Accounts Table ---
+// Official accounts created by God (faculties, clubs, university services)
+export const officialAccountsTable = pgTable("official_accounts", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  // The user record that represents this official account (role = official_account)
+  userId: uuid("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull().unique(),
+
+  // Display info (mirrors user record for quick access)
+  name: varchar("name", { length: 255 }).notNull(),          // e.g. "Engineering Faculty"
+  username: varchar("username", { length: 50 }).notNull().unique(),
+  faculty: varchar("faculty", { length: 100 }).notNull(),
+
+  // The primary owner / head admin (first admin assigned, only one)
+  ownerId: uuid("owner_id").references(() => usersTable.id).notNull(),
+
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+});
+
+// --- Official Account Admins Table ---
+// Junction table: which real users can manage which official account (multiple admins allowed)
+export const officialAccountAdminsTable = pgTable("official_account_admins", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  officialAccountId: uuid("official_account_id")
+    .references(() => officialAccountsTable.id, { onDelete: "cascade" })
+    .notNull(),
+
+  // The real user who has admin rights over this official account
+  adminUserId: uuid("admin_user_id")
+    .references(() => usersTable.id, { onDelete: "cascade" })
+    .notNull(),
+
+  grantedAt: timestamp("granted_at").defaultNow().notNull(),
+}, (t) => ({
+  unq: {
+    name: "unique_official_account_admin",
+    columns: [t.officialAccountId, t.adminUserId],
+    unique: true,
+  },
+}));

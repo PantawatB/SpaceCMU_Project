@@ -15,11 +15,54 @@ export interface GodUser {
   lastName: string;
   username: string | null;
   email: string;
-  role: 'user' | 'admin' | 'god';
+  role: 'user' | 'admin' | 'god' | 'official_account';
   status: 'active' | 'banned';
   isAnonymous: boolean;
   createdAt: string;
   lastActiveAt: string | null;
+  avatarUrl?: string | null;
+  faculty?: string | null;
+}
+
+export interface OfficialAccountAdmin {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string | null;
+  email: string;
+  role: string;
+  grantedAt: string;
+}
+
+export interface OfficialAccount {
+  id: string;
+  userId: string;
+  name: string;
+  username: string;
+  faculty: string;
+  createdAt: string;
+  owner: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string | null;
+    email: string;
+  } | null;
+  admins: OfficialAccountAdmin[];
+}
+
+export interface MyOfficialAccount extends OfficialAccount {
+  isOwner: boolean;
+  ownerId: string;
+  admins: (OfficialAccountAdmin & { avatarUrl?: string | null })[];
+  owner: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string | null;
+    email: string;
+    avatarUrl?: string | null;
+  } | null;
 }
 
 export interface GodActivity {
@@ -35,6 +78,20 @@ export interface GodActivity {
     email: string;
     role: string;
   } | null;
+}
+
+export interface UserSearchResult {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string | null;
+  studentId: string | null;
+  avatarUrl: string | null;
+  bio: string | null;
+  faculty: string | null;
+  major: string | null;
+  year: string | null;
+  friendsCount: number | null;
 }
 
 class ApiService {
@@ -286,7 +343,68 @@ class ApiService {
     return this.get<GodUser[]>(`/api/users/search?query=${encodeURIComponent(query)}`);
   }
 
-  // Add more API methods as needed
+  /** Search users — excludes official_account role, used for adding admins (session-auth only) */
+  async searchUsersForOfficialAccount(query: string): Promise<GodUser[]> {
+    return this.get<GodUser[]>(`/api/god/users/search?query=${encodeURIComponent(query)}`);
+  }
+
+  // Admin — official accounts ที่ตัวเองบริหาร
+  async getMyOfficialAccounts(): Promise<MyOfficialAccount[]> {
+    return this.get<MyOfficialAccount[]>('/api/admin/my-official-accounts');
+  }
+
+  async addAdminToMyAccount(officialAccountId: string, adminUserId: string): Promise<{ message: string }> {
+    return this.post<{ message: string }>(`/api/admin/my-official-accounts/${officialAccountId}/admins`, { adminUserId });
+  }
+
+  async removeAdminFromMyAccount(officialAccountId: string, adminUserId: string): Promise<{ message: string }> {
+    return this.delete<{ message: string }>(`/api/admin/my-official-accounts/${officialAccountId}/admins/${adminUserId}`);
+  }
+
+  async leaveOfficialAccount(officialAccountId: string): Promise<{ message: string }> {
+    return this.delete<{ message: string }>(`/api/admin/my-official-accounts/${officialAccountId}/leave`);
+  }
+
+  async transferOwnership(officialAccountId: string, newOwnerId: string): Promise<{ message: string }> {
+    return this.post<{ message: string }>(`/api/admin/my-official-accounts/${officialAccountId}/transfer-owner`, { newOwnerId });
+  }
+
+  // Official Accounts API methods
+  async getOfficialAccounts(): Promise<OfficialAccount[]> {
+    return this.get<OfficialAccount[]>('/api/god/official-accounts');
+  }
+
+  async createOfficialAccount(data: {
+    name: string;
+    username: string;
+    faculty: string;
+    ownerUserId: string;
+  }): Promise<{ message: string; officialAccount: OfficialAccount }> {
+    return this.post<{ message: string; officialAccount: OfficialAccount }>(
+      '/api/god/official-accounts',
+      data
+    );
+  }
+
+  async addOfficialAccountAdmin(
+    officialAccountId: string,
+    adminUserId: string
+  ): Promise<{ message: string }> {
+    return this.post<{ message: string }>(
+      `/api/god/official-accounts/${officialAccountId}/admins`,
+      { adminUserId }
+    );
+  }
+
+  async removeOfficialAccountAdmin(
+    officialAccountId: string,
+    adminUserId: string
+  ): Promise<{ message: string }> {
+    return this.delete<{ message: string }>(
+      `/api/god/official-accounts/${officialAccountId}/admins/${adminUserId}`
+    );
+  }
+
 }
 
 // Export singleton instance

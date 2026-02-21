@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import { useUser } from "@/contexts/UserContext";
-import { apiService, type GodStats, type GodUser, type GodActivity } from "@/lib/api";
+import { apiService, type GodStats, type GodUser, type GodActivity, type OfficialAccount } from "@/lib/api";
 
 type TabId = "dashboard" | "users" | "announcements" | "activities" | "official";
 
@@ -45,6 +45,8 @@ export default function GodPage() {
   const [offSearchResults, setOffSearchResults] = useState<GodUser[]>([]);
   const [offSearchLoading, setOffSearchLoading] = useState(false);
   const [offSelectedUser, setOffSelectedUser] = useState<GodUser | null>(null);
+  const [officialAccounts, setOfficialAccounts] = useState<OfficialAccount[]>([]);
+  const [offListLoading, setOffListLoading] = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -87,6 +89,18 @@ export default function GodPage() {
     }
   }, []);
 
+  const fetchOfficialAccounts = useCallback(async () => {
+    setOffListLoading(true);
+    try {
+      const data = await apiService.getOfficialAccounts();
+      setOfficialAccounts(data);
+    } catch {
+      showToast("Failed to load official accounts", false);
+    } finally {
+      setOffListLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoading && activeUser?.role !== "god") {
       router.replace("/Feeds");
@@ -98,7 +112,8 @@ export default function GodPage() {
     if (activeTab === "dashboard") fetchStats();
     else if (activeTab === "users") fetchUsers();
     else if (activeTab === "activities") fetchActivities();
-  }, [activeTab, activeUser, fetchStats, fetchUsers, fetchActivities]);
+    else if (activeTab === "official") fetchOfficialAccounts();
+  }, [activeTab, activeUser, fetchStats, fetchUsers, fetchActivities, fetchOfficialAccounts]);
 
   const handleSetRole = async (userId: string, role: "user" | "admin") => {
     setActionLoading(`role-${userId}`);
@@ -161,7 +176,7 @@ export default function GodPage() {
     setOffSearchLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await apiService.searchUsers(q);
+        const results = await apiService.searchUsersForOfficialAccount(q);
         setOffSearchResults(results);
       } catch {
         setOffSearchResults([]);
@@ -176,16 +191,31 @@ export default function GodPage() {
   }, []);
 
   const handleCreateOfficialAccount = async () => {
-    if (!offFirstName.trim() || !offUsername.trim() || !offFaculty.trim()) return;
+    if (!offFirstName.trim() || !offUsername.trim() || !offFaculty.trim() || !offSelectedUser) {
+      showToast("Please fill all fields and select an owner", false);
+      return;
+    }
     setOffCreating(true);
-    await new Promise((r) => setTimeout(r, 700));
-    const username = offUsername.trim();
-    setOffFirstName("");
-    setOffUsername("");
-    setOffFaculty("");
-    setOffSelectedUser(null);
-    setOffCreating(false);
-    showToast(`Official account @${username} created`);
+    try {
+      const result = await apiService.createOfficialAccount({
+        name: offFirstName.trim(),
+        username: offUsername.trim(),
+        faculty: offFaculty.trim(),
+        ownerUserId: offSelectedUser.id,
+      });
+      setOffFirstName("");
+      setOffUsername("");
+      setOffFaculty("");
+      setOffSelectedUser(null);
+      setOffSearch("");
+      setOffSearchResults([]);
+      showToast(result.message);
+      fetchOfficialAccounts();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to create official account", false);
+    } finally {
+      setOffCreating(false);
+    }
   };
 
   const filteredUsers = users.filter(
@@ -664,170 +694,280 @@ export default function GodPage() {
                  OFFICIAL ACCOUNTS
             ══════════════════════════════ */}
             {activeTab === "official" && (
-              <div className="grid grid-cols-1 lg:grid-cols-[480px_1fr] gap-6 items-start">
+              <div className="space-y-8">
 
-                {/* ── Left: Create Form ── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-5">
-                  <div className="pb-1">
-                    <h2 className="text-base font-semibold text-slate-900">Create New Official Account</h2>
-                    <p className="text-xs text-slate-400 mt-0.5">Faculties, clubs &amp; university services</p>
-                  </div>
+                {/* ── Top: Create Form + User Search ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-[480px_1fr] gap-6 items-start">
 
-                  {/* Display Name */}
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                      Name <span className="text-red-400 normal-case">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Engineering Faculty"
-                      value={offFirstName}
-                      onChange={(e) => setOffFirstName(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
-                    />
-                  </div>
+                  {/* ── Left: Create Form ── */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 space-y-5">
+                    <div className="pb-1">
+                      <h2 className="text-base font-semibold text-slate-900">Create New Official Account</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">Faculties, clubs &amp; university services</p>
+                    </div>
 
-                  {/* Username */}
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                      Username <span className="text-red-400 normal-case">*</span>
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium select-none">@</span>
+                    {/* Display Name */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Name <span className="text-red-400 normal-case">*</span>
+                      </label>
                       <input
                         type="text"
-                        placeholder="engineering_cmu"
-                        value={offUsername}
-                        onChange={(e) => setOffUsername(e.target.value.replace(/\s/g, "").toLowerCase())}
-                        className="w-full border border-slate-200 rounded-xl pl-8 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                        placeholder="e.g. Engineering Faculty"
+                        value={offFirstName}
+                        onChange={(e) => setOffFirstName(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
                       />
                     </div>
+
+                    {/* Username */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Username <span className="text-red-400 normal-case">*</span>
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-medium select-none">@</span>
+                        <input
+                          type="text"
+                          placeholder="engineering_cmu"
+                          value={offUsername}
+                          onChange={(e) => setOffUsername(e.target.value.replace(/\s/g, "").toLowerCase())}
+                          className="w-full border border-slate-200 rounded-xl pl-8 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Faculty — free text */}
+                    <div className="space-y-1.5">
+                      <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Faculty / Department <span className="text-red-400 normal-case">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Engineering, Business"
+                        value={offFaculty}
+                        onChange={(e) => setOffFaculty(e.target.value)}
+                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                      />
+                    </div>
+
+                    <p className="text-[11px] text-slate-400 pt-1">
+                      <span className="text-red-400">*</span> Required fields
+                      {offSelectedUser ? (
+                        <span className="ml-2 text-green-600 font-medium">
+                          · Owner: {offSelectedUser.firstName} {offSelectedUser.lastName}
+                        </span>
+                      ) : (
+                        <span className="ml-2 text-amber-500">· Select an owner from the right →</span>
+                      )}
+                    </p>
                   </div>
 
-                  {/* Faculty — free text */}
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                      Faculty / Department <span className="text-red-400 normal-case">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Engineering, Business"
-                      value={offFaculty}
-                      onChange={(e) => setOffFaculty(e.target.value)}
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
-                    />
-                  </div>
+                  {/* ── Right: Search + Results ── */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col" style={{height: "fit-content", maxHeight: "calc(100vh - 220px)"}}>
 
-                  <p className="text-[11px] text-slate-400 pt-1">
-                    <span className="text-red-400">*</span> Required fields
-                  </p>
-                </div>
-
-                {/* ── Right: Search + Results ── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col" style={{height: "fit-content", maxHeight: "calc(100vh - 220px)"}}>
-
-                  {/* Top bar: Search + Create button */}
-                  <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 shrink-0">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                        {offSearchLoading ? (
-                          <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin block" />
+                    {/* Top bar: Search + Create button */}
+                    <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-3 shrink-0">
+                      <div className="relative flex-1">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                          {offSearchLoading ? (
+                            <span className="w-4 h-4 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin block" />
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                            </svg>
+                          )}
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Search users…"
+                          value={offSearch}
+                          onChange={(e) => handleOffSearchChange(e.target.value)}
+                          className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 transition"
+                        />
+                      </div>
+                      <button
+                        onClick={handleCreateOfficialAccount}
+                        disabled={offCreating || !offFirstName.trim() || !offUsername.trim() || !offFaculty.trim() || !offSelectedUser}
+                        className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-colors shrink-0"
+                      >
+                        {offCreating ? (
+                          <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                         ) : (
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path d="M12 5v14M5 12h14" strokeLinecap="round" />
                           </svg>
                         )}
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Search users…"
-                        value={offSearch}
-                        onChange={(e) => handleOffSearchChange(e.target.value)}
-                        className="w-full pl-10 pr-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-300 transition"
-                      />
+                        {offCreating ? "Creating…" : "Create Account"}
+                      </button>
+                    </div>
+
+                    {/* Search result area */}
+                    {!offSearch.trim() ? (
+                      <div className="py-16 flex flex-col items-center gap-2">
+                        <span className="text-4xl opacity-20">🔍</span>
+                        <p className="text-sm font-medium text-slate-500">Search for a user</p>
+                        <p className="text-xs text-slate-400">Type a name or username to find and select</p>
+                      </div>
+                    ) : offSearchResults.length === 0 && !offSearchLoading ? (
+                      <div className="py-14 flex flex-col items-center gap-1.5">
+                        <span className="text-3xl opacity-20">😶</span>
+                        <p className="text-sm font-medium text-slate-500">No users found</p>
+                        <p className="text-xs text-slate-400">&ldquo;{offSearch}&rdquo;</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="px-5 py-2.5 border-b border-slate-100 shrink-0">
+                          <p className="text-xs text-slate-400">
+                            {offSearchResults.length} result{offSearchResults.length !== 1 ? "s" : ""}
+                            {offSelectedUser && (
+                              <span className="ml-2 text-slate-600 font-medium">· 1 selected</span>
+                            )}
+                          </p>
+                        </div>
+                        <ul className="divide-y divide-slate-100 overflow-y-auto flex-1 min-h-0">
+                          {offSearchResults.map((u) => {
+                            const isSelected = offSelectedUser?.id === u.id;
+                            return (
+                              <li
+                                key={u.id}
+                                onClick={() => handleSelectOffUser(u)}
+                                className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
+                                  isSelected ? "bg-slate-50" : "hover:bg-slate-50"
+                                }`}
+                              >
+                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
+                                  {u.firstName[0].toUpperCase()}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">
+                                    {u.firstName} {u.lastName}
+                                  </p>
+                                  <p className="text-xs text-slate-400 truncate mt-0.5">
+                                    {u.username ? `@${u.username}` : u.email}
+                                  </p>
+                                </div>
+                                <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
+                                  isSelected ? "bg-slate-700" : "bg-slate-100 hover:bg-slate-200"
+                                }`}>
+                                  <svg
+                                    className={`w-3.5 h-3.5 transition-colors ${isSelected ? "text-white" : "text-slate-400"}`}
+                                    fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
+                                  >
+                                    <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                                  </svg>
+                                </div>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Bottom: All Official Accounts List ── */}
+                <div className="space-y-4">
+                  {/* Section header */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="font-semibold text-slate-900">All Official Accounts</h2>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {officialAccounts.length} account{officialAccounts.length !== 1 ? "s" : ""} in the system
+                      </p>
                     </div>
                     <button
-                      onClick={handleCreateOfficialAccount}
-                      disabled={offCreating || !offFirstName.trim() || !offUsername.trim() || !offFaculty.trim()}
-                      className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-colors shrink-0"
+                      onClick={fetchOfficialAccounts}
+                      disabled={offListLoading}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
                     >
-                      {offCreating ? (
+                      {offListLoading ? (
                         <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
                       ) : (
                         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-                          <path d="M12 5v14M5 12h14" strokeLinecap="round" />
+                          <path d="M23 4v6h-6"/><path d="M1 20v-6h6"/>
+                          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                         </svg>
                       )}
-                      {offCreating ? "Creating…" : "Create Account"}
+                      Refresh
                     </button>
                   </div>
 
-                  {/* Search result area */}
-                  {!offSearch.trim() ? (
-                    /* Empty state */
-                    <div className="py-16 flex flex-col items-center gap-2">
-                      <span className="text-4xl opacity-20">🔍</span>
-                      <p className="text-sm font-medium text-slate-500">Search for a user</p>
-                      <p className="text-xs text-slate-400">Type a name or username to find and select</p>
+                  {/* Loading skeleton */}
+                  {offListLoading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
+                      ))}
                     </div>
-                  ) : offSearchResults.length === 0 && !offSearchLoading ? (
-                    /* No results */
-                    <div className="py-14 flex flex-col items-center gap-1.5">
-                      <span className="text-3xl opacity-20">😶</span>
-                      <p className="text-sm font-medium text-slate-500">No users found</p>
-                      <p className="text-xs text-slate-400">&ldquo;{offSearch}&rdquo;</p>
+                  ) : officialAccounts.length === 0 ? (
+                    /* Empty state */
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm py-16 flex flex-col items-center gap-2">
+                      <span className="text-3xl opacity-20">🏛️</span>
+                      <p className="text-sm font-medium text-slate-500">No official accounts yet</p>
+                      <p className="text-xs text-slate-400">Create one using the form above</p>
                     </div>
                   ) : (
-                    /* Results list */
-                    <>
-                      <div className="px-5 py-2.5 border-b border-slate-100 shrink-0">
-                        <p className="text-xs text-slate-400">
-                          {offSearchResults.length} result{offSearchResults.length !== 1 ? "s" : ""}
-                          {offSelectedUser && (
-                            <span className="ml-2 text-slate-600 font-medium">· 1 selected</span>
-                          )}
-                        </p>
-                      </div>
-                      <ul className="divide-y divide-slate-100 overflow-y-auto flex-1 min-h-0">
-                        {offSearchResults.map((u) => {
-                          const isSelected = offSelectedUser?.id === u.id;
-                          return (
-                            <li
-                              key={u.id}
-                              onClick={() => handleSelectOffUser(u)}
-                              className={`flex items-center gap-4 px-5 py-4 cursor-pointer transition-colors ${
-                                isSelected ? "bg-slate-50" : "hover:bg-slate-50"
-                              }`}
-                            >
-                              {/* Avatar */}
-                              <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
-                                {u.firstName[0].toUpperCase()}
-                              </div>
-                              {/* Info */}
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {u.firstName} {u.lastName}
-                                </p>
-                                <p className="text-xs text-slate-400 truncate mt-0.5">
-                                  {u.username ? `@${u.username}` : u.email}
-                                </p>
-                              </div>
-                              {/* Checkmark */}
-                              <div className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center transition-colors ${
-                                isSelected ? "bg-slate-700" : "bg-slate-100 hover:bg-slate-200"
-                              }`}>
-                                <svg
-                                  className={`w-3.5 h-3.5 transition-colors ${isSelected ? "text-white" : "text-slate-400"}`}
-                                  fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"
-                                >
-                                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                              </div>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </>
+                    /* Account cards */
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                      {officialAccounts.map((acc) => (
+                        <div
+                          key={acc.id}
+                          className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col gap-4 hover:shadow-md transition-shadow"
+                        >
+                          {/* Card header */}
+                          <div className="flex items-start gap-3">
+                            {/* Account avatar */}
+                            <div className="w-11 h-11 rounded-xl bg-slate-900 flex items-center justify-center text-white text-base font-bold shrink-0">
+                              {acc.name[0].toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-semibold text-slate-900 truncate">{acc.name}</p>
+                              <p className="text-xs text-slate-400 truncate">@{acc.username}</p>
+                            </div>
+                            {/* Faculty pill */}
+                            <span className="shrink-0 px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 text-[10px] font-semibold">
+                              {acc.faculty}
+                            </span>
+                          </div>
+
+                          {/* Divider */}
+                          <div className="border-t border-slate-100" />
+
+                          {/* Owner row */}
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs font-bold shrink-0">
+                              {acc.owner ? acc.owner.firstName[0].toUpperCase() : "?"}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[11px] text-slate-400 leading-none mb-0.5">Owner</p>
+                              <p className="text-xs font-semibold text-slate-700 truncate">
+                                {acc.owner
+                                  ? `${acc.owner.firstName} ${acc.owner.lastName}`
+                                  : "—"}
+                              </p>
+                            </div>
+                            {acc.owner?.username && (
+                              <span className="text-[11px] text-slate-400 shrink-0">@{acc.owner.username}</span>
+                            )}
+                          </div>
+
+                          {/* Footer meta */}
+                          <div className="flex items-center justify-between pt-0.5">
+                            <span className="text-[11px] text-slate-400">
+                              {acc.admins.length} admin{acc.admins.length !== 1 ? "s" : ""}
+                            </span>
+                            <span className="text-[11px] text-slate-400">
+                              {new Date(acc.createdAt).toLocaleDateString("en-GB", {
+                                day: "numeric",
+                                month: "short",
+                                year: "numeric",
+                              })}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 

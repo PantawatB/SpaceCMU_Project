@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getDashboardStats, banUser, unbanUser, banPost, unbanPost, createAnnouncement, getActivities } from "../controllers/adminController.js";
+import { getDashboardStats, banUser, unbanUser, banPost, unbanPost, createAnnouncement, getActivities, getMyOfficialAccounts, addAdminToMyAccount, removeAdminFromMyAccount, leaveOfficialAccount, transferOwnership } from "../controllers/adminController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { adminMiddleware } from "../middleware/adminMiddleware.js";
 
@@ -11,6 +11,11 @@ router.use(adminMiddleware);
 
 router.get("/stats", getDashboardStats);
 router.get("/activities", getActivities);
+router.get("/my-official-accounts", getMyOfficialAccounts);
+router.post("/my-official-accounts/:id/admins", addAdminToMyAccount);
+router.delete("/my-official-accounts/:id/admins/:adminUserId", removeAdminFromMyAccount);
+router.delete("/my-official-accounts/:id/leave", leaveOfficialAccount);
+router.post("/my-official-accounts/:id/transfer-owner", transferOwnership);
 router.post("/users/:userId/ban", banUser);
 router.post("/users/:userId/unban", unbanUser);
 router.post("/posts/:postId/ban", banPost);
