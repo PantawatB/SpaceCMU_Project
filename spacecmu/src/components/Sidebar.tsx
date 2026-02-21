@@ -37,7 +37,7 @@ const profiles = [
 export default function Sidebar({ menuItems }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, activeUser, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext } = useUser();
+  const { user, activeUser, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext, officialMode, exitOfficialMode, isSwitchingToOfficial } = useUser();
   
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -530,49 +530,119 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           </button>
         </div>
         {/* Profile Section */}
-        <div className="flex gap-4 items-center mb-8">
-          {profiles.map((profile, idx) => {
-            const isPublic = idx === 0;
-            const displayData = isPublic 
-              ? { 
-                  name: user ? `${user.firstName} ${user.lastName}` : profile.name,
-                  username: user?.username ? `@${user.username}` : profile.username,
-                  avatar: apiService.getImageUrl(user?.avatarUrl) ?? DEFAULT_AVATAR
-                }
-              : {
-                  name: anonymousAccount?.firstName || profile.name,
-                  username: anonymousAccount?.username ? `@${anonymousAccount.username}` : profile.username,
-                  avatar: apiService.getImageUrl(anonymousAccount?.avatarUrl) ?? DEFAULT_AVATAR
-                };
-
-            return (
-              <div
-                key={profile.type}
-                className={`flex flex-col items-center transition-all duration-300 ${
-                  activeProfile === idx ? "" : "opacity-50 grayscale"
-                }`}
-              >
-                <div
-                  className={`w-14 h-14 rounded-full flex items-center justify-center relative ${profile.bg} shadow-lg`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+        <div className="flex gap-4 items-center mb-8 relative min-h-[100px]">
+          {/* ── Official Mode: single merged avatar ── */}
+          {officialMode && !isSwitchingToOfficial ? (
+            <div className="flex flex-col items-center w-full">
+              <div className="w-14 h-14 rounded-full flex items-center justify-center relative shadow-lg bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500">
+                {officialMode.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={displayData.avatar}
-                    alt={displayData.name}
+                    src={apiService.getImageUrl(officialMode.avatarUrl) ?? ""}
+                    alt={officialMode.name}
                     className="w-12 h-12 rounded-full object-cover border-2 border-white"
                     onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
                   />
-                  {activeProfile === idx && (
-                    <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
-                  )}
-                </div>
-                <div className="mt-2 text-sm font-semibold text-gray-800">
-                  {displayData.name}
-                </div>
-                <div className="text-xs text-gray-500">{displayData.username}</div>
+                ) : (
+                  <span className="text-xl font-bold text-white">{officialMode.avatarLetter}</span>
+                )}
+                <span className="absolute top-0 right-0 w-3 h-3 bg-indigo-400 rounded-full border-2 border-white shadow" />
               </div>
-            );
-          })}
+              <div className="mt-2 text-sm font-bold text-gray-900 truncate max-w-[170px] text-center">
+                {officialMode.name}
+              </div>
+              <div className="text-xs text-indigo-500 font-medium">@{officialMode.username}</div>
+              <div className="mt-1 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
+                Official Mode
+              </div>
+            </div>
+          ) : officialMode && isSwitchingToOfficial ? (
+            /* ── Switching animation: Public + Anonymous bubble รวมกันเป็น Official ── */
+            <div className="relative flex items-center justify-center w-full h-[120px] overflow-visible">
+              {/* Public avatar — เริ่มซ้าย, ลอยเข้ากลาง แล้ว fade */}
+              <div
+                className="absolute flex flex-col items-center"
+                style={{ animation: "mergeLeft 1.2s cubic-bezier(0.4,0,0.2,1) forwards" }}
+              >
+                <div className="w-14 h-14 rounded-full bg-linear-to-tr from-purple-400 via-cyan-300 to-yellow-300 p-[3px] shadow-xl">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={apiService.getImageUrl(user?.avatarUrl) ?? DEFAULT_AVATAR}
+                    alt="public"
+                    className="w-full h-full rounded-full object-cover border-2 border-white"
+                    onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
+                  />
+                </div>
+              </div>
+              {/* Anonymous avatar — เริ่มขวา, ลอยเข้ากลาง แล้ว fade */}
+              <div
+                className="absolute flex flex-col items-center"
+                style={{ animation: "mergeRight 1.2s cubic-bezier(0.4,0,0.2,1) forwards" }}
+              >
+                <div className="w-14 h-14 rounded-full bg-gray-400 p-[3px] shadow-xl">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={apiService.getImageUrl(anonymousAccount?.avatarUrl) ?? DEFAULT_AVATAR}
+                    alt="anonymous"
+                    className="w-full h-full rounded-full object-cover border-2 border-white"
+                    onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
+                  />
+                </div>
+              </div>
+              {/* Burst flash at center — indigo/purple */}
+              <div
+                className="absolute w-14 h-14 rounded-full opacity-0"
+                style={{
+                  background: "radial-gradient(circle, #818cf8 0%, #a855f7 60%, transparent 100%)",
+                  animation: "burstCenter 1.2s ease-in-out forwards",
+                }}
+              />
+            </div>
+          ) : (
+            /* ── Normal: 2 profile bubbles ── */
+            profiles.map((profile, idx) => {
+              const isPublic = idx === 0;
+              const displayData = isPublic
+                ? {
+                    name: user ? `${user.firstName} ${user.lastName}` : profile.name,
+                    username: user?.username ? `@${user.username}` : profile.username,
+                    avatar: apiService.getImageUrl(user?.avatarUrl) ?? DEFAULT_AVATAR,
+                  }
+                : {
+                    name: anonymousAccount?.firstName || profile.name,
+                    username: anonymousAccount?.username ? `@${anonymousAccount.username}` : profile.username,
+                    avatar: apiService.getImageUrl(anonymousAccount?.avatarUrl) ?? DEFAULT_AVATAR,
+                  };
+
+              return (
+                <div
+                  key={profile.type}
+                  className={`flex flex-col items-center transition-all duration-300 ${
+                    activeProfile === idx ? "" : "opacity-50 grayscale"
+                  }`}
+                >
+                  <div
+                    className={`w-14 h-14 rounded-full flex items-center justify-center relative ${profile.bg} shadow-lg`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={displayData.avatar}
+                      alt={displayData.name}
+                      className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                      onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
+                    />
+                    {activeProfile === idx && (
+                      <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
+                    )}
+                  </div>
+                  <div className="mt-2 text-sm font-semibold text-gray-800">
+                    {displayData.name}
+                  </div>
+                  <div className="text-xs text-gray-500">{displayData.username}</div>
+                </div>
+              );
+            })
+          )}
         </div>
 
         {/* Menu */}
@@ -638,39 +708,53 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </nav>
       </div>
       <div className="pt-6">
-        {/* Toggle Profile Button */}
-        <div className="flex mb-6 rounded-lg overflow-hidden border border-gray-200">
+        {/* Official mode: big "Return to main account" button */}
+        {officialMode ? (
           <button
-            className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
-              activeProfile === 0
-                ? "bg-white text-black"
-                : "bg-gray-200 text-gray-500"
-            } ${isSwitchingMode ? "opacity-50 cursor-not-allowed" : ""}`}
-            onClick={() => handleSwitchMode("PUBLIC")}
-            disabled={isSwitchingMode || activeMode === "PUBLIC"}
+            onClick={exitOfficialMode}
+            className="w-full flex items-center gap-2.5 justify-center rounded-xl px-3 py-3 mb-3 font-bold text-sm transition-all
+              bg-linear-to-r from-indigo-500 to-purple-600 text-white shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-purple-700 active:scale-[0.98]"
           >
-            {isSwitchingMode && activeMode !== "PUBLIC" ? (
-              <span className="inline-block animate-spin">⏳</span>
-            ) : (
-              "Public"
-            )}
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            กลับไปที่ Account หลัก
           </button>
-          <button
-            className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
-              activeProfile === 1
-                ? "bg-white text-black"
-                : "bg-gray-200 text-gray-500"
-            } ${isSwitchingMode ? "opacity-50 cursor-not-allowed" : ""}`}
-            onClick={() => handleSwitchMode("ANONYMOUS")}
-            disabled={isSwitchingMode || activeMode === "ANONYMOUS"}
-          >
-            {isSwitchingMode && activeMode !== "ANONYMOUS" ? (
-              <span className="inline-block animate-spin">⏳</span>
-            ) : (
-              "Anonymous"
-            )}
-          </button>
-        </div>
+        ) : (
+          /* Toggle Profile Button */
+          <div className="flex mb-6 rounded-lg overflow-hidden border border-gray-200">
+            <button
+              className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
+                activeProfile === 0
+                  ? "bg-white text-black"
+                  : "bg-gray-200 text-gray-500"
+              } ${isSwitchingMode ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => handleSwitchMode("PUBLIC")}
+              disabled={isSwitchingMode || activeMode === "PUBLIC"}
+            >
+              {isSwitchingMode && activeMode !== "PUBLIC" ? (
+                <span className="inline-block animate-spin">⏳</span>
+              ) : (
+                "Public"
+              )}
+            </button>
+            <button
+              className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
+                activeProfile === 1
+                  ? "bg-white text-black"
+                  : "bg-gray-200 text-gray-500"
+              } ${isSwitchingMode ? "opacity-50 cursor-not-allowed" : ""}`}
+              onClick={() => handleSwitchMode("ANONYMOUS")}
+              disabled={isSwitchingMode || activeMode === "ANONYMOUS"}
+            >
+              {isSwitchingMode && activeMode !== "ANONYMOUS" ? (
+                <span className="inline-block animate-spin">⏳</span>
+              ) : (
+                "Anonymous"
+              )}
+            </button>
+          </div>
+        )}
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 justify-center bg-black text-white rounded-lg px-3 py-2 font-semibold hover:bg-gray-800"

@@ -352,6 +352,8 @@ export const sessionsTable = pgTable("sessions", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: uuid("user_id").references(() => usersTable.id).notNull(), // เจ้าของ session
   activeUserId: uuid("active_user_id").references(() => usersTable.id).notNull(), // ตัวตนที่ใช้งานปัจจุบัน
+  // Official account mode: if set, user is acting as this official account
+  officialAccountId: uuid("official_account_id").references((): AnyPgColumn => officialAccountsTable.id),
   token: text("token").notNull(),
   ipAddress: varchar("ip_address", { length: 45 }),
   userAgent: text("user_agent"),

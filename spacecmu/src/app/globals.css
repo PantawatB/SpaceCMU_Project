@@ -139,3 +139,32 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
+
+/* ── Official Account Switch Animation ── */
+/* Public avatar เริ่มซ้าย (-44px จากกลาง), ลอยเข้ากลาง พร้อม scale ลดลง แล้ว fade */
+@keyframes mergeLeft {
+  0%   { transform: translateX(-44px) scale(1);    opacity: 1; }
+  45%  { transform: translateX(-10px) scale(0.9);  opacity: 0.85; }
+  70%  { transform: translateX(0px)   scale(0.65); opacity: 0.5; }
+  88%  { transform: translateX(0px)   scale(0.35); opacity: 0.2; }
+  100% { transform: translateX(0px)   scale(0);    opacity: 0; }
+}
+
+/* Anonymous avatar เริ่มขวา (+44px จากกลาง), ลอยเข้ากลาง พร้อม scale ลดลง แล้ว fade */
+@keyframes mergeRight {
+  0%   { transform: translateX(44px)  scale(1);    opacity: 1; }
+  45%  { transform: translateX(10px)  scale(0.9);  opacity: 0.85; }
+  70%  { transform: translateX(0px)   scale(0.65); opacity: 0.5; }
+  88%  { transform: translateX(0px)   scale(0.35); opacity: 0.2; }
+  100% { transform: translateX(0px)   scale(0);    opacity: 0; }
+}
+
+/* Burst circle ที่กลาง — ปรากฏขึ้นหลังจาก bubble รวมกัน */
+@keyframes burstCenter {
+  0%   { transform: scale(0);   opacity: 0; }
+  50%  { transform: scale(0);   opacity: 0; }
+  62%  { transform: scale(1.5); opacity: 0.95; }
+  74%  { transform: scale(1.1); opacity: 1; }
+  86%  { transform: scale(1.4); opacity: 0.5; }
+  100% { transform: scale(1.8); opacity: 0; }
+}

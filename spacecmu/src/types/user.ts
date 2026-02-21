@@ -48,9 +48,19 @@ export interface AnonymousAccount {
   avatarUrl: string;
 }
 
+export interface OfficialAccountInfo {
+  id: string;
+  name: string;
+  username: string;
+  faculty: string;
+  userId: string;
+  avatarUrl: string | null;
+}
+
 export interface UserMeResponse {
   user: User;
   activeUser: User;
   activeMode: 'PUBLIC' | 'ANONYMOUS';
   anonymousAccount: AnonymousAccount;
+  officialAccount: OfficialAccountInfo | null;
 }

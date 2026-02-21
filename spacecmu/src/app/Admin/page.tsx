@@ -43,9 +43,11 @@ function Avatar({
 function OfficialAccountCard({
   account,
   onOpen,
+  onSwitch,
 }: {
   account: MyOfficialAccount;
   onOpen: (acc: MyOfficialAccount) => void;
+  onSwitch: (acc: MyOfficialAccount) => void;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
@@ -65,16 +67,31 @@ function OfficialAccountCard({
           </div>
           <p className="text-sm text-slate-400 mt-0.5">@{account.username} · {account.faculty}</p>
         </div>
-        {/* Manage button */}
-        <button
-          onClick={() => onOpen(account)}
-          className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Manage
-        </button>
+        {/* Buttons */}
+        <div className="shrink-0 flex items-center gap-2">
+          {/* Switch to official button */}
+          <button
+            onClick={() => onSwitch(account)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-semibold hover:bg-indigo-100 border border-indigo-200 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="10 17 15 12 10 7" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="15" y1="12" x2="3" y2="12" strokeLinecap="round"/>
+            </svg>
+            ใช้งาน Account นี้
+          </button>
+          {/* Manage button */}
+          <button
+            onClick={() => onOpen(account)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 text-white text-xs font-semibold hover:bg-slate-700 transition-colors"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Manage
+          </button>
+        </div>
       </div>
 
       {/* Stats row */}
@@ -631,8 +648,8 @@ function AccountDetailView({
    Main Page
 ───────────────────────────────────────── */
 export default function AdminPage() {
+  const { activeUser, isLoading, switchToOfficial } = useUser();
   const router = useRouter();
-  const { activeUser, isLoading } = useUser();
 
   const [activeTab, setActiveTab] = useState<TabId>("official");
   const [myAccounts, setMyAccounts] = useState<MyOfficialAccount[]>([]);
@@ -797,6 +814,10 @@ export default function AdminPage() {
                             key={acc.id}
                             account={acc}
                             onOpen={setSelectedAccount}
+                            onSwitch={async (a) => {
+                              await switchToOfficial(a);
+                              router.push("/Feeds");
+                            }}
                           />
                         ))}
                       </div>

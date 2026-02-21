@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { dbClient } from "../../db/client.js";
-import { usersTable, sessionsTable } from "../../db/schema.js";
-import { eq } from "drizzle-orm";
+import { usersTable, sessionsTable, officialAccountsTable, officialAccountAdminsTable } from "../../db/schema.js";
+import { eq, and } from "drizzle-orm";
 import { getAnonymousAccount, updateSessionActiveUser, getActiveMode, getUserById } from "../utils/sessionUtils.js";
 
 const CMU_ENTRAID_TOKEN_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/token";
@@ -256,6 +256,25 @@ export const getMe = async (req: Request, res: Response) => {
         // Determine active mode
         const activeMode = getActiveMode(req.activeUser);
 
+        // Get official account if session has one
+        let officialAccount = null;
+        if (req.session.officialAccountId) {
+            const [oa] = await dbClient
+                .select({
+                    id: officialAccountsTable.id,
+                    name: officialAccountsTable.name,
+                    username: officialAccountsTable.username,
+                    faculty: officialAccountsTable.faculty,
+                    userId: officialAccountsTable.userId,
+                    avatarUrl: usersTable.avatarUrl,
+                })
+                .from(officialAccountsTable)
+                .leftJoin(usersTable, eq(usersTable.id, officialAccountsTable.userId))
+                .where(eq(officialAccountsTable.id, req.session.officialAccountId))
+                .limit(1);
+            if (oa) officialAccount = oa;
+        }
+
         // Remove sensitive data
         const { ...publicUserData } = publicUser;
         const { ...activeUserData } = req.activeUser;
@@ -269,7 +288,8 @@ export const getMe = async (req: Request, res: Response) => {
                 username: anonymousAccount.username,
                 firstName: anonymousAccount.firstName,
                 avatarUrl: anonymousAccount.avatarUrl,
-            } : null
+            } : null,
+            officialAccount,
         });
     } catch (error) {
         console.error("getMe error:", error);
@@ -340,6 +360,112 @@ export const switchMode = async (req: Request, res: Response) => {
         });
     } catch (error) {
         console.error("switchMode error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /auth/switch-to-official
+ * Switch session to operate as an official account
+ * Body: { officialAccountId: string }
+ */
+export const switchToOfficial = async (req: Request, res: Response) => {
+    try {
+        if (!req.session) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+
+        const { officialAccountId } = req.body;
+        if (!officialAccountId) {
+            return res.status(400).json({ message: "officialAccountId is required" });
+        }
+
+        // Verify caller is an admin of this official account
+        const [adminRecord] = await dbClient
+            .select()
+            .from(officialAccountAdminsTable)
+            .where(
+                and(
+                    eq(officialAccountAdminsTable.officialAccountId, officialAccountId),
+                    eq(officialAccountAdminsTable.adminUserId, req.session.userId)
+                )
+            )
+            .limit(1);
+
+        if (!adminRecord) {
+            return res.status(403).json({ message: "You are not an admin of this official account" });
+        }
+
+        // Get official account with its user record
+        const [oa] = await dbClient
+            .select({
+                id: officialAccountsTable.id,
+                name: officialAccountsTable.name,
+                username: officialAccountsTable.username,
+                faculty: officialAccountsTable.faculty,
+                userId: officialAccountsTable.userId,
+                avatarUrl: usersTable.avatarUrl,
+            })
+            .from(officialAccountsTable)
+            .leftJoin(usersTable, eq(usersTable.id, officialAccountsTable.userId))
+            .where(eq(officialAccountsTable.id, officialAccountId))
+            .limit(1);
+
+        if (!oa) {
+            return res.status(404).json({ message: "Official account not found" });
+        }
+
+        // Update session: set activeUserId to official account's user record + officialAccountId
+        await dbClient
+            .update(sessionsTable)
+            .set({
+                activeUserId: oa.userId,
+                officialAccountId: oa.id,
+            })
+            .where(eq(sessionsTable.id, req.session.sessionId));
+
+        // Return the official account's user object
+        const officialUser = await getUserById(oa.userId);
+
+        res.json({
+            success: true,
+            activeUser: officialUser,
+            officialAccount: oa,
+        });
+    } catch (error) {
+        console.error("switchToOfficial error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /auth/exit-official
+ * Exit official account mode and return to public user
+ */
+export const exitOfficial = async (req: Request, res: Response) => {
+    try {
+        if (!req.session) {
+            return res.status(401).json({ message: "Not authenticated" });
+        }
+
+        // Restore activeUserId to the real owner of the session
+        await dbClient
+            .update(sessionsTable)
+            .set({
+                activeUserId: req.session.userId,
+                officialAccountId: null,
+            })
+            .where(eq(sessionsTable.id, req.session.sessionId));
+
+        const publicUser = await getUserById(req.session.userId);
+
+        res.json({
+            success: true,
+            activeUser: publicUser,
+            officialAccount: null,
+        });
+    } catch (error) {
+        console.error("exitOfficial error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };

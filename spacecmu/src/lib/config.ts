@@ -11,6 +11,8 @@ export const API_ENDPOINTS = {
     LOGOUT: '/api/auth/logout',
     ME: '/api/users/me',
     SWITCH_MODE: '/api/auth/switch-mode',
+    SWITCH_TO_OFFICIAL: '/api/auth/switch-to-official',
+    EXIT_OFFICIAL: '/api/auth/exit-official',
   },
   USERS: {
     PROFILE: (userId: string) => `/api/users/${userId}`,

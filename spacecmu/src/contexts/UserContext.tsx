@@ -2,7 +2,16 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { User, UserMeResponse, AnonymousAccount } from '@/types/user';
-import { apiService } from '@/lib/api';
+import { apiService, type MyOfficialAccount } from '@/lib/api';
+
+export interface OfficialAccountMode {
+  accountId: string;
+  name: string;
+  username: string;
+  avatarLetter: string;
+  faculty: string;
+  avatarUrl?: string | null;
+}
 
 interface UserContextType {
   user: User | null;
@@ -13,6 +22,10 @@ interface UserContextType {
   error: string | null;
   refreshUser: (silent?: boolean) => Promise<void>;
   logout: () => Promise<void>;
+  officialMode: OfficialAccountMode | null;
+  switchToOfficial: (acc: MyOfficialAccount) => Promise<void>;
+  exitOfficialMode: () => Promise<void>;
+  isSwitchingToOfficial: boolean;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -24,18 +37,30 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [anonymousAccount, setAnonymousAccount] = useState<AnonymousAccount | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [officialMode, setOfficialMode] = useState<OfficialAccountMode | null>(null);
+  const [isSwitchingToOfficial, setIsSwitchingToOfficial] = useState(false);
 
   const fetchUser = async (silent: boolean = false) => {
     try {
-      if (!silent) {
-        setIsLoading(true);
-      }
+      if (!silent) setIsLoading(true);
       setError(null);
       const data: UserMeResponse = await apiService.getCurrentUser();
       setUser(data.user);
       setActiveUser(data.activeUser);
       setActiveMode(data.activeMode);
       setAnonymousAccount(data.anonymousAccount);
+      if (data.officialAccount) {
+        setOfficialMode({
+          accountId: data.officialAccount.id,
+          name: data.officialAccount.name,
+          username: data.officialAccount.username,
+          avatarLetter: data.officialAccount.name[0].toUpperCase(),
+          faculty: data.officialAccount.faculty,
+          avatarUrl: data.officialAccount.avatarUrl,
+        });
+      } else {
+        setOfficialMode(null);
+      }
     } catch (err) {
       console.error('Failed to fetch user:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch user');
@@ -43,10 +68,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setActiveUser(null);
       setActiveMode(null);
       setAnonymousAccount(null);
+      setOfficialMode(null);
     } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -57,11 +81,43 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setActiveUser(null);
       setActiveMode(null);
       setAnonymousAccount(null);
-      // Redirect to home page
+      setOfficialMode(null);
       window.location.href = '/';
     } catch (err) {
       console.error('Failed to logout:', err);
       setError(err instanceof Error ? err.message : 'Failed to logout');
+    }
+  };
+
+  const switchToOfficial = async (acc: MyOfficialAccount) => {
+    setIsSwitchingToOfficial(true);
+    try {
+      const result = await apiService.switchToOfficialAccount(acc.id);
+      setActiveUser(result.activeUser);
+      setOfficialMode({
+        accountId: acc.id,
+        name: acc.name,
+        username: acc.username,
+        avatarLetter: acc.name[0].toUpperCase(),
+        faculty: acc.faculty,
+        avatarUrl: acc.avatarUrl ?? null,
+      });
+    } catch (err) {
+      console.error('Failed to switch to official:', err);
+      setError(err instanceof Error ? err.message : 'Failed to switch to official account');
+    } finally {
+      setTimeout(() => setIsSwitchingToOfficial(false), 1400);
+    }
+  };
+
+  const exitOfficialMode = async () => {
+    try {
+      const result = await apiService.exitOfficialAccount();
+      setActiveUser(result.activeUser);
+      setOfficialMode(null);
+    } catch (err) {
+      console.error('Failed to exit official mode:', err);
+      setError(err instanceof Error ? err.message : 'Failed to exit official mode');
     }
   };
 
@@ -78,6 +134,10 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     error,
     refreshUser: fetchUser,
     logout,
+    officialMode,
+    switchToOfficial,
+    exitOfficialMode,
+    isSwitchingToOfficial,
   };
 
   return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
