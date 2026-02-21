@@ -2567,6 +2567,580 @@
                         "description": "Fetch system activity logs. **Admin only**."
                     },
                     "response": []
+                },
+                {
+                    "name": "Get My Official Accounts",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/my-official-accounts",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "my-official-accounts"
+                            ]
+                        },
+                        "description": "Get all official accounts that the current admin manages (either as owner or co-admin).\n\n**Role required:** `admin` or `god`\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"uuid\",\n    \"userId\": \"uuid\",\n    \"name\": \"Engineering Faculty\",\n    \"username\": \"engineering_cmu\",\n    \"faculty\": \"Engineering\",\n    \"createdAt\": \"2026-02-21T...\",\n    \"ownerId\": \"uuid\",\n    \"isOwner\": true,\n    \"owner\": {\n      \"id\": \"uuid\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\",\n      \"username\": \"johndoe\",\n      \"email\": \"john@cmu.ac.th\",\n      \"avatarUrl\": \"/uploads/avatar.jpg\"\n    },\n    \"admins\": [\n      {\n        \"id\": \"uuid\",\n        \"firstName\": \"John\",\n        \"lastName\": \"Doe\",\n        \"username\": \"johndoe\",\n        \"email\": \"john@cmu.ac.th\",\n        \"avatarUrl\": null,\n        \"grantedAt\": \"2026-02-21T...\"\n      }\n    ]\n  }\n]\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add Admin to My Official Account",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"adminUserId\": \"user_id_here\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/my-official-accounts/:id/admins",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "my-official-accounts",
+                                ":id",
+                                "admins"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "official_account_id_here",
+                                    "description": "Official Account UUID"
+                                }
+                            ]
+                        },
+                        "description": "Owner adds a new admin to their official account. **Owner only** (caller must be the ownerId of this account).\n\n**Rules:**\n- Caller must be the `ownerId` of the account\n- Target user must exist and must not have role `official_account`\n- Auto-upgrades target's role from `user` → `admin` if needed\n- Duplicate-safe via `onConflictDoNothing`\n\n**Body Parameters:**\n- `adminUserId` (string, required): UUID of the user to add as admin\n\n**Response (200):**\n```json\n{ \"message\": \"Admin added successfully\" }\n```\n\n**Error Responses:**\n- `400`: Missing adminUserId or target is official_account\n- `403`: Caller is not the owner\n- `404`: Account or user not found"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Remove Admin from My Official Account",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/my-official-accounts/:id/admins/:adminUserId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "my-official-accounts",
+                                ":id",
+                                "admins",
+                                ":adminUserId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "official_account_id_here",
+                                    "description": "Official Account UUID"
+                                },
+                                {
+                                    "key": "adminUserId",
+                                    "value": "user_id_here",
+                                    "description": "UUID of the admin to remove"
+                                }
+                            ]
+                        },
+                        "description": "Owner removes an admin from their official account. **Owner only**.\n\n**Rules:**\n- Caller must be the `ownerId`\n- Cannot remove yourself (the owner)\n\n**Response (200):**\n```json\n{ \"message\": \"Admin removed successfully\" }\n```\n\n**Error Responses:**\n- `400`: Attempting to remove yourself as owner\n- `403`: Caller is not the owner\n- `404`: Account not found"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Leave Official Account",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/my-official-accounts/:id/leave",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "my-official-accounts",
+                                ":id",
+                                "leave"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "official_account_id_here",
+                                    "description": "Official Account UUID"
+                                }
+                            ]
+                        },
+                        "description": "Admin (non-owner) voluntarily removes themselves from an official account's admin team.\n\n**Rules:**\n- The **owner cannot leave** — they must transfer ownership first\n- Caller must be a current admin of the account\n\n**Response (200):**\n```json\n{ \"message\": \"You have left the official account\" }\n```\n\n**Error Responses:**\n- `400`: Caller is the owner (must transfer first)\n- `404`: Account not found, or caller is not an admin of this account"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Transfer Ownership",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"newOwnerId\": \"user_id_here\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/my-official-accounts/:id/transfer-owner",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "admin",
+                                "my-official-accounts",
+                                ":id",
+                                "transfer-owner"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "id",
+                                    "value": "official_account_id_here",
+                                    "description": "Official Account UUID"
+                                }
+                            ]
+                        },
+                        "description": "Owner transfers ownership of an official account to another current admin. **Owner only**.\n\n**Rules:**\n- Caller must be the current `ownerId`\n- `newOwnerId` must already be in the admin list (`official_account_admins`)\n- After transfer, the previous owner remains as a regular admin\n\n**Body Parameters:**\n- `newOwnerId` (string, required): UUID of the admin who will become the new owner\n\n**Response (200):**\n```json\n{ \"message\": \"Ownership transferred successfully\" }\n```\n\n**Error Responses:**\n- `400`: Missing newOwnerId, same as caller, or new owner is not already an admin\n- `403`: Caller is not the owner\n- `404`: Account not found"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "10. God",
+            "item": [
+                {
+                    "name": "Platform Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/god/stats",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "god",
+                                "stats"
+                            ]
+                        },
+                        "description": "Get platform-wide statistics. **God only**.\n\n**Response:**\n```json\n{\n  \"totalUsers\": 100,\n  \"totalAdmins\": 5,\n  \"totalBanned\": 2,\n  \"totalPosts\": 500,\n  \"activeSessions\": 42\n}\n```"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get All Users",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/god/users",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "god",
+                                "users"
+                            ]
+                        },
+                        "description": "Get all users on the platform (excluding anonymous accounts). **God only**.\n\n**Response fields per user:**\n- `id`, `firstName`, `lastName`, `username`, `email`\n- `role`: `user` | `admin` | `god` | `official_account`\n- `status`: `active` | `banned`\n- `isAnonymous`, `createdAt`, `lastActiveAt`"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Set User Role",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"role\": \"admin\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/god/users/:userId/role",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "god",
+                                "users",
+                                ":userId",
+                                "role"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Set a user's role. **God only**.\n\n**Allowed roles:** `user`, `admin`\n\n**Note:** Cannot change a `god` user's role."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Set User Status",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"banned\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/god/users/:userId/status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "god",
+                                "users",
+                                ":userId",
+                                "status"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_id_here"
+                                }
+                            ]
+                        },
+                        "description": "Ban or unban any user. **God only**.\n\n**Allowed values:** `active`, `banned`"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Full Activity Log",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/god/activities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "god",
+                                "activities"
+                            ]
+                        },
+                        "description": "Get full platform activity log (last 200 entries). **God only**."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Official Accounts",
+                    "item": [
+                        {
+                            "name": "Search Users for Official Account",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/users/search?query=john",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "users",
+                                        "search"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "query",
+                                            "value": "john",
+                                            "description": "Search term (name, username, or email)"
+                                        }
+                                    ]
+                                },
+                                "description": "Search all users for assigning as owner or admin of an official account. **God only**.\n\n**Excludes:**\n- Users with role `official_account` (they are accounts, not real people)\n\n**Includes:** All other users including `god`, `admin`, `user`, and anonymous users.\n\n**Query Parameters:**\n- `query` (string, required): Search term matched against firstName, lastName, username, email, or full name (case-insensitive)\n\n**Response (200):**\n```json\n[\n  {\n    \"id\": \"uuid\",\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"username\": \"johndoe\",\n    \"email\": \"john@cmu.ac.th\",\n    \"role\": \"user\",\n    \"status\": \"active\",\n    \"avatarUrl\": null,\n    \"faculty\": \"Engineering\"\n  }\n]\n```\n\n**Error Responses:**\n- `400`: Missing or empty `query` parameter\n- `401`: Not authenticated\n- `403`: Not a god"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get All Official Accounts",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/official-accounts",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "official-accounts"
+                                    ]
+                                },
+                                "description": "Get all official accounts on the platform, including owner info and full admin list. **God only**.\n\n**Response:**\n```json\n[\n  {\n    \"id\": \"uuid\",\n    \"userId\": \"uuid\",\n    \"name\": \"Engineering Faculty\",\n    \"username\": \"engineering_cmu\",\n    \"faculty\": \"Engineering\",\n    \"createdAt\": \"2026-02-21T...\",\n    \"owner\": {\n      \"id\": \"uuid\",\n      \"firstName\": \"John\",\n      \"lastName\": \"Doe\",\n      \"username\": \"johndoe\",\n      \"email\": \"john@cmu.ac.th\"\n    },\n    \"admins\": [\n      {\n        \"id\": \"uuid\",\n        \"firstName\": \"John\",\n        \"lastName\": \"Doe\",\n        \"username\": \"johndoe\",\n        \"email\": \"john@cmu.ac.th\",\n        \"role\": \"admin\",\n        \"grantedAt\": \"2026-02-21T...\"\n      }\n    ]\n  }\n]\n```"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Create Official Account",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"name\": \"Engineering Faculty\",\n    \"username\": \"engineering_cmu\",\n    \"faculty\": \"Engineering\",\n    \"ownerUserId\": \"user_id_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/official-accounts",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "official-accounts"
+                                    ]
+                                },
+                                "description": "Create a new official account (faculty, club, university service). **God only**.\n\n**What this does:**\n1. Creates a new `users` record with `role = official_account` (no password — cannot login directly)\n2. Creates an `official_accounts` record linking the user record\n3. Auto-upgrades the selected owner's role from `user` → `admin` (if not already)\n4. Inserts into `official_account_admins` junction table\n\n**Body Parameters:**\n- `name` (string, required): Display name e.g. `\"Engineering Faculty\"`\n- `username` (string, required): Unique handle e.g. `\"engineering_cmu\"` (spaces auto-removed, lowercased)\n- `faculty` (string, required): Department/faculty name\n- `ownerUserId` (string, required): UUID of the real user who will be the first admin & owner\n\n**Response (201):**\n```json\n{\n  \"message\": \"Official account @engineering_cmu created successfully\",\n  \"officialAccount\": {\n    \"id\": \"uuid\",\n    \"userId\": \"uuid\",\n    \"name\": \"Engineering Faculty\",\n    \"username\": \"engineering_cmu\",\n    \"faculty\": \"Engineering\",\n    \"ownerId\": \"owner-uuid\",\n    \"createdAt\": \"2026-02-21T...\"\n  }\n}\n```\n\n**Error Responses:**\n- `400`: Missing fields or trying to assign a `god` as owner\n- `404`: Owner user not found\n- `409`: Username already taken"
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Add Admin to Official Account",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"adminUserId\": \"user_id_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/official-accounts/:id/admins",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "official-accounts",
+                                        ":id",
+                                        "admins"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "official_account_id_here",
+                                            "description": "Official Account UUID"
+                                        }
+                                    ]
+                                },
+                                "description": "Add a new admin to an existing official account. **God only**.\n\n**What this does:**\n1. Verifies the official account and target user exist\n2. Auto-upgrades target user's role from `user` → `admin` if needed\n3. Inserts into `official_account_admins` junction table (duplicate-safe via `onConflictDoNothing`)\n\n**Body Parameters:**\n- `adminUserId` (string, required): UUID of the user to grant admin rights\n\n**Note:** Cannot assign a `god` user as admin."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Remove Admin from Official Account",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/official-accounts/:id/admins/:adminUserId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "official-accounts",
+                                        ":id",
+                                        "admins",
+                                        ":adminUserId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "official_account_id_here",
+                                            "description": "Official Account UUID"
+                                        },
+                                        {
+                                            "key": "adminUserId",
+                                            "value": "user_id_here",
+                                            "description": "UUID of the admin to remove"
+                                        }
+                                    ]
+                                },
+                                "description": "Remove an admin from an official account. **God only**.\n\n**Rules:**\n- Cannot remove the **owner** (returns 400)\n- To change ownership, a separate transfer flow is needed\n- Does NOT automatically downgrade the user's role (admin may manage other accounts too)\n\n**Response:**\n```json\n{ \"message\": \"Admin removed successfully\" }\n```"
+                            },
+                            "response": []
+                        }
+                    ]
                 }
             ]
         }

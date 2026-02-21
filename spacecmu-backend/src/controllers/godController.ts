@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { usersTable, postsTable, sessionsTable, activitiesTable } from "../../db/schema.js";
-import { eq, count, sql, desc, ne, and } from "drizzle-orm";
+import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable } from "../../db/schema.js";
+import { eq, count, sql, desc, ne, and, ilike, or } from "drizzle-orm";
 
 /** GET /api/god/stats — platform-wide overview */
 export const getPlatformStats = async (req: Request, res: Response) => {
@@ -147,6 +147,293 @@ export const getFullActivityLog = async (req: Request, res: Response) => {
         res.json(logs);
     } catch (error) {
         console.error("God getFullActivityLog error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /api/god/official-accounts
+ * สร้าง official account ใหม่ พร้อมกำหนด owner (admin คนแรก)
+ * Body: { name, username, faculty, ownerUserId }
+ */
+export const createOfficialAccount = async (req: Request, res: Response) => {
+    const { name, username, faculty, ownerUserId } = req.body;
+
+    if (!name?.trim() || !username?.trim() || !faculty?.trim() || !ownerUserId) {
+        return res.status(400).json({ message: "name, username, faculty, ownerUserId are required" });
+    }
+
+    // ห้ามเลือก god เป็น owner
+    const [ownerUser] = await dbClient
+        .select({ id: usersTable.id, role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, ownerUserId));
+
+    if (!ownerUser) return res.status(404).json({ message: "Owner user not found" });
+    if (ownerUser.role === "god") return res.status(400).json({ message: "Cannot assign god as owner" });
+
+    try {
+        // 1. สร้าง user record สำหรับ official account (ไม่มี password — login ไม่ได้โดยตรง)
+        const safeUsername = username.trim().toLowerCase().replace(/\s/g, "_");
+        const fakeEmail = `official_${safeUsername}_${Date.now()}@spacecmu.internal`;
+
+        const [officialUser] = await dbClient
+            .insert(usersTable)
+            .values({
+                firstName: name.trim(),
+                lastName: "",
+                username: safeUsername,
+                email: fakeEmail,
+                faculty: faculty.trim(),
+                role: "official_account",
+                status: "active",
+                isAnonymous: false,
+            })
+            .returning({ id: usersTable.id });
+
+        // 2. สร้าง official_accounts record
+        const [officialAccount] = await dbClient
+            .insert(officialAccountsTable)
+            .values({
+                userId: officialUser.id,
+                name: name.trim(),
+                username: safeUsername,
+                faculty: faculty.trim(),
+                ownerId: ownerUserId,
+            })
+            .returning();
+
+        // 3. Update role ของ owner → admin (ถ้ายังไม่ใช่ admin/god)
+        if (ownerUser.role === "user") {
+            await dbClient
+                .update(usersTable)
+                .set({ role: "admin" })
+                .where(eq(usersTable.id, ownerUserId));
+        }
+
+        // 4. Insert เข้า junction table
+        await dbClient
+            .insert(officialAccountAdminsTable)
+            .values({
+                officialAccountId: officialAccount.id,
+                adminUserId: ownerUserId,
+            });
+
+        res.status(201).json({
+            message: `Official account @${safeUsername} created successfully`,
+            officialAccount,
+        });
+    } catch (error: unknown) {
+        if (
+            error instanceof Error &&
+            (error.message.includes("unique") || error.message.includes("duplicate"))
+        ) {
+            return res.status(409).json({ message: "Username already taken" });
+        }
+        console.error("createOfficialAccount error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * GET /api/god/official-accounts
+ * ดูรายการ official accounts ทั้งหมด พร้อม owner และรายชื่อ admins
+ */
+export const getOfficialAccounts = async (req: Request, res: Response) => {
+    try {
+        const accounts = await dbClient
+            .select({
+                id: officialAccountsTable.id,
+                name: officialAccountsTable.name,
+                username: officialAccountsTable.username,
+                faculty: officialAccountsTable.faculty,
+                createdAt: officialAccountsTable.createdAt,
+                userId: officialAccountsTable.userId,
+                owner: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                    username: usersTable.username,
+                    email: usersTable.email,
+                },
+            })
+            .from(officialAccountsTable)
+            .leftJoin(usersTable, eq(officialAccountsTable.ownerId, usersTable.id))
+            .orderBy(desc(officialAccountsTable.createdAt));
+
+        // ดึง admins ของแต่ละ account
+        const accountIds = accounts.map((a) => a.id);
+        const admins =
+            accountIds.length > 0
+                ? await dbClient
+                      .select({
+                          officialAccountId: officialAccountAdminsTable.officialAccountId,
+                          grantedAt: officialAccountAdminsTable.grantedAt,
+                          admin: {
+                              id: usersTable.id,
+                              firstName: usersTable.firstName,
+                              lastName: usersTable.lastName,
+                              username: usersTable.username,
+                              email: usersTable.email,
+                              role: usersTable.role,
+                          },
+                      })
+                      .from(officialAccountAdminsTable)
+                      .leftJoin(usersTable, eq(officialAccountAdminsTable.adminUserId, usersTable.id))
+                : [];
+
+        // Group admins by officialAccountId
+        const adminsByAccount = admins.reduce<Record<string, typeof admins>>((acc, row) => {
+            const key = row.officialAccountId;
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(row);
+            return acc;
+        }, {});
+
+        const result = accounts.map((a) => ({
+            ...a,
+            admins: (adminsByAccount[a.id] ?? []).map((r) => ({
+                ...r.admin,
+                grantedAt: r.grantedAt,
+            })),
+        }));
+
+        res.json(result);
+    } catch (error) {
+        console.error("getOfficialAccounts error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /api/god/official-accounts/:id/admins
+ * เพิ่ม admin คนใหม่ให้ official account
+ * Body: { adminUserId }
+ */
+export const addOfficialAccountAdmin = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { adminUserId } = req.body;
+
+    if (!adminUserId) return res.status(400).json({ message: "adminUserId is required" });
+
+    try {
+        // ตรวจว่า account มีอยู่จริง
+        const [account] = await dbClient
+            .select({ id: officialAccountsTable.id })
+            .from(officialAccountsTable)
+            .where(eq(officialAccountsTable.id, id));
+        if (!account) return res.status(404).json({ message: "Official account not found" });
+
+        // ตรวจว่า user มีอยู่จริง
+        const [targetUser] = await dbClient
+            .select({ id: usersTable.id, role: usersTable.role })
+            .from(usersTable)
+            .where(eq(usersTable.id, adminUserId));
+        if (!targetUser) return res.status(404).json({ message: "User not found" });
+        if (targetUser.role === "god") return res.status(400).json({ message: "Cannot assign god as admin" });
+
+        // Upgrade role → admin ถ้ายังเป็น user
+        if (targetUser.role === "user") {
+            await dbClient
+                .update(usersTable)
+                .set({ role: "admin" })
+                .where(eq(usersTable.id, adminUserId));
+        }
+
+        // Insert junction (unique constraint จะป้องกัน duplicate)
+        await dbClient
+            .insert(officialAccountAdminsTable)
+            .values({ officialAccountId: id, adminUserId })
+            .onConflictDoNothing();
+
+        res.json({ message: "Admin added successfully" });
+    } catch (error) {
+        console.error("addOfficialAccountAdmin error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * GET /api/god/users/search?query=...
+ * ค้นหา users สำหรับเลือกเป็น owner/admin ของ official account
+ * — ยกเว้น users ที่มี role "official_account" (และ "god")
+ */
+export const searchUsersForOfficialAccount = async (req: Request, res: Response) => {
+    const { query } = req.query;
+
+    if (!query || typeof query !== "string") {
+        return res.status(400).json({ message: "query parameter is required" });
+    }
+
+    const searchTerm = query.trim().replace(/^@/, "");
+    if (searchTerm.length === 0) {
+        return res.json([]);
+    }
+
+    try {
+        const users = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                email: usersTable.email,
+                role: usersTable.role,
+                status: usersTable.status,
+                avatarUrl: usersTable.avatarUrl,
+                faculty: usersTable.faculty,
+            })
+            .from(usersTable)
+            .where(
+                sql`(
+                    LOWER(${usersTable.firstName}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.lastName}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.username}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.email}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(CONCAT(${usersTable.firstName}, ' ', ${usersTable.lastName})) LIKE LOWER(${`%${searchTerm}%`})
+                )
+                AND ${usersTable.role} != ${"official_account"}`
+            )
+            .orderBy(usersTable.firstName)
+            .limit(20);
+
+        res.json(users);
+    } catch (error) {
+        console.error("searchUsersForOfficialAccount error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * DELETE /api/god/official-accounts/:id/admins/:adminUserId
+ * ถอด admin ออกจาก official account (ไม่ downgrade role อัตโนมัติ — god ตัดสินใจเอง)
+ */
+export const removeOfficialAccountAdmin = async (req: Request, res: Response) => {
+    const { id, adminUserId } = req.params;
+
+    try {
+        // ห้ามถอด owner ออก
+        const [account] = await dbClient
+            .select({ ownerId: officialAccountsTable.ownerId })
+            .from(officialAccountsTable)
+            .where(eq(officialAccountsTable.id, id));
+        if (!account) return res.status(404).json({ message: "Official account not found" });
+        if (account.ownerId === adminUserId) {
+            return res.status(400).json({ message: "Cannot remove the owner. Transfer ownership first." });
+        }
+
+        await dbClient
+            .delete(officialAccountAdminsTable)
+            .where(
+                and(
+                    eq(officialAccountAdminsTable.officialAccountId, id),
+                    eq(officialAccountAdminsTable.adminUserId, adminUserId)
+                )
+            );
+
+        res.json({ message: "Admin removed successfully" });
+    } catch (error) {
+        console.error("removeOfficialAccountAdmin error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
