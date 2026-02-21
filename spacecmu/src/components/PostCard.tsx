@@ -563,8 +563,8 @@ export default function PostCard({
         />
         <div>
           <div className="font-bold">
-            {post.author?.firstName && post.author?.lastName
-              ? `${post.author.firstName} ${post.author.lastName}`
+            {post.author?.firstName || post.author?.lastName
+              ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
               : "Anonymous"}
           </div>
           <div className="text-xs text-gray-400">{post.category}</div>

@@ -54,6 +54,7 @@ export interface OfficialAccount {
 export interface MyOfficialAccount extends OfficialAccount {
   isOwner: boolean;
   ownerId: string;
+  avatarUrl?: string | null;
   admins: (OfficialAccountAdmin & { avatarUrl?: string | null })[];
   owner: {
     id: string;
@@ -316,6 +317,22 @@ class ApiService {
 
   async switchMode(mode: 'PUBLIC' | 'ANONYMOUS'): Promise<void> {
     return this.post<void>(API_ENDPOINTS.AUTH.SWITCH_MODE, { mode });
+  }
+
+  async switchToOfficialAccount(officialAccountId: string): Promise<{
+    success: boolean;
+    activeUser: import('@/types/user').User;
+    officialAccount: { id: string; name: string; username: string; faculty: string; userId: string; avatarUrl: string | null };
+  }> {
+    return this.post(API_ENDPOINTS.AUTH.SWITCH_TO_OFFICIAL, { officialAccountId });
+  }
+
+  async exitOfficialAccount(): Promise<{
+    success: boolean;
+    activeUser: import('@/types/user').User;
+    officialAccount: null;
+  }> {
+    return this.post(API_ENDPOINTS.AUTH.EXIT_OFFICIAL);
   }
 
   // God API methods

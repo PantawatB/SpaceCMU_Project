@@ -10,6 +10,7 @@ export interface SessionData {
     userId: string;        // เจ้าของ account (public)
     activeUserId: string;  // ตัวตนปัจจุบัน (public หรือ anonymous)
     sessionId: string;
+    officialAccountId?: string | null; // Official account mode
 }
 
 declare global {
@@ -81,6 +82,7 @@ export const sessionMiddleware = async (
             userId: session.userId,
             activeUserId: session.activeUserId,
             sessionId: session.id,
+            officialAccountId: session.officialAccountId ?? null,
         };
         req.activeUser = activeUser;
 

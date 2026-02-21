@@ -102,7 +102,7 @@ export const unbanPost = async (req: Request, res: Response) => {
 export const createAnnouncement = async (req: Request, res: Response) => {
     try {
         const { content, type, targetUserId } = req.body;
-        const adminId = req.session?.activeUserId;
+        const adminId = req.session?.activeUserId; // use real owner, not activeUserId
 
         if (!adminId) {
             return res.status(401).json({ message: "Unauthorized" });
