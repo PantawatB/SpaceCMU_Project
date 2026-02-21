@@ -380,6 +380,10 @@ export const switchToOfficial = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "officialAccountId is required" });
         }
 
+        // Always check against the real owner of the session (userId), NOT activeUserId
+        // This allows switching even when in anonymous mode
+        const realUserId = req.session.userId;
+
         // Verify caller is an admin of this official account
         const [adminRecord] = await dbClient
             .select()
@@ -387,7 +391,7 @@ export const switchToOfficial = async (req: Request, res: Response) => {
             .where(
                 and(
                     eq(officialAccountAdminsTable.officialAccountId, officialAccountId),
-                    eq(officialAccountAdminsTable.adminUserId, req.session.userId)
+                    eq(officialAccountAdminsTable.adminUserId, realUserId)
                 )
             )
             .limit(1);
