@@ -112,9 +112,9 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
 
   const exitOfficialMode = async () => {
     try {
-      const result = await apiService.exitOfficialAccount();
-      setActiveUser(result.activeUser);
-      setOfficialMode(null);
+      await apiService.exitOfficialAccount();
+      // Refresh all user data to restore correct activeMode (PUBLIC/ANONYMOUS) and activeUser
+      await fetchUser(true);
     } catch (err) {
       console.error('Failed to exit official mode:', err);
       setError(err instanceof Error ? err.message : 'Failed to exit official mode');

@@ -102,7 +102,7 @@ export const unbanPost = async (req: Request, res: Response) => {
 export const createAnnouncement = async (req: Request, res: Response) => {
     try {
         const { content, type, targetUserId } = req.body;
-        const adminId = req.session?.userId; // use real owner, not activeUserId
+        const adminId = req.session?.activeUserId; // use real owner, not activeUserId
 
         if (!adminId) {
             return res.status(401).json({ message: "Unauthorized" });
@@ -167,7 +167,7 @@ export const getActivities = async (req: Request, res: Response) => {
  * ดึง official accounts ที่ admin คนนี้บริหารอยู่ (ทั้ง owner และ admin ทั่วไป)
  */
 export const getMyOfficialAccounts = async (req: Request, res: Response) => {
-    const callerId = req.session?.userId; // use real owner, not activeUserId
+    const callerId = req.session?.activeUserId;
     if (!callerId) return res.status(401).json({ message: "Unauthorized" });
 
     try {
@@ -255,7 +255,7 @@ export const getMyOfficialAccounts = async (req: Request, res: Response) => {
  * Body: { adminUserId }
  */
 export const addAdminToMyAccount = async (req: Request, res: Response) => {
-    const callerId = req.session?.userId; // use real owner, not activeUserId
+    const callerId = req.session?.activeUserId;
     if (!callerId) return res.status(401).json({ message: "Unauthorized" });
 
     const { id } = req.params;
@@ -301,7 +301,7 @@ export const addAdminToMyAccount = async (req: Request, res: Response) => {
  * Owner ลบ admin ออกจาก official account ของตัวเอง
  */
 export const removeAdminFromMyAccount = async (req: Request, res: Response) => {
-    const callerId = req.session?.userId; // use real owner, not activeUserId
+    const callerId = req.session?.activeUserId;
     if (!callerId) return res.status(401).json({ message: "Unauthorized" });
 
     const { id, adminUserId } = req.params;
@@ -336,7 +336,7 @@ export const removeAdminFromMyAccount = async (req: Request, res: Response) => {
  * Admin (non-owner) ลาออกจากการเป็น admin ของ official account
  */
 export const leaveOfficialAccount = async (req: Request, res: Response) => {
-    const callerId = req.session?.userId; // use real owner, not activeUserId
+    const callerId = req.session?.activeUserId;
     if (!callerId) return res.status(401).json({ message: "Unauthorized" });
 
     const { id } = req.params;
@@ -385,7 +385,7 @@ export const leaveOfficialAccount = async (req: Request, res: Response) => {
  * Body: { newOwnerId }
  */
 export const transferOwnership = async (req: Request, res: Response) => {
-    const callerId = req.session?.userId; // use real owner, not activeUserId
+    const callerId = req.session?.activeUserId;
     if (!callerId) return res.status(401).json({ message: "Unauthorized" });
 
     const { id } = req.params;
