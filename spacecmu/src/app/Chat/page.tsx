@@ -71,6 +71,8 @@ interface RealMessage {
   receiverId: string | null;
   content: string;
   isRead: boolean;
+  mediaUrls: string | null;   // JSON array string e.g. '["images-xxx.jpg"]'
+  mediaType: string | null;   // "image" | "video" | "mixed"
   createdAt: string;
   editedAt: string | null;
   deletedAt: string | null;
@@ -95,6 +97,118 @@ interface RoomReader {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+}
+
+// ─── Helper: Lightbox Modal ───────────────────────────────────────────────────
+
+function Lightbox({
+  urls,
+  index,
+  onClose,
+  onPrev,
+  onNext,
+  onGoTo,
+}: {
+  urls: string[];
+  index: number;
+  onClose: () => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onGoTo: (i: number) => void;
+}) {
+  // Close on Escape, navigate with arrow keys
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") onPrev();
+      if (e.key === "ArrowRight") onNext();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose, onPrev, onNext]);
+
+  if (urls.length === 0) return null;
+  const currentUrl = urls[index];
+
+  return (
+    <div
+      className="fixed inset-0 z-100 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/30 text-white transition-colors"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Counter */}
+      {urls.length > 1 && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/40 text-white text-sm font-medium">
+          {index + 1} / {urls.length}
+        </div>
+      )}
+
+      {/* Prev button */}
+      {urls.length > 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onPrev(); }}
+          className="absolute left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/30 text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+      )}
+
+      {/* Image */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={currentUrl}
+        alt=""
+        className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+        onClick={(e) => e.stopPropagation()}
+        draggable={false}
+      />
+
+      {/* Next button */}
+      {urls.length > 1 && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onNext(); }}
+          className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/30 text-white transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      )}
+
+      {/* Thumbnail strip (if multiple) */}
+      {urls.length > 1 && (
+        <div
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {urls.map((u, i) => (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              key={i}
+              src={u}
+              alt=""
+              onClick={() => onGoTo(i)}
+              className={`w-12 h-12 object-cover rounded-md cursor-pointer transition-all ${
+                i === index ? "ring-2 ring-white opacity-100" : "opacity-50 hover:opacity-75"
+              }`}
+              draggable={false}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Helper: Default Group Avatar SVG ────────────────────────────────────────
@@ -165,6 +279,7 @@ export default function ChatPage() {
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const isLoadingMoreRef = useRef(false); // ใช้ block scroll-to-bottom effect
   // เก็บ current user id เพื่อตรวจว่าข้อความเป็นของเราหรือเปล่า
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -172,6 +287,17 @@ export default function ChatPage() {
   const [roomReaders, setRoomReaders] = useState<RoomReader[]>([]);
   // popup: แสดง readers ของข้อความที่กด
   const [seenPopupMsgId, setSeenPopupMsgId] = useState<string | null>(null);
+
+  // ─── Message input enhancements ─────────────────────────────────────────────
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentPreviews, setAttachmentPreviews] = useState<{ url: string; type: string }[]>([]);
+  const attachBtnRef = useRef<HTMLButtonElement>(null);
+
+  // ─── Lightbox state ─────────────────────────────────────────────────────────
+  const [lightboxUrls, setLightboxUrls] = useState<string[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   // New message modal state
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -236,8 +362,12 @@ export default function ChatPage() {
         `/api/messages/room/${roomId}?limit=40&page=${page}`
       );
       if (prepend) {
-        // โหลดเพิ่มขึ้นบน → เติมข้อความเก่าก่อนหน้า
-        setRealMessages((prev) => [...data.messages, ...prev]);
+        // โหลดเพิ่มขึ้นบน → เติมข้อความเก่าก่อนหน้า (dedup ด้วย id)
+        setRealMessages((prev) => {
+          const existingIds = new Set(prev.map((m) => m.id));
+          const incoming = data.messages.filter((m) => !existingIds.has(m.id));
+          return [...incoming, ...prev];
+        });
       } else {
         setRealMessages(data.messages);
       }
@@ -316,9 +446,12 @@ export default function ChatPage() {
             requestAnimationFrame(() => {
               messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
             });
-            return [...prev, ...newOnes].sort(
-              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-            );
+            const merged = [...prev, ...newOnes];
+            // dedup again (guard against race between poll + prepend)
+            const seen = new Set<string>();
+            return merged
+              .filter((m) => { if (seen.has(m.id)) return false; seen.add(m.id); return true; })
+              .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
           });
           // mark as read + re-fetch readers หลังได้ข้อความใหม่
           await markReadAndFetchReaders(roomId);
@@ -345,17 +478,27 @@ export default function ChatPage() {
   // scroll to bottom เมื่อโหลดข้อความหน้า 1 เสร็จ
   useEffect(() => {
     if (messagesLoading) return;
+    if (isLoadingMoreRef.current) return; // กำลังโหลดข้อความเก่า ไม่ scroll
     if (selectedRoomId && realMessages.length > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: "auto" });
     }
   }, [messagesLoading, selectedRoomId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // scroll to bottom เมื่อส่งข้อความใหม่
+  // scroll to bottom เมื่อได้รับข้อความใหม่ (ไม่ใช่การโหลดเพิ่มบนสุด)
+  const prevMessageCountRef = useRef(0);
   useEffect(() => {
-    if (!isSendingMessage) {
+    const prevCount = prevMessageCountRef.current;
+    prevMessageCountRef.current = realMessages.length;
+
+    // ถ้า isLoadingMoreRef เป็น true = กำลังโหลดข้อความเก่า → ไม่ scroll
+    if (isLoadingMoreRef.current) return;
+    // ถ้า messages ลดลง หรือ = 0 → ไม่ scroll
+    if (realMessages.length === 0) return;
+    // scroll ต่อเมื่อมีข้อความเพิ่มขึ้น (ไม่ใช่ reset)
+    if (realMessages.length > prevCount && prevCount > 0) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [realMessages.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [realMessages.length]);
 
   // ─── scroll handler: load more เมื่อ scroll ขึ้นบนสุด ───────────────────────
   const handleMessagesScroll = React.useCallback(() => {
@@ -365,10 +508,15 @@ export default function ChatPage() {
       const { page, totalPages } = messagesPagination;
       if (page < totalPages) {
         const prevScrollHeight = el.scrollHeight;
+        isLoadingMoreRef.current = true; // block scroll-to-bottom ตั้งแต่ก่อน fetch
         fetchMessages(selectedRoomId, page + 1, true).then(() => {
-          // คงตำแหน่ง scroll ไว้ไม่ให้กระโดดขึ้นบนสุด
+          // ใช้ double-rAF เพื่อให้ DOM update + paint เสร็จก่อน adjust scroll
           requestAnimationFrame(() => {
-            el.scrollTop = el.scrollHeight - prevScrollHeight;
+            requestAnimationFrame(() => {
+              el.scrollTop = el.scrollHeight - prevScrollHeight;
+              // reset หลัง scroll adjust แน่ๆ แล้ว
+              isLoadingMoreRef.current = false;
+            });
           });
         });
       }
@@ -422,39 +570,165 @@ export default function ChatPage() {
     );
   };
 
+  // ─── auto-resize textarea ───────────────────────────────────────────────────
+  const autoResizeTextarea = () => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = Math.min(ta.scrollHeight, 120) + "px";
+  };
+
+  // ─── file attachment handler ────────────────────────────────────────────────
+  const MAX_IMAGES = 10;
+  const MAX_VIDEOS = 5;
+  const MAX_IMAGE_SIZE = 20 * 1024 * 1024;  // 20 MB per image
+  const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100 MB per video
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const incoming = Array.from(e.target.files ?? []);
+    if (!incoming.length) return;
+
+    const currentImages = attachmentFiles.filter((f) => !f.type.startsWith("video/"));
+    const currentVideos = attachmentFiles.filter((f) => f.type.startsWith("video/"));
+
+    const accepted: File[] = [];
+    const errors: string[] = [];
+
+    for (const f of incoming) {
+      const isVid = f.type.startsWith("video/");
+      if (isVid) {
+        if (currentVideos.length + accepted.filter((a) => a.type.startsWith("video/")).length >= MAX_VIDEOS) {
+          errors.push(`วิดีโอเกินขีดจำกัด (สูงสุด ${MAX_VIDEOS} คลิป): ${f.name}`);
+        } else if (f.size > MAX_VIDEO_SIZE) {
+          errors.push(`วิดีโอไฟล์ใหญ่เกิน 100 MB: ${f.name}`);
+        } else {
+          accepted.push(f);
+        }
+      } else {
+        if (currentImages.length + accepted.filter((a) => !a.type.startsWith("video/")).length >= MAX_IMAGES) {
+          errors.push(`รูปเกินขีดจำกัด (สูงสุด ${MAX_IMAGES} รูป): ${f.name}`);
+        } else if (f.size > MAX_IMAGE_SIZE) {
+          errors.push(`รูปไฟล์ใหญ่เกิน 20 MB: ${f.name}`);
+        } else {
+          accepted.push(f);
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      alert("ไม่สามารถเพิ่มไฟล์บางรายการ:\n\n" + errors.join("\n"));
+    }
+
+    if (accepted.length > 0) {
+      setAttachmentFiles((prev) => [...prev, ...accepted]);
+      setAttachmentPreviews((prev) => [
+        ...prev,
+        ...accepted.map((f) => ({
+          url: URL.createObjectURL(f),
+          type: f.type.startsWith("video/") ? "video" : "image",
+        })),
+      ]);
+    }
+
+    e.target.value = "";
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
+    setAttachmentPreviews((prev) => {
+      URL.revokeObjectURL(prev[idx].url);
+      return prev.filter((_, i) => i !== idx);
+    });
+  };
+
+  // ─── send message (text-only or with media) ─────────────────────────────────
   const handleSendMessage = async () => {
-    if (!chatMessage.trim() || !selectedRoomId) return;
+    const hasText = chatMessage.trim().length > 0;
+    const hasFiles = attachmentFiles.length > 0;
+    if ((!hasText && !hasFiles) || !selectedRoomId || isSendingMessage) return;
 
     const text = chatMessage.trim();
+    const filesToSend = [...attachmentFiles];
+    const previewsToRevoke = [...attachmentPreviews];
+
+    // Clear input immediately
     setChatMessage("");
+    setAttachmentFiles([]);
+    setAttachmentPreviews([]);
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.focus();
+    }
+
     setIsSendingMessage(true);
     try {
-      const newMsg = await apiService.post<RealMessage>("/api/messages", {
-        roomId: selectedRoomId,
-        content: text,
-      });
-      setRealMessages((prev) => [...prev, newMsg]);
-      // อัพเดต lastMessage ในรายการห้อง
-      setRealRooms((prev) =>
-        prev.map((r) =>
-          r.id === selectedRoomId
-            ? {
-                ...r,
-                lastMessage: {
-                  id: newMsg.id,
-                  senderId: newMsg.senderId,
-                  content: newMsg.content,
-                  createdAt: newMsg.createdAt,
-                  sender: { firstName: "", lastName: "" },
-                },
-                updatedAt: newMsg.createdAt,
-              }
-            : r
-        )
-      );
+      const addMsg = (msg: RealMessage) => {
+        setRealMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev; // dedup
+          return [...prev, msg];
+        });
+        setRealRooms((prev) =>
+          prev.map((r) =>
+            r.id === selectedRoomId
+              ? {
+                  ...r,
+                  lastMessage: {
+                    id: msg.id,
+                    senderId: msg.senderId,
+                    content: msg.content || "📷 Media",
+                    createdAt: msg.createdAt,
+                    sender: { firstName: "", lastName: "" },
+                  },
+                  updatedAt: msg.createdAt,
+                }
+              : r
+          )
+        );
+      };
+
+      // แยก images และ videos
+      const imageFiles = filesToSend.filter((f) => !f.type.startsWith("video/"));
+      const videoFiles = filesToSend.filter((f) => f.type.startsWith("video/"));
+
+      // 1) ส่ง images ทั้งหมดพร้อมกันใน 1 message (ถ้ามี)
+      if (imageFiles.length > 0) {
+        const fd = new FormData();
+        fd.append("content", "");
+        imageFiles.forEach((f) => fd.append("media", f));
+        const msg = await apiService.postFormData<RealMessage>(
+          `/api/messages/room/${selectedRoomId}/media`,
+          fd
+        );
+        addMsg(msg);
+      }
+
+      // 2) ส่ง videos ทีละอัน (ถ้ามี)
+      for (const vf of videoFiles) {
+        const fd = new FormData();
+        fd.append("content", "");
+        fd.append("media", vf);
+        const msg = await apiService.postFormData<RealMessage>(
+          `/api/messages/room/${selectedRoomId}/media`,
+          fd
+        );
+        addMsg(msg);
+      }
+
+      // 3) ส่ง text ปิดท้าย (ถ้ามี)
+      if (hasText) {
+        const msg = await apiService.post<RealMessage>("/api/messages", {
+          roomId: selectedRoomId,
+          content: text,
+        });
+        addMsg(msg);
+      }
+
+      previewsToRevoke.forEach((p) => URL.revokeObjectURL(p.url));
     } catch {
-      // ส่งไม่สำเร็จ — คืน text กลับให้แก้ไขได้
+      // ส่งไม่สำเร็จ — คืน text + files กลับ
       setChatMessage(text);
+      setAttachmentFiles(filesToSend);
+      setAttachmentPreviews(previewsToRevoke);
     } finally {
       setIsSendingMessage(false);
     }
@@ -1173,7 +1447,7 @@ export default function ChatPage() {
 
                               {/* Bubble */}
                               <div
-                                className={`px-4 py-2.5 text-sm leading-relaxed ${
+                                className={`overflow-hidden ${
                                   isMine
                                     ? `bg-slate-700 text-white ${
                                         isFirstInGroup && isLastInGroup ? "rounded-2xl rounded-br-sm"
@@ -1189,7 +1463,93 @@ export default function ChatPage() {
                                       }`
                                 }`}
                               >
-                                {msg.content}
+                                {/* Media: images grid + individual videos */}
+                                {msg.mediaUrls && (() => {
+                                  let allFilenames: string[] = [];
+                                  try { allFilenames = JSON.parse(msg.mediaUrls); } catch { allFilenames = []; }
+                                  if (allFilenames.length === 0) return null;
+
+                                  const IS_VIDEO = /\.(mp4|webm|ogg|mov|avi|mkv|m4v|3gp|flv|wmv)$/i;
+                                  const imageFilenames = allFilenames.filter((f) => !IS_VIDEO.test(f));
+                                  const videoFilenames = allFilenames.filter((f) => IS_VIDEO.test(f));
+
+                                  // Build full URLs for images (for lightbox)
+                                  const imageUrls = imageFilenames.map((f) => {
+                                    const withPrefix = f.startsWith("/uploads/") ? f : `/uploads/${f}`;
+                                    return apiService.getImageUrl(withPrefix) ?? "";
+                                  });
+
+                                  const imgCount = imageFilenames.length;
+                                  // Grid layout:
+                                  //   1 → full width (no grid)
+                                  //   2 → 2 equal cols
+                                  //   3 → 3 equal cols
+                                  //   4 → 2×2 grid
+                                  //   5+ → 3-col auto-flow
+                                  const gridClass =
+                                    imgCount === 1 ? "grid-cols-1" :
+                                    imgCount === 2 ? "grid-cols-2" :
+                                    imgCount === 3 ? "grid-cols-3" :
+                                    imgCount === 4 ? "grid-cols-2" :
+                                    "grid-cols-3";
+
+                                  // All cells same fixed square height
+                                  const cellHeight =
+                                    imgCount === 1 ? 280 :
+                                    imgCount === 2 ? 200 :
+                                    imgCount === 3 ? 140 :
+                                    imgCount === 4 ? 160 :
+                                    120;
+
+                                  return (
+                                    <>
+                                      {/* ── Image grid ── */}
+                                      {imgCount > 0 && (
+                                        <div className={`grid gap-0.5 overflow-hidden ${gridClass}`}>
+                                          {imageUrls.map((mediaUrl, mi) => (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img
+                                              key={mi}
+                                              src={mediaUrl}
+                                              alt=""
+                                              className="w-full object-cover cursor-pointer transition-opacity hover:opacity-90"
+                                              style={{ height: `${cellHeight}px` }}
+                                              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                                              onClick={() => {
+                                                setLightboxUrls(imageUrls);
+                                                setLightboxIndex(mi);
+                                              }}
+                                            />
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* ── Videos (each fullwidth) ── */}
+                                      {videoFilenames.map((f, vi) => {
+                                        const withPrefix = f.startsWith("/uploads/") ? f : `/uploads/${f}`;
+                                        const vUrl = apiService.getImageUrl(withPrefix) ?? "";
+                                        return (
+                                          <div key={vi} className={imgCount > 0 || vi > 0 ? "mt-0.5" : ""}>
+                                            <video
+                                              src={vUrl}
+                                              controls
+                                              className="w-full block"
+                                              style={{ maxHeight: "280px", minHeight: "120px", objectFit: "contain", background: "#000" }}
+                                            />
+                                          </div>
+                                        );
+                                      })}
+                                    </>
+                                  );
+                                })()}
+                                {/* Text content */}
+                                {msg.content && (
+                                  <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                                    {msg.content}
+                                  </p>
+                                )}
+                                {/* Media-only: no text padding filler */}
+                                {!msg.content && msg.mediaUrls && <div />}
                               </div>
 
                               {/* Timestamp row */}
@@ -1275,40 +1635,110 @@ export default function ChatPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="flex-none px-6 py-4 bg-white border-t border-gray-100">
-                  <div className="flex items-center gap-3">
-                    <button className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <div className="flex-none bg-white border-t border-gray-100">
+                  {/* ── Attachment previews strip ──────────────────────────────── */}
+                  {attachmentPreviews.length > 0 && (
+                    <div className="px-4 pt-3 pb-1">
+                      {/* Send plan summary */}
+                      {(() => {
+                        const imgCount = attachmentFiles.filter((f) => !f.type.startsWith("video/")).length;
+                        const vidCount = attachmentFiles.filter((f) => f.type.startsWith("video/")).length;
+                        const hasText = chatMessage.trim().length > 0;
+                        const parts: string[] = [];
+                        if (imgCount > 0) parts.push(`📷 ${imgCount} รูป (1 ข้อความ)`);
+                        if (vidCount > 0) parts.push(`🎬 ${vidCount} วิดีโอ (${vidCount} ข้อความ)`);
+                        if (hasText) parts.push(`💬 ข้อความ`);
+                        return parts.length > 1 ? (
+                          <p className="text-[11px] text-gray-400 mb-2">
+                            จะส่งเป็น <span className="font-semibold text-slate-600">{parts.length} ข้อความ</span> → {parts.join(" → ")}
+                          </p>
+                        ) : null;
+                      })()}
+                      {/* Thumbnails */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {attachmentPreviews.map((p, idx) => (
+                          <div key={idx} className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-none">
+                            {p.type === "video" ? (
+                              <video src={p.url} className="w-full h-full object-cover" muted />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={p.url} alt="" className="w-full h-full object-cover" />
+                            )}
+                            <button
+                              onClick={() => removeAttachment(idx)}
+                              className="absolute top-0.5 right-0.5 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white hover:bg-black/80 transition-colors"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                            {p.type === "video" && (
+                              <div className="absolute bottom-0.5 left-0.5 bg-black/60 rounded px-1">
+                                <span className="text-white text-[9px] font-bold">VID</span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Input row ─────────────────────────────────────────────── */}
+                  <div className="flex items-end gap-2 px-4 py-3">
+                    {/* Hidden file input */}
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      className="hidden"
+                      onChange={handleFileChange}
+                    />
+
+                    {/* Attach button */}
+                    <button
+                      ref={attachBtnRef}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="flex-none w-9 h-9 mb-0.5 flex items-center justify-center rounded-full text-gray-400 hover:text-slate-600 hover:bg-gray-100 transition-colors"
+                      title="แนบรูปภาพ / วิดีโอ"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
                     </button>
-                    <input
-                      type="text"
-                      placeholder="พิมพ์ข้อความ..."
-                      value={chatMessage}
-                      onChange={(e) => setChatMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      disabled={isSendingMessage}
-                      className="flex-1 px-4 py-2.5 rounded-full bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition disabled:opacity-60"
-                    />
-                    <button className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </button>
+
+                    {/* Auto-resize textarea (ไม่ disabled เพื่อให้ focus ไม่หลุด) */}
+                    <div className="flex-1 relative">
+                      <textarea
+                        ref={textareaRef}
+                        rows={1}
+                        placeholder="พิมพ์ข้อความ..."
+                        value={chatMessage}
+                        onChange={(e) => {
+                          setChatMessage(e.target.value);
+                          autoResizeTextarea();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        className="w-full px-4 py-2.5 rounded-2xl bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition resize-none leading-relaxed overflow-y-auto"
+                        style={{ minHeight: "40px", maxHeight: "120px" }}
+                      />
+                    </div>
+
+                    {/* Send button */}
                     <button
                       onClick={handleSendMessage}
-                      disabled={!chatMessage.trim() || isSendingMessage}
-                      className={`flex-none w-9 h-9 flex items-center justify-center rounded-full transition-all ${
-                        chatMessage.trim() && !isSendingMessage
+                      disabled={(chatMessage.trim() === "" && attachmentFiles.length === 0) || isSendingMessage}
+                      className={`flex-none w-9 h-9 mb-0.5 flex items-center justify-center rounded-full transition-all ${
+                        (chatMessage.trim() || attachmentFiles.length > 0) && !isSendingMessage
                           ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
                           : "bg-gray-100 text-gray-300 cursor-not-allowed"
                       }`}
+                      title="ส่ง"
                     >
                       {isSendingMessage ? (
                         <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -1525,6 +1955,18 @@ export default function ChatPage() {
           </div>
         </div>
       </main>
+
+      {/* ── Image Lightbox ────────────────────────────────────────────────────── */}
+      {lightboxUrls.length > 0 && (
+        <Lightbox
+          urls={lightboxUrls}
+          index={lightboxIndex}
+          onClose={() => setLightboxUrls([])}
+          onPrev={() => setLightboxIndex((i) => (i - 1 + lightboxUrls.length) % lightboxUrls.length)}
+          onNext={() => setLightboxIndex((i) => (i + 1) % lightboxUrls.length)}
+          onGoTo={(i) => setLightboxIndex(i)}
+        />
+      )}
     </div>
   );
 }

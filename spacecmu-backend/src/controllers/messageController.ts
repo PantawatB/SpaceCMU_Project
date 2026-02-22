@@ -108,7 +108,7 @@ export const sendMessage = async (req: Request, res: Response) => {
                 roomId: finalRoomId!,
                 senderId,
                 receiverId: receiverId || null, // For backward compatibility
-                content: content.trim()
+                content: content ? content.trim() : ""
             })
             .returning();
 
@@ -116,6 +116,65 @@ export const sendMessage = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error sending message" });
+    }
+};
+
+// Send message with media attachments (images / videos)
+export const sendMessageWithMedia = async (req: Request, res: Response) => {
+    try {
+        const senderId = req.session?.activeUserId;
+        const { roomId } = req.params;
+        const content: string = req.body.content || "";
+        const files = req.files as Express.Multer.File[] | undefined;
+
+        if (!senderId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: "No files uploaded" });
+        }
+
+        // Verify membership
+        const membership = await dbClient
+            .select()
+            .from(chatRoomMembersTable)
+            .where(and(
+                eq(chatRoomMembersTable.roomId, roomId),
+                eq(chatRoomMembersTable.userId, senderId)
+            ))
+            .limit(1);
+
+        if (membership.length === 0) {
+            return res.status(403).json({ message: "You are not a member of this room" });
+        }
+
+        // Collect uploaded file paths
+        const mediaUrls: string[] = files.map((f) => f.filename);
+
+        // Determine media type
+        const hasImage = files.some((f) => f.mimetype.startsWith("image/"));
+        const hasVideo = files.some((f) => f.mimetype.startsWith("video/"));
+        let mediaType: string;
+        if (hasImage && hasVideo) mediaType = "mixed";
+        else if (hasVideo) mediaType = "video";
+        else mediaType = "image";
+
+        const newMessage = await dbClient
+            .insert(messagesTable)
+            .values({
+                roomId,
+                senderId,
+                content: content.trim(),
+                mediaUrls: JSON.stringify(mediaUrls),
+                mediaType,
+            })
+            .returning();
+
+        res.status(201).json(newMessage[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error sending message with media" });
     }
 };
 

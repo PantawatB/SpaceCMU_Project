@@ -210,8 +210,12 @@ export const messagesTable = pgTable("messages", {
   senderId: uuid("sender_id").references(() => usersTable.id).notNull(),
   receiverId: uuid("receiver_id").references(() => usersTable.id), // Deprecated, kept for backward compatibility
 
-  content: text("content").notNull(),
+  content: text("content").notNull().default(""),
   isRead: boolean("is_read").default(false), // Deprecated, use lastReadAt in chatRoomMembers instead
+
+  // Media attachments (images / videos)
+  mediaUrls: text("media_urls"), // JSON array of file paths e.g. ["images-xxx.jpg","images-yyy.mp4"]
+  mediaType: varchar("media_type", { length: 20 }), // "image" | "video" | "mixed" | null
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   editedAt: timestamp("edited_at", { withTimezone: true }), // For message editing
