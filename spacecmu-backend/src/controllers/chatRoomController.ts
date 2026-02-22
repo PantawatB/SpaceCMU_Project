@@ -105,13 +105,26 @@ export const createDirectRoom = async (req: Request, res: Response) => {
 export const createGroupRoom = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
-        const { name, memberIds, avatarUrl } = req.body;
+        // รองรับทั้ง JSON body (memberIds) และ FormData (memberIds[])
+        const name = req.body.name;
+        const rawMemberIds = req.body.memberIds ?? req.body["memberIds[]"];
+        const memberIds: string[] = Array.isArray(rawMemberIds)
+            ? rawMemberIds
+            : rawMemberIds
+            ? [rawMemberIds]
+            : [];
+
+        // ถ้าส่งมาเป็น FormData จะมี req.file, ถ้าส่ง JSON จะไม่มี
+        const uploadedFile = (req as any).file as Express.Multer.File | undefined;
+        const avatarUrl = uploadedFile
+            ? `/uploads/${uploadedFile.filename}`
+            : (req.body.avatarUrl ?? null);
 
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        if (!name || !memberIds || !Array.isArray(memberIds) || memberIds.length < 1) {
+        if (!name || memberIds.length < 1) {
             return res.status(400).json({
                 message: "name and memberIds (array with at least 1 member) are required"
             });
@@ -228,22 +241,31 @@ export const getUserRooms = async (req: Request, res: Response) => {
 
                 let unreadCount = 0;
                 if (userMember[0]?.lastReadAt) {
+                    const lastReadIso = new Date(userMember[0].lastReadAt).toISOString();
                     const unreadResult = await dbClient
                         .select({ count: sql<number>`count(*)` })
                         .from(messagesTable)
                         .where(
                             and(
                                 eq(messagesTable.roomId, room.id),
-                                sql`${messagesTable.createdAt} > ${userMember[0].lastReadAt}`
+                                sql`${messagesTable.createdAt} > ${lastReadIso}::timestamptz`,
+                                // ไม่นับข้อความที่ตัวเองส่ง
+                                sql`${messagesTable.senderId} != ${userId}`
                             )
                         );
                     unreadCount = Number(unreadResult[0]?.count || 0);
                 } else {
-                    // If never read, count all messages
+                    // If never read, count all messages except own
                     const unreadResult = await dbClient
                         .select({ count: sql<number>`count(*)` })
                         .from(messagesTable)
-                        .where(eq(messagesTable.roomId, room.id));
+                        .where(
+                            and(
+                                eq(messagesTable.roomId, room.id),
+                                // ไม่นับข้อความที่ตัวเองส่ง
+                                sql`${messagesTable.senderId} != ${userId}`
+                            )
+                        );
                     unreadCount = Number(unreadResult[0]?.count || 0);
                 }
 

@@ -10,12 +10,13 @@ import {
     leaveRoom,
 } from "../controllers/chatRoomController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
+import { upload } from "../middleware/uploadMiddleware.js";
 
 const router = Router();
 
 // Create rooms
 router.post("/direct", sessionMiddleware, createDirectRoom);
-router.post("/group", sessionMiddleware, createGroupRoom);
+router.post("/group", sessionMiddleware, upload.single("avatar"), createGroupRoom);
 
 // Get rooms
 router.get("/me", sessionMiddleware, getUserRooms);
