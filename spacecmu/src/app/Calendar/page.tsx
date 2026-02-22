@@ -60,7 +60,14 @@ export default function CalendarPage() {
           id: e.id,
           title: e.title,
           details: e.description ?? "",
-          time: new Date(e.startTime).toTimeString().slice(0, 5),
+          // toLocaleTimeString with explicit Asia/Bangkok ensures correct local time
+          // regardless of server/deployment timezone
+          time: new Date(e.startTime).toLocaleTimeString("th-TH", {
+            timeZone: "Asia/Bangkok",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: false,
+          }),
           completed: e.status === "completed",
         }));
 

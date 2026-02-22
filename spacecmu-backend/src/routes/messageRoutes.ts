@@ -3,6 +3,7 @@ import {
     sendMessage,
     getRoomMessages,
     markRoomAsRead,
+    getRoomReaders,
     deleteMessage,
     searchMessages,
     // Deprecated functions (backward compatibility)
@@ -17,9 +18,10 @@ import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 const router = Router();
 
 // New room-based endpoints
-router.post("/", sessionMiddleware, sendMessage); // Supports both roomId and receiverId
+router.post("/", sessionMiddleware, sendMessage);
 router.get("/room/:roomId", sessionMiddleware, getRoomMessages);
 router.patch("/room/:roomId/read", sessionMiddleware, markRoomAsRead);
+router.get("/room/:roomId/readers", sessionMiddleware, getRoomReaders);
 router.delete("/:messageId", sessionMiddleware, deleteMessage);
 router.get("/search", sessionMiddleware, searchMessages);
 

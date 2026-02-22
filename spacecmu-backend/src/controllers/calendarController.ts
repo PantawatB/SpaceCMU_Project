@@ -4,6 +4,34 @@ import { calendarEventsTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
+// ─── UTC-safe day boundary helpers (Asia/Bangkok = UTC+7) ────────────────────
+// Frontend (browser) อยู่ใน Asia/Bangkok ส่งวันที่เป็น "YYYY-MM-DD"
+// Backend+DB ทำงานใน UTC → แปลงขอบเขต "start/end of day" ให้เป็น UTC range
+// เช่น วัน "2026-02-22" ของ user = 2026-02-21T17:00:00Z ถึง 2026-02-22T16:59:59Z
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000; // UTC+7
+
+function utcStartOfDay(dateStr: string): Date {
+    // "YYYY-MM-DD" → midnight Bangkok → UTC
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - BANGKOK_OFFSET_MS);
+}
+
+function utcEndOfDay(dateStr: string): Date {
+    // "YYYY-MM-DD" → 23:59:59.999 Bangkok → UTC
+    const [y, m, d] = dateStr.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - BANGKOK_OFFSET_MS);
+}
+
+function todayDateStrBangkok(): string {
+    // คืนวันที่ปัจจุบันในรูปแบบ "YYYY-MM-DD" ตาม Asia/Bangkok timezone
+    const nowBangkok = new Date(Date.now() + BANGKOK_OFFSET_MS);
+    const y = nowBangkok.getUTCFullYear();
+    const m = String(nowBangkok.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(nowBangkok.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export const createEvent = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
@@ -156,10 +184,9 @@ export const getUserEvents = async (req: Request, res: Response) => {
         let query;
 
         if (date) {
-            // Filter for specific date (start of day to end of day)
-            const targetDate = new Date(date as string);
-            const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
-            const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
+            // Filter for specific date — ใช้ UTC-safe boundaries (Asia/Bangkok)
+            const startOfDay = utcStartOfDay(date as string);
+            const endOfDay = utcEndOfDay(date as string);
 
             query = dbClient
                 .select()
@@ -175,15 +202,11 @@ export const getUserEvents = async (req: Request, res: Response) => {
             const conditions = [eq(calendarEventsTable.userId, userId)];
 
             if (startDate) {
-                const start = new Date(startDate as string);
-                start.setHours(0, 0, 0, 0);
-                conditions.push(gte(calendarEventsTable.startTime, start));
+                conditions.push(gte(calendarEventsTable.startTime, utcStartOfDay(startDate as string)));
             }
 
             if (endDate) {
-                const end = new Date(endDate as string);
-                end.setHours(23, 59, 59, 999);
-                conditions.push(lte(calendarEventsTable.startTime, end));
+                conditions.push(lte(calendarEventsTable.startTime, utcEndOfDay(endDate as string)));
             }
 
             query = dbClient
@@ -191,10 +214,10 @@ export const getUserEvents = async (req: Request, res: Response) => {
                 .from(calendarEventsTable)
                 .where(and(...conditions));
         } else {
-            // Default: Show today's events
-            const today = new Date();
-            const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-            const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+            // Default: Show today's events (วันนี้ใน Asia/Bangkok)
+            const todayStr = todayDateStrBangkok();
+            const startOfToday = utcStartOfDay(todayStr);
+            const endOfToday = utcEndOfDay(todayStr);
 
             query = dbClient
                 .select()
@@ -443,9 +466,9 @@ export const getTodayEvents = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        const today = new Date();
-        const startOfToday = new Date(today.setHours(0, 0, 0, 0));
-        const endOfToday = new Date(today.setHours(23, 59, 59, 999));
+        const todayStr = todayDateStrBangkok();
+        const startOfToday = utcStartOfDay(todayStr);
+        const endOfToday = utcEndOfDay(todayStr);
 
         const { and, gte, lte } = await import("drizzle-orm");
 
@@ -525,16 +548,13 @@ export const getEventsByDate = async (req: Request, res: Response) => {
 
         const { and, gte, lte } = await import("drizzle-orm");
 
-        // Parse the date and build start/end of day boundaries
-        const targetDate = new Date(date as string);
-        if (isNaN(targetDate.getTime())) {
+        // Parse the date and build start/end of day boundaries (Asia/Bangkok → UTC)
+        if (isNaN(new Date(date as string).getTime())) {
             return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
         }
 
-        const startOfDay = new Date(targetDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(targetDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const startOfDay = utcStartOfDay(date as string);
+        const endOfDay = utcEndOfDay(date as string);
 
         const events = await dbClient
             .select()

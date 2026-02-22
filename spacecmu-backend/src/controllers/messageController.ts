@@ -628,3 +628,55 @@ export const getUnreadCount = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error fetching unread count" });
     }
 };
+
+// Get readers info for a room (who read and when)
+// Returns each member's lastReadAt so frontend can compute "seen by" per message
+export const getRoomReaders = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { roomId } = req.params;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Verify requester is a member
+        const membership = await dbClient
+            .select()
+            .from(chatRoomMembersTable)
+            .where(
+                and(
+                    eq(chatRoomMembersTable.roomId, roomId),
+                    eq(chatRoomMembersTable.userId, userId)
+                )
+            )
+            .limit(1);
+
+        if (membership.length === 0) {
+            return res.status(403).json({ message: "You are not a member of this room" });
+        }
+
+        // Get all members' read status (excluding self)
+        const readers = await dbClient
+            .select({
+                userId: chatRoomMembersTable.userId,
+                lastReadAt: chatRoomMembersTable.lastReadAt,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                avatarUrl: usersTable.avatarUrl,
+            })
+            .from(chatRoomMembersTable)
+            .innerJoin(usersTable, eq(chatRoomMembersTable.userId, usersTable.id))
+            .where(
+                and(
+                    eq(chatRoomMembersTable.roomId, roomId),
+                    sql`${chatRoomMembersTable.userId} != ${userId}`
+                )
+            );
+
+        res.json(readers);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching room readers" });
+    }
+};

@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Sidebar from "../../components/Sidebar";
-import Image from "next/image";
 import { apiService } from "@/lib/api";
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -39,6 +38,7 @@ interface ChatRoomMember {
 
 interface ChatRoomLastMessage {
   id: string;
+  senderId: string;
   content: string;
   createdAt: string;
   sender: {
@@ -61,23 +61,6 @@ interface ChatRoomApiItem {
   memberCount: number;
   lastMessage: ChatRoomLastMessage | null;
   unreadCount: number;
-}
-
-interface Chat {
-  id: number;
-  name: string;
-  avatar: string;
-  lastMessage: string;
-  time: string;
-  unread: number;
-  online: boolean;
-}
-
-interface Message {
-  id: number;
-  text: string;
-  time: string;
-  isMine: boolean;
 }
 
 /** shape ของข้อความจาก GET /api/messages/room/:roomId */
@@ -103,6 +86,15 @@ interface MessagePagination {
 interface GetRoomMessagesResponse {
   messages: RealMessage[];
   pagination: MessagePagination;
+}
+
+/** shape ของ reader จาก GET /api/messages/room/:roomId/readers */
+interface RoomReader {
+  userId: string;
+  lastReadAt: string | null;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
 }
 
 // ─── Helper: Default Group Avatar SVG ────────────────────────────────────────
@@ -151,109 +143,13 @@ function formatRoomTime(isoString: string): string {
   return date.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
-const mockChats: Chat[] = [
-  {
-    id: 1,
-    name: "John Doe",
-    avatar: "/default-avatar.svg",
-    lastMessage: "Hey! How are you?",
-    time: "2m ago",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: 2,
-    name: "Jane Smith",
-    avatar: "/default-avatar.svg",
-    lastMessage: "See you tomorrow!",
-    time: "1h ago",
-    unread: 0,
-    online: true,
-  },
-  {
-    id: 3,
-    name: "Mike Wilson",
-    avatar: "/zenitsu.jpg",
-    lastMessage: "Thanks for your help!",
-    time: "3h ago",
-    unread: 1,
-    online: false,
-  },
-  {
-    id: 4,
-    name: "Sara Lee",
-    avatar: "/shinobu.jpg",
-    lastMessage: "Can you send me the notes?",
-    time: "Yesterday",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 5,
-    name: "Kyojuro Rengoku",
-    avatar: "/kyojuro.jpg",
-    lastMessage: "Set your heart ablaze! 🔥",
-    time: "Yesterday",
-    unread: 3,
-    online: true,
-  },
-  {
-    id: 6,
-    name: "Nezuko Chan",
-    avatar: "/nezuko.jpg",
-    lastMessage: "🎋",
-    time: "Mon",
-    unread: 0,
-    online: false,
-  },
-];
-
-const mockMessagesMap: Record<number, Message[]> = {
-  1: [
-    { id: 1, text: "Hey! How are you?", time: "10:30 AM", isMine: false },
-    { id: 2, text: "I'm good! How about you?", time: "10:32 AM", isMine: true },
-    { id: 3, text: "Great! Want to grab lunch later?", time: "10:33 AM", isMine: false },
-    { id: 4, text: "Sure! What time works for you?", time: "10:35 AM", isMine: true },
-    { id: 5, text: "How about 12:30 at the cafeteria?", time: "10:36 AM", isMine: false },
-    { id: 6, text: "Sounds perfect 👍", time: "10:37 AM", isMine: true },
-  ],
-  2: [
-    { id: 1, text: "Hey, are you coming to the study group?", time: "9:00 AM", isMine: false },
-    { id: 2, text: "Yes, I'll be there at 3 PM", time: "9:05 AM", isMine: true },
-    { id: 3, text: "See you tomorrow!", time: "9:06 AM", isMine: false },
-  ],
-  3: [
-    { id: 1, text: "I really needed that!", time: "Yesterday", isMine: false },
-    { id: 2, text: "No problem, anytime 😊", time: "Yesterday", isMine: true },
-    { id: 3, text: "Thanks for your help!", time: "Yesterday", isMine: false },
-  ],
-  4: [
-    { id: 1, text: "Did you go to lecture today?", time: "Mon", isMine: false },
-    { id: 2, text: "Yes I did, it was great!", time: "Mon", isMine: true },
-    { id: 3, text: "Can you send me the notes?", time: "Mon", isMine: false },
-  ],
-  5: [
-    { id: 1, text: "Training session at 7 AM tomorrow?", time: "Yesterday", isMine: false },
-    { id: 2, text: "I'll be there!", time: "Yesterday", isMine: true },
-    { id: 3, text: "Set your heart ablaze! 🔥", time: "Yesterday", isMine: false },
-  ],
-  6: [
-    { id: 1, text: "🎋", time: "Mon", isMine: false },
-  ],
-};
-
 export default function ChatPage() {
-  const [selectedChatId, setSelectedChatId] = useState<number | null>(1);
   const [chatMessage, setChatMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const [messagesState, setMessagesState] = useState<Record<number, Message[]>>(mockMessagesMap);
-  const [chats, setChats] = useState<Chat[]>(mockChats);
+
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsError, setSuggestionsError] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Tab: "mock" | "rooms"
-  const [activeTab, setActiveTab] = useState<"mock" | "rooms">("rooms");
 
   // Real chat rooms จาก API
   const [realRooms, setRealRooms] = useState<ChatRoomApiItem[]>([]);
@@ -271,6 +167,11 @@ export default function ChatPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   // เก็บ current user id เพื่อตรวจว่าข้อความเป็นของเราหรือเปล่า
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // ─── Seen / Readers state ────────────────────────────────────────────────────
+  const [roomReaders, setRoomReaders] = useState<RoomReader[]>([]);
+  // popup: แสดง readers ของข้อความที่กด
+  const [seenPopupMsgId, setSeenPopupMsgId] = useState<string | null>(null);
 
   // New message modal state
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
@@ -357,8 +258,89 @@ export default function ChatPage() {
     if (!selectedRoomId) return;
     setRealMessages([]);
     setMessagesPagination(null);
+    setRoomReaders([]);
     fetchMessages(selectedRoomId, 1, false);
   }, [selectedRoomId, fetchMessages]);
+
+  // ─── ref เพื่อใช้ใน closure ของ event listener ─────────────────────────────
+  const selectedRoomIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedRoomIdRef.current = selectedRoomId;
+  }, [selectedRoomId]);
+
+  // ─── polling: ดึง readers + messages ใหม่ทุก 5 วินาที ───────────────────────
+  // วิธีนี้ทำให้เห็น "seen" เมื่ออีกฝ่ายเปิดหน้าแชทค้างไว้ โดยไม่ต้องใช้ WebSocket
+  useEffect(() => {
+    if (!selectedRoomId) return;
+
+    const fetchReaders = async (roomId: string) => {
+      try {
+        const data = await apiService.get<RoomReader[]>(
+          `/api/messages/room/${roomId}/readers`
+        );
+        setRoomReaders(data);
+      } catch {
+        // ไม่ critical ถ้า fail ก็ไม่ต้อง error
+      }
+    };
+
+    // ─── mark as read แล้ว fetch readers เสมอ (sequential) ──────────────────
+    const markReadAndFetchReaders = async (roomId: string) => {
+      // รอ mark as read ก่อน เพื่อให้ lastReadAt ของเราอัปเดตใน DB
+      // แล้วค่อย fetch readers → อีกฝ่ายจะเห็น Seen ทันที
+      try {
+        await apiService.patch(`/api/messages/room/${roomId}/read`, {});
+      } catch { /* ไม่ critical */ }
+      await fetchReaders(roomId);
+    };
+
+    // fetch ทันทีเมื่อเข้าห้อง
+    markReadAndFetchReaders(selectedRoomId);
+
+    // poll ทุก 5 วินาที
+    const interval = setInterval(() => {
+      const roomId = selectedRoomIdRef.current;
+      if (!roomId) return;
+
+      // 1) mark as read + poll readers เพื่ออัพเดต seen status
+      markReadAndFetchReaders(roomId);
+
+      // 2) poll messages: ดึง page=1 (newest) แล้ว merge เฉพาะที่ใหม่กว่า last message ที่มี
+      apiService
+        .get<GetRoomMessagesResponse>(`/api/messages/room/${roomId}?limit=40&page=1`)
+        .then(async (data) => {
+          setRealMessages((prev) => {
+            const existingIds = new Set(prev.map((m) => m.id));
+            const newOnes = data.messages.filter((m) => !existingIds.has(m.id));
+            if (newOnes.length === 0) return prev;
+            requestAnimationFrame(() => {
+              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            });
+            return [...prev, ...newOnes].sort(
+              (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+            );
+          });
+          // mark as read + re-fetch readers หลังได้ข้อความใหม่
+          await markReadAndFetchReaders(roomId);
+        })
+        .catch(() => {});
+    }, 5000);
+
+    // ─── mark as read เมื่อ window กลับมา focus ───────────────────────────────
+    const handleVisibilityChange = () => {
+      const roomId = selectedRoomIdRef.current;
+      if (!roomId) return;
+      if (!document.hidden) {
+        markReadAndFetchReaders(roomId);
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [selectedRoomId]);
 
   // scroll to bottom เมื่อโหลดข้อความหน้า 1 เสร็จ
   useEffect(() => {
@@ -430,34 +412,9 @@ export default function ChatPage() {
     return () => clearTimeout(timer);
   }, [newChatSearch, isNewChatOpen, fetchSuggestions]);
 
-  const filteredChats = chats.filter((c) =>
-    c.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const selectedChat = chats.find((c) => c.id === selectedChatId) || null;
-  const currentMessages = useMemo(
-    () => (selectedChatId ? messagesState[selectedChatId] || [] : []),
-    [selectedChatId, messagesState]
-  );
-
-  // Auto scroll to bottom when messages change
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [currentMessages]);
-
-  // Mark as read when selecting a chat (mock)
-  const handleSelectChat = (chatId: number) => {
-    setSelectedChatId(chatId);
-    setSelectedRoomId(null); // clear room selection
-    setChats((prev) =>
-      prev.map((c) => (c.id === chatId ? { ...c, unread: 0 } : c))
-    );
-  };
-
   // เลือกห้องจริง
   const handleSelectRoom = (roomId: string) => {
     setSelectedRoomId(roomId);
-    setSelectedChatId(null); // clear mock selection
     // mark as read (fire-and-forget)
     apiService.patch(`/api/messages/room/${roomId}/read`, {}).catch(() => {});
     setRealRooms((prev) =>
@@ -466,78 +423,43 @@ export default function ChatPage() {
   };
 
   const handleSendMessage = async () => {
-    if (!chatMessage.trim()) return;
+    if (!chatMessage.trim() || !selectedRoomId) return;
 
-    // ── Tab "ของฉัน": ส่งข้อความจริง ─────────────────────────────────────────
-    if (activeTab === "rooms" && selectedRoomId) {
-      const text = chatMessage.trim();
-      setChatMessage("");
-      setIsSendingMessage(true);
-      try {
-        const newMsg = await apiService.post<RealMessage>("/api/messages", {
-          roomId: selectedRoomId,
-          content: text,
-        });
-        setRealMessages((prev) => [...prev, newMsg]);
-        // อัพเดต lastMessage ในรายการห้อง
-        setRealRooms((prev) =>
-          prev.map((r) =>
-            r.id === selectedRoomId
-              ? {
-                  ...r,
-                  lastMessage: {
-                    id: newMsg.id,
-                    content: newMsg.content,
-                    createdAt: newMsg.createdAt,
-                    sender: { firstName: "", lastName: "" },
-                  },
-                  updatedAt: newMsg.createdAt,
-                }
-              : r
-          )
-        );
-      } catch {
-        // ส่งไม่สำเร็จ — คืน text กลับให้แก้ไขได้
-        setChatMessage(text);
-      } finally {
-        setIsSendingMessage(false);
-      }
-      return;
-    }
-
-    // ── Tab "ตัวอย่าง": mock ───────────────────────────────────────────────────
-    if (!chatMessage.trim() || !selectedChatId) return;
-
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
-    const newMessage: Message = {
-      id: Date.now(),
-      text: chatMessage.trim(),
-      time: timeStr,
-      isMine: true,
-    };
-
-    setMessagesState((prev) => ({
-      ...prev,
-      [selectedChatId]: [...(prev[selectedChatId] || []), newMessage],
-    }));
-
-    setChats((prev) =>
-      prev.map((c) =>
-        c.id === selectedChatId
-          ? { ...c, lastMessage: chatMessage.trim(), time: "Just now" }
-          : c
-      )
-    );
-
+    const text = chatMessage.trim();
     setChatMessage("");
+    setIsSendingMessage(true);
+    try {
+      const newMsg = await apiService.post<RealMessage>("/api/messages", {
+        roomId: selectedRoomId,
+        content: text,
+      });
+      setRealMessages((prev) => [...prev, newMsg]);
+      // อัพเดต lastMessage ในรายการห้อง
+      setRealRooms((prev) =>
+        prev.map((r) =>
+          r.id === selectedRoomId
+            ? {
+                ...r,
+                lastMessage: {
+                  id: newMsg.id,
+                  senderId: newMsg.senderId,
+                  content: newMsg.content,
+                  createdAt: newMsg.createdAt,
+                  sender: { firstName: "", lastName: "" },
+                },
+                updatedAt: newMsg.createdAt,
+              }
+            : r
+        )
+      );
+    } catch {
+      // ส่งไม่สำเร็จ — คืน text กลับให้แก้ไขได้
+      setChatMessage(text);
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
-  const totalUnread = chats.reduce((sum, c) => sum + c.unread, 0);
   const totalRealUnread = realRooms.reduce((sum, r) => sum + r.unreadCount, 0);
 
   // ฟังก์ชัน reset และปิด modal ทั้งหมด
@@ -581,7 +503,6 @@ export default function ChatPage() {
       });
       closeNewChatModal();
       fetchRooms();
-      setActiveTab("rooms");
     } catch {
       setCreateChatError("ไม่สามารถสร้างแชทได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -617,7 +538,6 @@ export default function ChatPage() {
       closeGroupNameModal();
       closeNewChatModal();
       fetchRooms();
-      setActiveTab("rooms");
     } catch {
       setCreateChatError("ไม่สามารถสร้างกลุ่มได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -971,9 +891,9 @@ export default function ChatPage() {
         <div className="flex-1 flex flex-col h-full min-w-0 bg-gray-50">
 
           {/* ══════════════════════════════════════════════════════════════
-              แสดงห้องจริง (tab "ของฉัน" + selectedRoomId)
+              แสดงห้องแชทจริง
           ══════════════════════════════════════════════════════════════ */}
-          {activeTab === "rooms" && selectedRoomId && (() => {
+          {selectedRoomId && (() => {
             const selectedRoom = realRooms.find((r) => r.id === selectedRoomId);
             const roomAvatarUrl = selectedRoom?.displayAvatar
               ? apiService.getImageUrl(selectedRoom.displayAvatar)
@@ -1013,16 +933,6 @@ export default function ChatPage() {
                   </div>
                   {/* Action buttons */}
                   <div className="flex items-center gap-1">
-                    <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Voice call">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                      </svg>
-                    </button>
-                    <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Video call">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    </button>
                     <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="More options">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -1035,6 +945,7 @@ export default function ChatPage() {
                 <div
                   ref={messagesContainerRef}
                   onScroll={handleMessagesScroll}
+                  onClick={() => seenPopupMsgId && setSeenPopupMsgId(null)}
                   className="flex-1 overflow-y-auto px-6 py-6 space-y-3"
                 >
                   {/* Load More indicator */}
@@ -1099,13 +1010,11 @@ export default function ChatPage() {
                         ? new Date(msg.createdAt).getTime() - new Date(prevMsg.createdAt).getTime()
                         : Infinity;
 
-                      // ข้อความแรกของกลุ่ม = prev เป็นคนอื่น หรือไม่มี prev หรือห่างเกิน 1 นาที
                       const isFirstInGroup =
                         !prevMsg ||
                         prevMsg.senderId !== msg.senderId ||
                         prevTimeDiff > TIME_GAP_MS;
 
-                      // ข้อความสุดท้ายของกลุ่ม = next เป็นคนอื่น หรือไม่มี next
                       const nextTimeDiff = nextMsg
                         ? new Date(nextMsg.createdAt).getTime() - new Date(msg.createdAt).getTime()
                         : Infinity;
@@ -1114,14 +1023,10 @@ export default function ChatPage() {
                         nextMsg.senderId !== msg.senderId ||
                         nextTimeDiff > TIME_GAP_MS;
 
-                      // avatar แสดงเฉพาะข้อความสุดท้ายของกลุ่ม (อยู่ชิดข้างล่างสุด)
                       const showAvatar = !isMine && isLastInGroup;
-                      // timestamp แสดงเฉพาะข้อความสุดท้ายของกลุ่ม
                       const showTime = isLastInGroup;
-                      // ชื่อผู้ส่ง (กลุ่ม) แสดงเฉพาะข้อความแรกของกลุ่ม
                       const showSenderName = !isMine && selectedRoom?.isGroup && isFirstInGroup;
 
-                      // หา member info สำหรับ avatar
                       const senderMember = selectedRoom?.members.find((m) => m.userId === msg.senderId);
                       const senderAvatarUrl = senderMember?.avatarUrl
                         ? apiService.getImageUrl(senderMember.avatarUrl)
@@ -1130,7 +1035,6 @@ export default function ChatPage() {
                         ? `${senderMember.firstName} ${senderMember.lastName}`.trim()
                         : msg.senderId.slice(0, 8);
 
-                      // format เวลา
                       const msgDate = new Date(msg.createdAt);
                       const msgTime = msgDate.toLocaleTimeString("th-TH", {
                         hour: "2-digit",
@@ -1138,74 +1042,231 @@ export default function ChatPage() {
                         hour12: false,
                       });
 
-                      // ระยะห่างระหว่าง bubble — ถ้าเป็นกลุ่มเดิมให้ชิดกัน ถ้าเปลี่ยนคนให้เว้น
                       const marginTop = isFirstInGroup ? "mt-3" : "mt-0.5";
+
+                      // ─── Seen / Sent / Reader-avatar logic (ใหม่) ──────────────────────────
+                      const msgCreatedAtMs = new Date(msg.createdAt).getTime();
+
+                      // ข้อความสุดท้ายที่ฉันส่ง
+                      const isLastMineMsg =
+                        isMine &&
+                        !realMessages.slice(idx + 1).some((m) => m.senderId === currentUserId);
+                      // ข้อความล่าสุดในห้องเป็นของฉันหรือไม่
+                      const lastMsgIsMe = realMessages.length > 0
+                        ? realMessages[realMessages.length - 1].senderId === currentUserId
+                        : false;
+
+                      // ─── คำนวณ "reader ที่อ่านถึงข้อความนี้พอดี" ────────────────────────────
+                      // แต่ละ reader จะแสดงรูปที่ข้อความสุดท้ายที่เขาอ่านถึง
+                      // โดย "อ่านถึงข้อความนี้" = lastReadAt >= createdAt ของ msg นี้
+                      //   AND lastReadAt < createdAt ของ msg ถัดไป (ถ้ามี)
+                      // กรอง currentUser ออก (ไม่แสดงรูปตัวเอง)
+                      const nextMsgCreatedAtMs = nextMsg
+                        ? new Date(nextMsg.createdAt).getTime()
+                        : Infinity;
+
+                      const readersAtThisMsg = roomReaders.filter((r) => {
+                        if (!r.userId) return false;
+                        if (r.userId === currentUserId) return false; // ไม่แสดงรูปตัวเอง
+                        if (r.userId === msg.senderId) return false;  // ไม่แสดงรูปคนส่งข้อความนั้น
+                        if (!r.lastReadAt) return false;
+                        const readAt = new Date(r.lastReadAt).getTime();
+                        // อ่านถึงข้อความนี้: readAt >= createdAt ของข้อความนี้
+                        if (readAt < msgCreatedAtMs) return false;
+                        // แต่ยังไม่ถึงข้อความถัดไป (เพื่อไม่ให้รูปซ้ำซ้อน)
+                        if (readAt >= nextMsgCreatedAtMs) return false;
+                        return true;
+                      });
+
+                      // ─── Sent / Seen ─────────────────────────────────────────────────────────
+                      // Seen: แสดงเฉพาะถ้าข้อความล่าสุดในห้องเป็นของฉัน + มีคนอ่านแล้ว
+                      // Sent: แสดงเฉพาะถ้าข้อความล่าสุดในห้องเป็นของฉัน + ยังไม่มีใครอ่าน
+                      // ทั้งคู่แสดงที่ข้อความสุดท้ายที่ฉันส่งเท่านั้น
+                      const seenReadersForLastMine = isLastMineMsg
+                        ? roomReaders.filter((r) => {
+                            if (r.userId === currentUserId) return false;
+                            if (!r.lastReadAt) return false;
+                            return new Date(r.lastReadAt).getTime() >= msgCreatedAtMs;
+                          })
+                        : [];
+
+                      const showSeenWidget = lastMsgIsMe && isLastMineMsg && seenReadersForLastMine.length > 0;
+                      const showSentStatus = lastMsgIsMe && isLastMineMsg && seenReadersForLastMine.length === 0;
+
+                      // รูป reader ที่ยังไม่อ่านถึงข้อความล่าสุด จะแสดงอยู่ที่ข้อความที่เขาอ่านถึง
+                      // (readersAtThisMsg คำนวณไว้แล้วด้านบน)
+                      const showReaderAvatarsHere = readersAtThisMsg.length > 0;
+
+                      // ── Popup JSX ที่ใช้ซ้ำได้ ─────────────────────────────────────────────
+                      const SeenPopup = ({ readers }: { readers: typeof seenReadersForLastMine }) => (
+                        <div className="absolute bottom-full mb-2 right-0 z-50 w-64 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+                          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+                            <span className="text-gray-800 font-semibold text-sm">อ่านแล้วโดย</span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSeenPopupMsgId(null); }}
+                              className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                          <div className="max-h-60 overflow-y-auto py-1.5">
+                            {readers.map((r) => {
+                              const rAvatar = r.avatarUrl ? apiService.getImageUrl(r.avatarUrl) : null;
+                              const rName = `${r.firstName} ${r.lastName}`.trim() || "Unknown";
+                              const rTime = r.lastReadAt
+                                ? new Date(r.lastReadAt).toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false })
+                                : "";
+                              return (
+                                <div key={r.userId} className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 transition-colors">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={rAvatar ?? "/default-avatar.svg"} alt={rName} className="w-9 h-9 rounded-full object-cover flex-none" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-gray-800 text-sm font-medium truncate">{rName}</p>
+                                    <p className="text-gray-400 text-xs mt-0.5">{rTime}</p>
+                                  </div>
+                                  <svg className="w-4 h-4 text-blue-500 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                  </svg>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
 
                       return (
                         <div
                           key={msg.id}
-                          className={`flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${marginTop}`}
+                          className={`flex flex-col ${isMine ? "items-end" : "items-start"} ${marginTop}`}
                         >
-                          {/* Avatar ฝั่งซ้าย — placeholder เสมอเพื่อ align */}
-                          {!isMine && (
-                            <div className="w-7 h-7 flex-none self-end">
-                              {showAvatar ? (
-                                senderAvatarUrl ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={senderAvatarUrl}
-                                    alt={senderName}
-                                    className="w-7 h-7 rounded-full object-cover"
-                                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
-                                  />
+                          {/* ── Message row: avatar + bubble ─────────────────────── */}
+                          <div className={`flex items-end gap-2 w-full ${isMine ? "justify-end" : "justify-start"}`}>
+                            {/* Avatar ฝั่งซ้าย */}
+                            {!isMine && (
+                              <div className="w-7 h-7 flex-none self-end">
+                                {showAvatar ? (
+                                  senderAvatarUrl ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={senderAvatarUrl}
+                                      alt={senderName}
+                                      className="w-7 h-7 rounded-full object-cover"
+                                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                                    />
+                                  ) : (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src="/default-avatar.svg" alt={senderName} className="w-7 h-7 rounded-full" />
+                                  )
                                 ) : (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img src="/default-avatar.svg" alt={senderName} className="w-7 h-7 rounded-full" />
-                                )
-                              ) : (
-                                <div className="w-7 h-7" />
+                                  <div className="w-7 h-7" />
+                                )}
+                              </div>
+                            )}
+
+                            <div className={`max-w-[65%] flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+                              {/* ชื่อผู้ส่ง */}
+                              {showSenderName && (
+                                <span className="text-[11px] text-gray-400 mb-0.5 px-1">{senderName}</span>
+                              )}
+
+                              {/* Bubble */}
+                              <div
+                                className={`px-4 py-2.5 text-sm leading-relaxed ${
+                                  isMine
+                                    ? `bg-slate-700 text-white ${
+                                        isFirstInGroup && isLastInGroup ? "rounded-2xl rounded-br-sm"
+                                        : isFirstInGroup ? "rounded-2xl rounded-br-md"
+                                        : isLastInGroup ? "rounded-2xl rounded-tr-md rounded-br-sm"
+                                        : "rounded-xl rounded-r-md"
+                                      }`
+                                    : `bg-white text-gray-800 shadow-sm border border-gray-100 ${
+                                        isFirstInGroup && isLastInGroup ? "rounded-2xl rounded-bl-sm"
+                                        : isFirstInGroup ? "rounded-2xl rounded-bl-md"
+                                        : isLastInGroup ? "rounded-2xl rounded-tl-md rounded-bl-sm"
+                                        : "rounded-xl rounded-l-md"
+                                      }`
+                                }`}
+                              >
+                                {msg.content}
+                              </div>
+
+                              {/* Timestamp row */}
+                              {showTime && (
+                                <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
+                                  <span className="text-[11px] text-gray-400">{msgTime}</span>
+
+                                  {/* Sent ✓ */}
+                                  {showSentStatus && (
+                                    <div className="flex items-center gap-0.5">
+                                      <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                                      </svg>
+                                      <span className="text-[10px] text-gray-400">Sent</span>
+                                    </div>
+                                  )}
+
+                                  {/* Seen text only — รูปจะแสดงบรรทัดถัดไป */}
+                                  {showSeenWidget && (
+                                    <span className="text-[10px] text-gray-400">Seen</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* ── Seen reader avatars — บรรทัดใต้ timestamp (ข้อความของฉัน) ─── */}
+                              {showSeenWidget && (
+                                <div className="relative flex items-center gap-0.5 mt-0.5 px-1 self-end">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); setSeenPopupMsgId(seenPopupMsgId === msg.id ? null : msg.id); }}
+                                    className="flex -space-x-1 hover:opacity-80 transition-opacity"
+                                    title="ดูว่าใครอ่านแล้วบ้าง"
+                                  >
+                                    {seenReadersForLastMine.slice(0, 3).map((r) => {
+                                      const rAvatar = r.avatarUrl ? apiService.getImageUrl(r.avatarUrl) : null;
+                                      return (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img key={r.userId} src={rAvatar ?? "/default-avatar.svg"} alt={`${r.firstName} ${r.lastName}`.trim()} className="w-4 h-4 rounded-full object-cover border border-white" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
+                                      );
+                                    })}
+                                    {seenReadersForLastMine.length > 3 && (
+                                      <div className="w-4 h-4 rounded-full bg-gray-200 border border-white flex items-center justify-center">
+                                        <span className="text-[7px] text-gray-600 font-bold leading-none">+{seenReadersForLastMine.length - 3}</span>
+                                      </div>
+                                    )}
+                                  </button>
+                                  {seenPopupMsgId === msg.id && <SeenPopup readers={seenReadersForLastMine} />}
+                                </div>
                               )}
                             </div>
-                          )}
-
-                          <div className={`max-w-[65%] flex flex-col ${isMine ? "items-end" : "items-start"}`}>
-                            {/* ชื่อผู้ส่ง (กลุ่มเท่านั้น, ข้อความแรกของกลุ่ม) */}
-                            {showSenderName && (
-                              <span className="text-[11px] text-gray-400 mb-0.5 px-1">{senderName}</span>
-                            )}
-
-                            {/* Bubble — ปรับ border-radius ตามตำแหน่งในกลุ่ม */}
-                            <div
-                              className={`px-4 py-2.5 text-sm leading-relaxed ${
-                                isMine
-                                  ? `bg-slate-700 text-white ${
-                                      isFirstInGroup && isLastInGroup
-                                        ? "rounded-2xl rounded-br-sm"
-                                        : isFirstInGroup
-                                        ? "rounded-2xl rounded-br-md"
-                                        : isLastInGroup
-                                        ? "rounded-2xl rounded-tr-md rounded-br-sm"
-                                        : "rounded-xl rounded-r-md"
-                                    }`
-                                  : `bg-white text-gray-800 shadow-sm border border-gray-100 ${
-                                      isFirstInGroup && isLastInGroup
-                                        ? "rounded-2xl rounded-bl-sm"
-                                        : isFirstInGroup
-                                        ? "rounded-2xl rounded-bl-md"
-                                        : isLastInGroup
-                                        ? "rounded-2xl rounded-tl-md rounded-bl-sm"
-                                        : "rounded-xl rounded-l-md"
-                                    }`
-                              }`}
-                            >
-                              {msg.content}
-                            </div>
-
-                            {/* Timestamp — แสดงเฉพาะข้อความสุดท้ายของกลุ่ม */}
-                            {showTime && (
-                              <span className="text-[11px] text-gray-400 mt-1 px-1">{msgTime}</span>
-                            )}
                           </div>
+
+                          {/* ── Reader avatars: แสดงขวาสุดของ screen (นอก bubble column) ─── */}
+                          {/* ใช้สำหรับทุกข้อความ (ทั้งของฉันและคนอื่น) ยกเว้น showSeenWidget */}
+                          {showReaderAvatarsHere && !showSeenWidget && (
+                            <div className="relative flex items-center justify-end gap-0.5 mt-0.5 w-full pr-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setSeenPopupMsgId(seenPopupMsgId === msg.id ? null : msg.id); }}
+                                className="flex -space-x-1 hover:opacity-80 transition-opacity"
+                                title="ดูว่าใครอ่านแล้วบ้าง"
+                              >
+                                {readersAtThisMsg.slice(0, 3).map((r) => {
+                                  const rAvatar = r.avatarUrl ? apiService.getImageUrl(r.avatarUrl) : null;
+                                  const rName = `${r.firstName} ${r.lastName}`.trim();
+                                  return (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img key={r.userId} src={rAvatar ?? "/default-avatar.svg"} alt={rName} className="w-4 h-4 rounded-full object-cover border border-white" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
+                                  );
+                                })}
+                                {readersAtThisMsg.length > 3 && (
+                                  <div className="w-4 h-4 rounded-full bg-gray-200 border border-white flex items-center justify-center">
+                                    <span className="text-[7px] text-gray-500 font-bold leading-none">+{readersAtThisMsg.length - 3}</span>
+                                  </div>
+                                )}
+                              </button>
+                              {seenPopupMsgId === msg.id && <SeenPopup readers={readersAtThisMsg} />}
+                            </div>
+                          )}
                         </div>
                       );
                     })
@@ -1266,166 +1327,8 @@ export default function ChatPage() {
             );
           })()}
 
-          {/* ── Empty state: tab "ของฉัน" + ยังไม่เลือกห้อง ── */}
-          {activeTab === "rooms" && !selectedRoomId && (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-4">
-              <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
-                <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-              </div>
-              <div className="text-center">
-                <p className="font-semibold text-gray-500 text-base">เลือกการสนทนา</p>
-                <p className="text-sm text-gray-400 mt-1">เลือกชื่อจากรายการเพื่อเริ่มแชท</p>
-              </div>
-            </div>
-          )}
-
-          {/* ── Tab "ตัวอย่าง" (mock): มี chat ที่เลือก ── */}
-          {activeTab === "mock" && selectedChat && (
-            <>
-              {/* Chat Header */}
-              <div className="flex-none flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shadow-sm">
-                <div className="flex items-center gap-3">
-                  <div className="relative">
-                    <Image
-                      src={selectedChat.avatar}
-                      alt={selectedChat.name}
-                      width={44}
-                      height={44}
-                      className="rounded-full object-cover w-11 h-11"
-                    />
-                    {selectedChat.online && (
-                      <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="font-semibold text-gray-900 text-base leading-tight">
-                      {selectedChat.name}
-                    </h2>
-                    <p className={`text-xs ${selectedChat.online ? "text-green-500" : "text-gray-400"}`}>
-                      {selectedChat.online ? "Active now" : "Offline"}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex items-center gap-1">
-                  <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Voice call">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                  </button>
-                  <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="Video call">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.069A1 1 0 0121 8.845v6.31a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="More options">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3">
-                {/* Date separator */}
-                <div className="flex items-center gap-3 my-4">
-                  <div className="flex-1 h-px bg-gray-200" />
-                  <span className="text-xs text-gray-400 font-medium px-2">Today</span>
-                  <div className="flex-1 h-px bg-gray-200" />
-                </div>
-
-                {currentMessages.map((msg, idx) => {
-                  const prevMsg = currentMessages[idx - 1];
-                  const showAvatar = !msg.isMine && (!prevMsg || prevMsg.isMine);
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex items-end gap-2 ${msg.isMine ? "justify-end" : "justify-start"}`}
-                    >
-                      {!msg.isMine && (
-                        <div className="w-7 h-7 flex-none">
-                          {showAvatar ? (
-                            <Image
-                              src={selectedChat.avatar}
-                              alt={selectedChat.name}
-                              width={28}
-                              height={28}
-                              className="rounded-full object-cover w-7 h-7"
-                            />
-                          ) : (
-                            <div className="w-7 h-7" />
-                          )}
-                        </div>
-                      )}
-                      <div className={`max-w-[65%] flex flex-col ${msg.isMine ? "items-end" : "items-start"}`}>
-                        <div
-                          className={`px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
-                            msg.isMine
-                              ? "bg-slate-700 text-white rounded-br-sm"
-                              : "bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100"
-                          }`}
-                        >
-                          {msg.text}
-                        </div>
-                        <span className="text-[11px] text-gray-400 mt-1 px-1">{msg.time}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Message Input */}
-              <div className="flex-none px-6 py-4 bg-white border-t border-gray-100">
-                <div className="flex items-center gap-3">
-                  <button className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                  </button>
-                  <input
-                    type="text"
-                    placeholder="พิมพ์ข้อความ..."
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    className="flex-1 px-4 py-2.5 rounded-full bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition"
-                  />
-                  <button className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!chatMessage.trim()}
-                    className={`flex-none w-9 h-9 flex items-center justify-center rounded-full transition-all ${
-                      chatMessage.trim()
-                        ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
-                        : "bg-gray-100 text-gray-300 cursor-not-allowed"
-                    }`}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* ── Empty state: tab "ตัวอย่าง" + ไม่มี chat ที่เลือก ── */}
-          {activeTab === "mock" && !selectedChat && (
+          {/* ── Empty state: ยังไม่เลือกห้อง ── */}
+          {!selectedRoomId && (
             <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-4">
               <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center">
                 <svg className="w-10 h-10 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1447,9 +1350,9 @@ export default function ChatPage() {
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900">Chat</h1>
-                {(totalUnread + totalRealUnread) > 0 && (
+                {totalRealUnread > 0 && (
                   <span className="bg-blue-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                    {totalUnread + totalRealUnread}
+                    {totalRealUnread}
                   </span>
                 )}
               </div>
@@ -1482,219 +1385,143 @@ export default function ChatPage() {
               />
             </div>
 
-            {/* Tabs */}
-            <div className="flex rounded-xl bg-gray-100 p-1 gap-1">
-              <button
-                onClick={() => setActiveTab("rooms")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "rooms"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                ของฉัน
-              </button>
-              <button
-                onClick={() => setActiveTab("mock")}
-                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  activeTab === "mock"
-                    ? "bg-white text-gray-900 shadow-sm"
-                    : "text-gray-500 hover:text-gray-700"
-                }`}
-              >
-                ตัวอย่าง
-              </button>
-            </div>
+            {/* Tabs — removed */}
           </div>
 
           {/* Chat List */}
           <div className="flex-1 overflow-y-auto">
+            {roomsLoading ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-3">
+                <svg className="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                <p className="text-xs text-gray-400">กำลังโหลด...</p>
+              </div>
+            ) : roomsError ? (
+              <div className="flex flex-col items-center justify-center h-40 gap-3 px-6 text-center">
+                <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <p className="text-xs text-gray-500">โหลดไม่สำเร็จ</p>
+                <button
+                  onClick={fetchRooms}
+                  className="text-xs text-slate-600 font-medium px-4 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors"
+                >
+                  ลองใหม่
+                </button>
+              </div>
+            ) : realRooms.filter((r) =>
+                r.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+              ).length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2 px-6">
+                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="text-sm">ยังไม่มีห้องแชท</p>
+                <button
+                  onClick={() => setIsNewChatOpen(true)}
+                  className="text-xs text-slate-600 font-medium px-4 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors mt-1"
+                >
+                  + เริ่มแชทใหม่
+                </button>
+              </div>
+            ) : (
+              realRooms
+                .filter((r) =>
+                  r.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+                )
+                .map((room) => {
+                  const isActive = selectedRoomId === room.id;
+                  const avatarUrl = room.displayAvatar
+                    ? apiService.getImageUrl(room.displayAvatar)
+                    : null;
 
-            {/* ── Tab: ห้องแชทจริง ── */}
-            {activeTab === "rooms" && (
-              <>
-                {roomsLoading ? (
-                  <div className="flex flex-col items-center justify-center h-40 gap-3">
-                    <svg className="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                    </svg>
-                    <p className="text-xs text-gray-400">กำลังโหลด...</p>
-                  </div>
-                ) : roomsError ? (
-                  <div className="flex flex-col items-center justify-center h-40 gap-3 px-6 text-center">
-                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center">
-                      <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <p className="text-xs text-gray-500">โหลดไม่สำเร็จ</p>
+                  // ─── Last message preview text ───────────────────────────────────────────
+                  let lastMsgText = "ยังไม่มีข้อความ";
+                  if (room.lastMessage) {
+                    const isSentByMe = room.lastMessage.senderId === currentUserId;
+                    const content = room.lastMessage.content;
+
+                    if (room.isGroup) {
+                      const prefix = isSentByMe
+                        ? "คุณ"
+                        : (room.lastMessage.sender.firstName || "").trim() || "?";
+                      lastMsgText = `${prefix}: ${content}`;
+                    } else {
+                      lastMsgText = isSentByMe ? `คุณ: ${content}` : content;
+                    }
+                  }
+
+                  const timeLabel = room.lastMessage
+                    ? formatRoomTime(room.lastMessage.createdAt)
+                    : formatRoomTime(room.updatedAt);
+
+                  return (
                     <button
-                      onClick={fetchRooms}
-                      className="text-xs text-slate-600 font-medium px-4 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors"
+                      key={room.id}
+                      onClick={() => handleSelectRoom(room.id)}
+                      className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${
+                        isActive ? "bg-gray-100" : "hover:bg-gray-50"
+                      }`}
                     >
-                      ลองใหม่
-                    </button>
-                  </div>
-                ) : realRooms.filter((r) =>
-                    r.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-                  ).length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2 px-6">
-                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <p className="text-sm">ยังไม่มีห้องแชท</p>
-                    <button
-                      onClick={() => setIsNewChatOpen(true)}
-                      className="text-xs text-slate-600 font-medium px-4 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 transition-colors mt-1"
-                    >
-                      + เริ่มแชทใหม่
-                    </button>
-                  </div>
-                ) : (
-                  realRooms
-                    .filter((r) =>
-                      r.displayName.toLowerCase().includes(searchQuery.toLowerCase())
-                    )
-                    .map((room) => {
-                      const isActive = selectedRoomId === room.id;
-                      const avatarUrl = room.displayAvatar
-                        ? apiService.getImageUrl(room.displayAvatar)
-                        : null;
-                      const lastMsgText = room.lastMessage
-                        ? room.lastMessage.content
-                        : "ยังไม่มีข้อความ";
-                      const timeLabel = room.lastMessage
-                        ? formatRoomTime(room.lastMessage.createdAt)
-                        : formatRoomTime(room.updatedAt);
-
-                      return (
-                        <button
-                          key={room.id}
-                          onClick={() => handleSelectRoom(room.id)}
-                          className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left ${
-                            isActive ? "bg-gray-100" : "hover:bg-gray-50"
-                          }`}
-                        >
-                          {/* Avatar */}
-                          <div className="relative flex-none">
-                            {avatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={avatarUrl}
-                                alt={room.displayName}
-                                className="w-12 h-12 rounded-full object-cover"
-                                onError={(e) => {
-                                  (e.currentTarget as HTMLImageElement).style.display = "none";
-                                }}
-                              />
-                            ) : room.isGroup ? (
-                              <DefaultGroupAvatar size={48} />
-                            ) : (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src="/default-avatar.svg"
-                                alt={room.displayName}
-                                className="w-12 h-12 rounded-full object-cover"
-                              />
-                            )}
-                            {/* Group badge */}
-                            {room.isGroup && (
-                              <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-slate-600 rounded-full flex items-center justify-center border-2 border-white">
-                                <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
-                                </svg>
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-0.5">
-                              <span className={`text-sm truncate ${isActive || room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
-                                {room.displayName}
-                              </span>
-                              <span className="text-xs text-gray-400 flex-none ml-2">{timeLabel}</span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <p className={`text-xs truncate ${room.unreadCount > 0 ? "text-gray-700 font-medium" : "text-gray-400"}`}>
-                                {lastMsgText}
-                              </p>
-                              {room.unreadCount > 0 && (
-                                <span className="ml-2 flex-none bg-blue-500 text-white text-xs font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
-                                  {room.unreadCount}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                )}
-              </>
-            )}
-
-            {/* ── Tab: Mock (ตัวอย่าง) ── */}
-            {activeTab === "mock" && (
-              <>
-                {filteredChats.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2 px-6">
-                    <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                    </svg>
-                    <p className="text-sm">ไม่พบการสนทนา</p>
-                  </div>
-                ) : (
-                  filteredChats.map((chat) => {
-                    const isActive = chat.id === selectedChatId;
-                    return (
-                      <button
-                        key={chat.id}
-                        onClick={() => handleSelectChat(chat.id)}
-                        className={`w-full flex items-center gap-3 px-5 py-3.5 transition-colors text-left group ${
-                          isActive ? "bg-gray-100" : "hover:bg-gray-50"
-                        }`}
-                      >
-                        {/* Avatar */}
-                        <div className="relative flex-none">
-                          <Image
-                            src={chat.avatar}
-                            alt={chat.name}
-                            width={48}
-                            height={48}
-                            className="rounded-full object-cover w-12 h-12"
+                      {/* Avatar */}
+                      <div className="relative flex-none">
+                        {avatarUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={avatarUrl}
+                            alt={room.displayName}
+                            className="w-12 h-12 rounded-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display = "none";
+                            }}
                           />
-                          {chat.online && (
-                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
+                        ) : room.isGroup ? (
+                          <DefaultGroupAvatar size={48} />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src="/default-avatar.svg"
+                            alt={room.displayName}
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        )}
+                        {/* Group badge */}
+                        {room.isGroup && (
+                          <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-slate-600 rounded-full flex items-center justify-center border-2 border-white">
+                            <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                            </svg>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className={`text-sm truncate ${isActive || room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
+                            {room.displayName}
+                          </span>
+                          <span className="text-xs text-gray-400 flex-none ml-2">{timeLabel}</span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <p className={`text-xs truncate ${room.unreadCount > 0 ? "text-gray-700 font-medium" : "text-gray-400"}`}>
+                            {lastMsgText}
+                          </p>
+                          {room.unreadCount > 0 && (
+                            <span className="ml-2 flex-none bg-blue-500 text-white text-xs font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
+                              {room.unreadCount}
+                            </span>
                           )}
                         </div>
-
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between mb-0.5">
-                            <span className={`text-sm truncate ${isActive || chat.unread > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
-                              {chat.name}
-                            </span>
-                            <span className="text-xs text-gray-400 flex-none ml-2">{chat.time}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <p className={`text-xs truncate ${chat.unread > 0 ? "text-gray-700 font-medium" : "text-gray-400"}`}>
-                              {chat.lastMessage}
-                            </p>
-                            {chat.unread > 0 && (
-                              <span className="ml-2 flex-none bg-blue-500 text-white text-xs font-bold min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1">
-                                {chat.unread}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </>
+                      </div>
+                    </button>
+                  );
+                })
             )}
-
           </div>
         </div>
       </main>

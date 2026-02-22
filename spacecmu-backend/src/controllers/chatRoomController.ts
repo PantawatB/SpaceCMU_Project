@@ -219,13 +219,35 @@ export const getUserRooms = async (req: Request, res: Response) => {
                     .innerJoin(usersTable, eq(chatRoomMembersTable.userId, usersTable.id))
                     .where(eq(chatRoomMembersTable.roomId, room.id));
 
-                // Get last message
-                const lastMessage = await dbClient
-                    .select()
+                // Get last message (with sender name)
+                const lastMessageRaw = await dbClient
+                    .select({
+                        id: messagesTable.id,
+                        roomId: messagesTable.roomId,
+                        senderId: messagesTable.senderId,
+                        content: messagesTable.content,
+                        createdAt: messagesTable.createdAt,
+                        senderFirstName: usersTable.firstName,
+                        senderLastName: usersTable.lastName,
+                    })
                     .from(messagesTable)
+                    .leftJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
                     .where(eq(messagesTable.roomId, room.id))
                     .orderBy(desc(messagesTable.createdAt))
                     .limit(1);
+
+                const lastMessage = lastMessageRaw[0]
+                    ? {
+                          id: lastMessageRaw[0].id,
+                          senderId: lastMessageRaw[0].senderId,
+                          content: lastMessageRaw[0].content,
+                          createdAt: lastMessageRaw[0].createdAt,
+                          sender: {
+                              firstName: lastMessageRaw[0].senderFirstName ?? "",
+                              lastName: lastMessageRaw[0].senderLastName ?? "",
+                          },
+                      }
+                    : null;
 
                 // Get unread count for this user
                 const userMember = await dbClient
@@ -287,7 +309,7 @@ export const getUserRooms = async (req: Request, res: Response) => {
                     displayAvatar,
                     members,
                     memberCount: members.length,
-                    lastMessage: lastMessage[0] || null,
+                    lastMessage: lastMessage || null,
                     unreadCount,
                 };
             })
