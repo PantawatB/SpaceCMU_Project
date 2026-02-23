@@ -73,9 +73,14 @@ interface RealMessage {
   isRead: boolean;
   mediaUrls: string | null;   // JSON array string e.g. '["images-xxx.jpg"]'
   mediaType: string | null;   // "image" | "video" | "mixed"
+  messageType: "text" | "system" | null;  // null = legacy rows (treat as "text")
   createdAt: string;
   editedAt: string | null;
   deletedAt: string | null;
+  // sender info joined from backend (always present, null if user deleted)
+  senderFirstName: string | null;
+  senderLastName: string | null;
+  senderAvatarUrl: string | null;
 }
 
 interface MessagePagination {
@@ -97,6 +102,28 @@ interface RoomReader {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+}
+
+/** shape ของ room details จาก GET /api/chat-rooms/:roomId */
+interface RoomDetailMember {
+  userId: string;
+  role: string;
+  joinedAt: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+}
+
+interface RoomDetail {
+  id: string;
+  name: string | null;
+  avatarUrl: string | null;
+  isGroup: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  members: RoomDetailMember[];
+  memberCount: number;
 }
 
 // ─── Helper: Lightbox Modal ───────────────────────────────────────────────────
@@ -288,6 +315,19 @@ export default function ChatPage() {
   // popup: แสดง readers ของข้อความที่กด
   const [seenPopupMsgId, setSeenPopupMsgId] = useState<string | null>(null);
 
+  // ─── Room Info Panel state ────────────────────────────────────────────────
+  const [isInfoPanelOpen, setIsInfoPanelOpen] = useState(false);
+  const [roomDetail, setRoomDetail] = useState<RoomDetail | null>(null);
+  const [roomDetailLoading, setRoomDetailLoading] = useState(false);
+  // Group edit state (only for isGroup=true)
+  const [editGroupName, setEditGroupName] = useState("");
+  const [editGroupAvatarFile, setEditGroupAvatarFile] = useState<File | null>(null);
+  const [editGroupAvatarPreview, setEditGroupAvatarPreview] = useState<string | null>(null);
+  const editGroupAvatarInputRef = useRef<HTMLInputElement>(null);
+  const [isSavingGroup, setIsSavingGroup] = useState(false);
+  const [saveGroupError, setSaveGroupError] = useState<string | null>(null);
+  const [saveGroupSuccess, setSaveGroupSuccess] = useState(false);
+
   // ─── Message input enhancements ─────────────────────────────────────────────
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -442,11 +482,21 @@ export default function ChatPage() {
           setRealMessages((prev) => {
             const existingIds = new Set(prev.map((m) => m.id));
             const newOnes = data.messages.filter((m) => !existingIds.has(m.id));
-            if (newOnes.length === 0) return prev;
-            requestAnimationFrame(() => {
-              messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+            // Also update any edited messages
+            const updatedPrev = prev.map((m) => {
+              const fetched = data.messages.find((fm) => fm.id === m.id);
+              if (fetched && fetched.editedAt !== m.editedAt) {
+                return { ...m, content: fetched.content, editedAt: fetched.editedAt };
+              }
+              return m;
             });
-            const merged = [...prev, ...newOnes];
+            if (newOnes.length === 0 && updatedPrev === prev) return prev;
+            if (newOnes.length > 0) {
+              requestAnimationFrame(() => {
+                messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+              });
+            }
+            const merged = [...updatedPrev, ...newOnes];
             // dedup again (guard against race between poll + prepend)
             const seen = new Set<string>();
             return merged
@@ -772,11 +822,13 @@ export default function ChatPage() {
     setIsCreatingChat(true);
     setCreateChatError(null);
     try {
-      await apiService.post("/api/chat-rooms/direct", {
+      const result = await apiService.post<{ room: { id: string } }>("/api/chat-rooms/direct", {
         otherUserId: selected.rawId,
       });
       closeNewChatModal();
-      fetchRooms();
+      await fetchRooms();
+      // Auto-select the new/existing room
+      if (result?.room?.id) setSelectedRoomId(result.room.id);
     } catch {
       setCreateChatError("ไม่สามารถสร้างแชทได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -795,6 +847,7 @@ export default function ChatPage() {
     setIsCreatingChat(true);
     setCreateChatError(null);
     try {
+      let result: { room: { id: string } } | null = null;
       if (groupAvatarFile) {
         // ถ้ามีรูปกลุ่ม ส่งเป็น FormData
         const formData = new FormData();
@@ -802,16 +855,18 @@ export default function ChatPage() {
         // ส่ง memberIds เป็น array โดยใช้ key เดิม (backend จะ parse rawMemberIds)
         memberIds.forEach((id) => formData.append("memberIds", id));
         formData.append("avatar", groupAvatarFile);
-        await apiService.postFormData("/api/chat-rooms/group", formData);
+        result = await apiService.postFormData<{ room: { id: string } }>("/api/chat-rooms/group", formData);
       } else {
-        await apiService.post("/api/chat-rooms/group", {
+        result = await apiService.post<{ room: { id: string } }>("/api/chat-rooms/group", {
           name: groupName.trim(),
           memberIds,
         });
       }
       closeGroupNameModal();
       closeNewChatModal();
-      fetchRooms();
+      await fetchRooms();
+      // Auto-select the new group room
+      if (result?.room?.id) setSelectedRoomId(result.room.id);
     } catch {
       setCreateChatError("ไม่สามารถสร้างกลุ่มได้ กรุณาลองใหม่อีกครั้ง");
     } finally {
@@ -829,6 +884,313 @@ export default function ChatPage() {
       setCreateChatError(null);
       setIsGroupNameOpen(true);
     }
+  };
+
+  // ─── Add member modal state ──────────────────────────────────────────────
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  const [addMemberSearch, setAddMemberSearch] = useState("");
+  const [addMemberSuggestions, setAddMemberSuggestions] = useState<Suggestion[]>([]);
+  const [addMemberLoading, setAddMemberLoading] = useState(false);
+  const [addMemberError, setAddMemberError] = useState<string | null>(null);
+  const [isAddingMember, setIsAddingMember] = useState(false);
+
+  // ─── Confirm dialog state ─────────────────────────────────────────────────
+  const [confirmDialog, setConfirmDialog] = useState<{
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    danger?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
+
+  // ─── Message edit/delete state ────────────────────────────────────────────
+  const [activeMessageMenu, setActiveMessageMenu] = useState<string | null>(null); // messageId with open menu
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
+
+  // ─── Info Panel: fetch room detail ─────────────────────────────────────────
+  const fetchRoomDetail = React.useCallback(async (roomId: string) => {
+    setRoomDetailLoading(true);
+    try {
+      const data = await apiService.get<RoomDetail>(`/api/chat-rooms/${roomId}`);
+      setRoomDetail(data);
+      setEditGroupName(data.name ?? "");
+    } catch {
+      // ไม่ critical
+    } finally {
+      setRoomDetailLoading(false);
+    }
+  }, []);
+
+  const handleOpenInfoPanel = () => {
+    if (!selectedRoomId) return;
+    setSaveGroupError(null);
+    setSaveGroupSuccess(false);
+    setEditGroupAvatarFile(null);
+    setEditGroupAvatarPreview(null);
+    setIsInfoPanelOpen(true);
+    fetchRoomDetail(selectedRoomId);
+  };
+
+  // ─── Info Panel: handle edit avatar for group ────────────────────────────
+  const handleEditGroupAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setEditGroupAvatarFile(file);
+    const reader = new FileReader();
+    reader.onload = (ev) => setEditGroupAvatarPreview(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // ─── Info Panel: save group name/avatar ─────────────────────────────────
+  const handleSaveGroupInfo = async () => {
+    if (!selectedRoomId || !roomDetail?.isGroup) return;
+
+    const nameChanged = editGroupName.trim() !== (roomDetail.name ?? "").trim();
+    const avatarChanged = !!editGroupAvatarFile;
+
+    // Nothing changed → skip silently
+    if (!nameChanged && !avatarChanged) {
+      setSaveGroupSuccess(true);
+      setTimeout(() => setSaveGroupSuccess(false), 1500);
+      return;
+    }
+
+    setIsSavingGroup(true);
+    setSaveGroupError(null);
+    setSaveGroupSuccess(false);
+    try {
+      if (avatarChanged) {
+        const fd = new FormData();
+        if (nameChanged) fd.append("name", editGroupName.trim());
+        fd.append("avatar", editGroupAvatarFile!);
+        await apiService.patchFormData(`/api/chat-rooms/${selectedRoomId}`, fd);
+      } else {
+        // Only name changed
+        await apiService.patch(`/api/chat-rooms/${selectedRoomId}`, {
+          name: editGroupName.trim() || null,
+        });
+      }
+      setSaveGroupSuccess(true);
+      // อัปเดต local state
+      setRealRooms((prev) =>
+        prev.map((r) =>
+          r.id === selectedRoomId
+            ? {
+                ...r,
+                name: editGroupName.trim() || null,
+                displayName: editGroupName.trim() || r.displayName,
+              }
+            : r
+        )
+      );
+      // re-fetch room detail + messages (system message จะปรากฏ)
+      fetchRoomDetail(selectedRoomId);
+      fetchMessages(selectedRoomId, 1, false);
+      setEditGroupAvatarFile(null);
+      setEditGroupAvatarPreview(null);
+      setTimeout(() => setSaveGroupSuccess(false), 2500);
+    } catch {
+      setSaveGroupError("บันทึกไม่สำเร็จ กรุณาลองใหม่");
+    } finally {
+      setIsSavingGroup(false);
+    }
+  };
+
+  // ─── Add member search ───────────────────────────────────────────────────
+  const fetchAddMemberSuggestions = React.useCallback(async (query: string) => {
+    if (!roomDetail) return;
+    setAddMemberLoading(true);
+    try {
+      const endpoint = query.trim() === ""
+        ? "/api/friends/me"
+        : `/api/users/search?query=${encodeURIComponent(query.trim())}`;
+      const data = await apiService.get<FriendApiItem[]>(endpoint);
+      const existingIds = new Set(roomDetail.members.map((m) => m.userId));
+      const mapped = data
+        .filter((f) => !existingIds.has(f.id))
+        .slice(0, 20)
+        .map((f) => ({
+          id: parseInt(f.id.replace(/-/g, "").slice(0, 8), 16),
+          rawId: f.id,
+          displayName: `${f.firstName} ${f.lastName}`.trim() || f.username,
+          username: f.username,
+          avatar: f.avatarUrl ? (apiService.getImageUrl(f.avatarUrl) ?? "") : "",
+        }));
+      setAddMemberSuggestions(mapped);
+    } catch {
+      setAddMemberSuggestions([]);
+    } finally {
+      setAddMemberLoading(false);
+    }
+  }, [roomDetail]);
+
+  useEffect(() => {
+    if (!isAddMemberOpen) return;
+    fetchAddMemberSuggestions("");
+  }, [isAddMemberOpen, fetchAddMemberSuggestions]);
+
+  useEffect(() => {
+    if (!isAddMemberOpen) return;
+    const t = setTimeout(() => fetchAddMemberSuggestions(addMemberSearch), 300);
+    return () => clearTimeout(t);
+  }, [addMemberSearch, isAddMemberOpen, fetchAddMemberSuggestions]);
+
+  // ─── Add member action ───────────────────────────────────────────────────
+  const handleAddMember = async (targetRawId: string) => {
+    if (!selectedRoomId || isAddingMember) return;
+    setIsAddingMember(true);
+    setAddMemberError(null);
+    try {
+      await apiService.post(`/api/chat-rooms/${selectedRoomId}/members`, { newUserId: targetRawId });
+      // Remove from suggestions
+      setAddMemberSuggestions((prev) => prev.filter((s) => s.rawId !== targetRawId));
+      // Refresh room detail & messages
+      fetchRoomDetail(selectedRoomId);
+      fetchMessages(selectedRoomId, 1, false);
+      fetchRooms();                    } catch (err: unknown) {
+                      setAddMemberError((err as { message?: string })?.message ?? "เพิ่มสมาชิกไม่สำเร็จ");
+    } finally {
+      setIsAddingMember(false);
+    }
+  };
+
+  // ─── Remove member action ─────────────────────────────────────────────────
+  const handleRemoveMember = async (targetUserId: string, targetName: string) => {
+    if (!selectedRoomId) return;
+    setConfirmDialog({
+      title: "นำสมาชิกออก",
+      message: `นำ ${targetName} ออกจากกลุ่มหรือไม่?`,
+      confirmLabel: "นำออก",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await apiService.delete(`/api/chat-rooms/${selectedRoomId}/members/${targetUserId}`);
+          fetchRoomDetail(selectedRoomId);
+          fetchMessages(selectedRoomId, 1, false);
+          fetchRooms();
+        } catch {
+          setConfirmDialog({
+            title: "เกิดข้อผิดพลาด",
+            message: "ไม่สามารถนำสมาชิกออกได้ กรุณาลองใหม่",
+            confirmLabel: "ตกลง",
+            onConfirm: () => setConfirmDialog(null),
+          });
+        }
+      },
+    });
+  };
+
+  // ─── Leave group action ───────────────────────────────────────────────────
+  const handleLeaveGroup = async () => {
+    if (!selectedRoomId) return;
+    setConfirmDialog({
+      title: "ออกจากกลุ่ม",
+      message: "คุณต้องการออกจากกลุ่มนี้หรือไม่?",
+      confirmLabel: "ออกจากกลุ่ม",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          await apiService.post(`/api/chat-rooms/${selectedRoomId}/leave`, {});
+          setIsInfoPanelOpen(false);
+          setSelectedRoomId(null);
+          fetchRooms();
+        } catch {
+          setConfirmDialog({
+            title: "เกิดข้อผิดพลาด",
+            message: "ไม่สามารถออกจากกลุ่มได้ กรุณาลองใหม่",
+            confirmLabel: "ตกลง",
+            onConfirm: () => setConfirmDialog(null),
+          });
+        }
+      },
+    });
+  };
+
+  // ─── Edit message action ──────────────────────────────────────────────────
+  const handleStartEdit = (msg: RealMessage) => {
+    setEditingMessageId(msg.id);
+    setEditingContent(msg.content);
+    setActiveMessageMenu(null);
+    // focus after render
+    setTimeout(() => {
+      editInputRef.current?.focus();
+      // position cursor at end
+      const len = msg.content.length;
+      editInputRef.current?.setSelectionRange(len, len);
+    }, 50);
+  };
+
+  const handleSaveEdit = async (messageId: string) => {
+    if (!editingContent.trim() || isSavingEdit) return;
+    setIsSavingEdit(true);
+    try {
+      const updated = await apiService.patch<RealMessage>(`/api/messages/${messageId}`, {
+        content: editingContent.trim(),
+      });
+      // Update message in local state
+      setRealMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, content: updated.content, editedAt: updated.editedAt }
+            : m
+        )
+      );
+      setEditingMessageId(null);
+      setEditingContent("");
+    } catch {
+      // keep edit mode open so user can retry
+    } finally {
+      setIsSavingEdit(false);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  // ─── Delete message action ────────────────────────────────────────────────
+  const handleDeleteMessage = (messageId: string) => {
+    setActiveMessageMenu(null);
+    setConfirmDialog({
+      title: "ลบข้อความ",
+      message: "ต้องการลบข้อความนี้หรือไม่?",
+      confirmLabel: "ลบ",
+      danger: true,
+      onConfirm: async () => {
+        setConfirmDialog(null);
+        try {
+          const result = await apiService.delete<{
+            success: boolean;
+            messageId: string;
+            systemMessage: RealMessage;
+          }>(`/api/messages/${messageId}`);
+          // Remove the deleted message and append system message
+          setRealMessages((prev) => {
+            const filtered = prev.filter((m) => m.id !== messageId);
+            if (result.systemMessage) {
+              // dedup guard
+              if (filtered.some((m) => m.id === result.systemMessage.id)) return filtered;
+              return [...filtered, result.systemMessage];
+            }
+            return filtered;
+          });
+        } catch {
+          setConfirmDialog({
+            title: "เกิดข้อผิดพลาด",
+            message: "ไม่สามารถลบข้อความได้ กรุณาลองใหม่",
+            confirmLabel: "ตกลง",
+            onConfirm: () => setConfirmDialog(null),
+          });
+        }
+      },
+    });
   };
 
   return (
@@ -1207,7 +1569,11 @@ export default function ChatPage() {
                   </div>
                   {/* Action buttons */}
                   <div className="flex items-center gap-1">
-                    <button className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="More options">
+                    <button
+                      onClick={handleOpenInfoPanel}
+                      className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+                      title="ข้อมูลห้องแชท"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
@@ -1219,7 +1585,10 @@ export default function ChatPage() {
                 <div
                   ref={messagesContainerRef}
                   onScroll={handleMessagesScroll}
-                  onClick={() => seenPopupMsgId && setSeenPopupMsgId(null)}
+                  onClick={() => {
+                    if (seenPopupMsgId) setSeenPopupMsgId(null);
+                    if (activeMessageMenu) setActiveMessageMenu(null);
+                  }}
                   className="flex-1 overflow-y-auto px-6 py-6 space-y-3"
                 >
                   {/* Load More indicator */}
@@ -1278,6 +1647,41 @@ export default function ChatPage() {
                       const prevMsg = realMessages[idx - 1];
                       const nextMsg = realMessages[idx + 1];
 
+                      // ─── Date divider: ขึ้นวันใหม่ ────────────────────────────────────────
+                      const msgDay = new Date(msg.createdAt).toDateString();
+                      const prevDay = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                      const showDateDivider = prevDay !== msgDay;
+                      const dateDividerLabel = (() => {
+                        const d = new Date(msg.createdAt);
+                        const today = new Date();
+                        const yesterday = new Date(today);
+                        yesterday.setDate(today.getDate() - 1);
+                        if (d.toDateString() === today.toDateString()) return "วันนี้";
+                        if (d.toDateString() === yesterday.toDateString()) return "เมื่อวาน";
+                        return d.toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" });
+                      })();
+
+                      // ─── System message: แสดงแบบ centered pill ──────────────────────────
+                      const isSystemMsg = msg.messageType === "system";
+                      if (isSystemMsg) {
+                        return (
+                          <React.Fragment key={msg.id}>
+                            {showDateDivider && (
+                              <div className="flex items-center gap-3 my-3">
+                                <div className="flex-1 h-px bg-gray-200" />
+                                <span className="text-xs text-gray-400 font-medium px-2">{dateDividerLabel}</span>
+                                <div className="flex-1 h-px bg-gray-200" />
+                              </div>
+                            )}
+                            <div className="flex items-center gap-3 my-2">
+                              <div className="flex-1 h-px bg-gray-200" />
+                              <span className="text-xs text-gray-400 font-medium px-3">{msg.content}</span>
+                              <div className="flex-1 h-px bg-gray-200" />
+                            </div>
+                          </React.Fragment>
+                        );
+                      }
+
                       // ถ้าห่างกันเกิน 1 นาที ให้ถือว่าเป็นกลุ่มใหม่
                       const TIME_GAP_MS = 1 * 60 * 1000;
                       const prevTimeDiff = prevMsg
@@ -1304,10 +1708,14 @@ export default function ChatPage() {
                       const senderMember = selectedRoom?.members.find((m) => m.userId === msg.senderId);
                       const senderAvatarUrl = senderMember?.avatarUrl
                         ? apiService.getImageUrl(senderMember.avatarUrl)
-                        : null;
+                        : msg.senderAvatarUrl
+                          ? apiService.getImageUrl(msg.senderAvatarUrl)
+                          : null;
                       const senderName = senderMember
                         ? `${senderMember.firstName} ${senderMember.lastName}`.trim()
-                        : msg.senderId.slice(0, 8);
+                        : (msg.senderFirstName || msg.senderLastName)
+                          ? `${msg.senderFirstName ?? ""} ${msg.senderLastName ?? ""}`.trim()
+                          : "ผู้ใช้";
 
                       const msgDate = new Date(msg.createdAt);
                       const msgTime = msgDate.toLocaleTimeString("th-TH", {
@@ -1411,8 +1819,16 @@ export default function ChatPage() {
                       );
 
                       return (
+                        <React.Fragment key={msg.id}>
+                          {/* ── Date divider ─────────────────────────────────────── */}
+                          {showDateDivider && (
+                            <div className="flex items-center gap-3 my-3">
+                              <div className="flex-1 h-px bg-gray-200" />
+                              <span className="text-xs text-gray-400 font-medium px-2">{dateDividerLabel}</span>
+                              <div className="flex-1 h-px bg-gray-200" />
+                            </div>
+                          )}
                         <div
-                          key={msg.id}
                           className={`flex flex-col ${isMine ? "items-end" : "items-start"} ${marginTop}`}
                         >
                           {/* ── Message row: avatar + bubble ─────────────────────── */}
@@ -1445,11 +1861,78 @@ export default function ChatPage() {
                                 <span className="text-[11px] text-gray-400 mb-0.5 px-1">{senderName}</span>
                               )}
 
-                              {/* Bubble */}
+                              {/* ── Edit/Delete action buttons (own messages only) ─── */}
+                              {isMine && activeMessageMenu === msg.id && editingMessageId !== msg.id && (
+                                <div className="flex items-center gap-1 mb-1 self-end">
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleStartEdit(msg); }}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition-colors"
+                                    title="แก้ไขข้อความ"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                    </svg>
+                                    แก้ไข
+                                  </button>
+                                  <button
+                                    onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 hover:bg-red-100 text-red-500 text-[11px] font-medium transition-colors"
+                                    title="ลบข้อความ"
+                                  >
+                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    ลบ
+                                  </button>
+                                </div>
+                              )}
+
+                              {/* ── Inline edit mode ─────────────────────────────── */}
+                              {editingMessageId === msg.id ? (
+                                <div className="w-full flex flex-col gap-1.5">
+                                  <textarea
+                                    ref={editInputRef}
+                                    value={editingContent}
+                                    onChange={(e) => setEditingContent(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter" && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleSaveEdit(msg.id);
+                                      }
+                                      if (e.key === "Escape") handleCancelEdit();
+                                    }}
+                                    rows={1}
+                                    className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-slate-300 resize-none leading-relaxed"
+                                    style={{ minHeight: "40px", maxHeight: "120px" }}
+                                  />
+                                  <div className="flex items-center gap-1.5 self-end">
+                                    <button
+                                      onClick={handleCancelEdit}
+                                      className="px-3 py-1 rounded-full text-xs font-medium text-gray-500 bg-gray-100 hover:bg-gray-200 transition-colors"
+                                    >
+                                      ยกเลิก
+                                    </button>
+                                    <button
+                                      onClick={() => handleSaveEdit(msg.id)}
+                                      disabled={!editingContent.trim() || isSavingEdit}
+                                      className="px-3 py-1 rounded-full text-xs font-medium text-white bg-slate-700 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-1"
+                                    >
+                                      {isSavingEdit && (
+                                        <svg className="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24">
+                                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                        </svg>
+                                      )}
+                                      บันทึก
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                              /* ── Normal Bubble ────────────────────────────────── */
                               <div
                                 className={`overflow-hidden ${
                                   isMine
-                                    ? `bg-slate-700 text-white ${
+                                    ? `bg-slate-700 text-white cursor-pointer select-none ${
                                         isFirstInGroup && isLastInGroup ? "rounded-2xl rounded-br-sm"
                                         : isFirstInGroup ? "rounded-2xl rounded-br-md"
                                         : isLastInGroup ? "rounded-2xl rounded-tr-md rounded-br-sm"
@@ -1462,6 +1945,11 @@ export default function ChatPage() {
                                         : "rounded-xl rounded-l-md"
                                       }`
                                 }`}
+                                onClick={(e) => {
+                                  if (!isMine) return;
+                                  e.stopPropagation();
+                                  setActiveMessageMenu((prev) => prev === msg.id ? null : msg.id);
+                                }}
                               >
                                 {/* Media: images grid + individual videos */}
                                 {msg.mediaUrls && (() => {
@@ -1551,13 +2039,19 @@ export default function ChatPage() {
                                 {/* Media-only: no text padding filler */}
                                 {!msg.content && msg.mediaUrls && <div />}
                               </div>
+                              )} {/* end of edit/normal ternary */}
+
+                              {/* Edited label — แสดงใต้ bubble */}
+                              {msg.editedAt && editingMessageId !== msg.id && (
+                                <span className={`text-[10px] text-gray-400 italic px-1 mt-0.5 ${isMine ? "self-end" : "self-start"}`}>
+                                  แก้ไขแล้ว
+                                </span>
+                              )}
 
                               {/* Timestamp row */}
-                              {showTime && (
+                              {showTime && editingMessageId !== msg.id && (
                                 <div className={`flex items-center gap-1 mt-0.5 px-1 ${isMine ? "flex-row-reverse" : "flex-row"}`}>
                                   <span className="text-[11px] text-gray-400">{msgTime}</span>
-
-                                  {/* Sent ✓ */}
                                   {showSentStatus && (
                                     <div className="flex items-center gap-0.5">
                                       <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1628,6 +2122,7 @@ export default function ChatPage() {
                             </div>
                           )}
                         </div>
+                        </React.Fragment>
                       );
                     })
                   )}
@@ -1955,6 +2450,396 @@ export default function ChatPage() {
           </div>
         </div>
       </main>
+
+      {/* ── Add Member Modal ──────────────────────────────────────────────────── */}
+      {isAddMemberOpen && selectedRoomId && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsAddMemberOpen(false)}
+          />
+          <div className="relative w-full max-w-sm mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[520px]">
+            {/* Header */}
+            <div className="flex-none flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <button
+                onClick={() => setIsAddMemberOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <h2 className="text-gray-900 font-semibold text-base">เพิ่มสมาชิก</h2>
+              <div className="w-8" />
+            </div>
+
+            {/* Search */}
+            <div className="flex-none flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+              <span className="text-gray-400 pointer-events-none">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" strokeWidth="2" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth="2" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="ค้นหาผู้ใช้..."
+                value={addMemberSearch}
+                onChange={(e) => setAddMemberSearch(e.target.value)}
+                autoFocus
+                className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+              />
+            </div>
+
+            {/* List */}
+            <div className="flex-1 overflow-y-auto">
+              {addMemberLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <svg className="w-6 h-6 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                </div>
+              ) : addMemberSuggestions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" />
+                  </svg>
+                  <p className="text-sm text-gray-400">ไม่พบผู้ใช้</p>
+                </div>
+              ) : (
+                addMemberSuggestions.map((s) => (
+                  <div
+                    key={s.rawId}
+                    className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={s.avatar || "/default-avatar.svg"}
+                      alt={s.displayName}
+                      className="w-10 h-10 rounded-full object-cover flex-none"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800 truncate">{s.displayName}</p>
+                      <p className="text-xs text-gray-400 truncate">{s.username}</p>
+                    </div>
+                    <button
+                      onClick={() => handleAddMember(s.rawId)}
+                      disabled={isAddingMember}
+                      className="flex-none px-3 py-1.5 rounded-full bg-slate-700 hover:bg-slate-800 text-white text-xs font-semibold transition-colors disabled:opacity-50"
+                    >
+                      เพิ่ม
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Error */}
+            {addMemberError && (
+              <div className="flex-none px-5 py-3 border-t border-gray-100">
+                <p className="text-xs text-red-500 text-center">{addMemberError}</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Room Info Popup Modal ─────────────────────────────────────────────── */}
+      {isInfoPanelOpen && selectedRoomId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setIsInfoPanelOpen(false)}
+          />
+          {/* Modal */}
+          <div className="relative w-full max-w-sm mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="flex-none flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <h2 className="text-gray-900 font-semibold text-base">
+                {roomDetail?.isGroup ? "ข้อมูลกลุ่ม" : "ข้อมูลแชท"}
+              </h2>
+              <button
+                onClick={() => setIsInfoPanelOpen(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto">
+              {roomDetailLoading ? (
+                <div className="flex items-center justify-center h-40">
+                  <svg className="w-6 h-6 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                </div>
+              ) : roomDetail ? (
+                <>
+                  {/* ── Direct Chat: แสดงสมาชิก ─────────────────────────────── */}
+                  {!roomDetail.isGroup && (
+                    <div className="px-5 py-5">
+                      <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                        สมาชิกในแชท
+                      </p>
+                      <div className="flex flex-col gap-4">
+                        {roomDetail.members.map((m) => {
+                          const mAvatarUrl = m.avatarUrl ? apiService.getImageUrl(m.avatarUrl) : null;
+                          const mName = `${m.firstName} ${m.lastName}`.trim() || "ไม่ระบุชื่อ";
+                          const isMe = m.userId === currentUserId;
+                          return (
+                            <div key={m.userId} className="flex items-center gap-3">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={mAvatarUrl ?? "/default-avatar.svg"}
+                                alt={mName}
+                                className="w-12 h-12 rounded-full object-cover flex-none ring-2 ring-gray-100"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-800 truncate">{mName}</p>
+                                <p className="text-xs text-gray-400 mt-0.5">{isMe ? "คุณ" : "สมาชิก"}</p>
+                              </div>
+                              {isMe && (
+                                <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">You</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Group Chat: รูป + ชื่อ + สมาชิก ────────────────────── */}
+                  {roomDetail.isGroup && (
+                    <>
+                      {/* Avatar + Name edit */}
+                      <div className="px-5 py-5 border-b border-gray-100">
+                        {/* Group avatar centered */}
+                        <div className="flex flex-col items-center mb-5">
+                          <input
+                            ref={editGroupAvatarInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleEditGroupAvatarChange}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => editGroupAvatarInputRef.current?.click()}
+                            className="relative w-24 h-24 rounded-full overflow-hidden group"
+                            title="เปลี่ยนรูปกลุ่ม"
+                          >
+                            {editGroupAvatarPreview ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={editGroupAvatarPreview} alt="preview" className="w-full h-full object-cover" />
+                            ) : roomDetail.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={apiService.getImageUrl(roomDetail.avatarUrl) ?? "/default-avatar.svg"}
+                                alt="group"
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                              />
+                            ) : (
+                              <DefaultGroupAvatar size={96} />
+                            )}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity gap-1">
+                              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <span className="text-white text-[10px] font-medium">เปลี่ยนรูป</span>
+                            </div>
+                          </button>
+                          {/* Camera hint always visible below avatar */}
+                          <p className="mt-2 text-xs text-gray-400 flex items-center gap-1">
+                            <svg className="w-3.5 h-3.5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            กดรูปเพื่อเปลี่ยนรูปกลุ่ม
+                          </p>
+                          {editGroupAvatarFile && (
+                            <button
+                              type="button"
+                              onClick={() => { setEditGroupAvatarFile(null); setEditGroupAvatarPreview(null); }}
+                              className="text-xs text-red-400 hover:text-red-500 mt-1 transition-colors"
+                            >
+                              ยกเลิกรูปใหม่
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Group name input */}
+                        <div className="mb-4">
+                          <label className="text-xs text-gray-500 font-medium mb-1.5 block">ชื่อกลุ่ม</label>
+                          <input
+                            type="text"
+                            value={editGroupName}
+                            onChange={(e) => setEditGroupName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter" && !isSavingGroup) handleSaveGroupInfo(); }}
+                            placeholder="ชื่อกลุ่ม..."
+                            maxLength={50}
+                            className="w-full px-3.5 py-2.5 rounded-xl bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition"
+                          />
+                        </div>
+
+                        {saveGroupError && <p className="text-xs text-red-500 mb-3">{saveGroupError}</p>}
+                        {saveGroupSuccess && (
+                          <div className="flex items-center gap-1.5 mb-3">
+                            <svg className="w-3.5 h-3.5 text-green-500 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <p className="text-xs text-green-600">บันทึกเรียบร้อยแล้ว</p>
+                          </div>
+                        )}
+
+                        <button
+                          onClick={handleSaveGroupInfo}
+                          disabled={isSavingGroup}
+                          className={`w-full py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                            !isSavingGroup ? "bg-slate-700 hover:bg-slate-800 text-white" : "bg-slate-100 text-slate-400 cursor-not-allowed"
+                          }`}
+                        >
+                          {isSavingGroup ? (
+                            <>
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                              กำลังบันทึก...
+                            </>
+                          ) : "บันทึก"}
+                        </button>
+                      </div>
+
+                      {/* Members list */}
+                      <div className="px-5 py-5">
+                        <div className="flex items-center justify-between mb-4">
+                          <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                            สมาชิก · {roomDetail.memberCount} คน
+                          </p>
+                          {/* Add member button */}
+                          <button
+                            onClick={() => {
+                              setAddMemberSearch("");
+                              setAddMemberError(null);
+                              setIsAddMemberOpen(true);
+                            }}
+                            className="flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-full transition-colors"
+                            title="เพิ่มสมาชิก"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                            </svg>
+                            เพิ่มสมาชิก
+                          </button>
+                        </div>
+                        <div className="flex flex-col gap-3">
+                          {roomDetail.members.map((m) => {
+                            const mAvatarUrl = m.avatarUrl ? apiService.getImageUrl(m.avatarUrl) : null;
+                            const mName = `${m.firstName} ${m.lastName}`.trim() || "ไม่ระบุชื่อ";
+                            const isMe = m.userId === currentUserId;
+                            return (
+                              <div key={m.userId} className="flex items-center gap-3">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={mAvatarUrl ?? "/default-avatar.svg"}
+                                  alt={mName}
+                                  className="w-10 h-10 rounded-full object-cover flex-none"
+                                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium text-gray-800 truncate">{mName}</p>
+                                  <p className="text-xs text-gray-400">{m.role === "admin" ? "แอดมิน" : "สมาชิก"}</p>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-none">
+                                  {m.role === "admin" && (
+                                    <span className="text-[10px] font-semibold bg-slate-700 text-white px-2 py-0.5 rounded-full">Admin</span>
+                                  )}
+                          {isMe ? (
+                                    <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">You</span>
+                                  ) : (
+                                    /* Remove member button — always visible */
+                                    <button
+                                      onClick={() => handleRemoveMember(m.userId, mName)}
+                                      className="w-7 h-7 flex items-center justify-center rounded-full bg-red-50 hover:bg-red-100 text-red-400 hover:text-red-600 transition-colors"
+                                      title={`นำ ${mName} ออกจากกลุ่ม`}
+                                    >
+                                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        {/* Leave group button */}
+                        <div className="mt-6 pt-5 border-t border-gray-100">
+                          <button
+                            onClick={handleLeaveGroup}
+                            className="w-full py-2.5 rounded-xl text-sm font-semibold text-red-500 hover:bg-red-50 border border-red-100 transition-colors flex items-center justify-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                            </svg>
+                            ออกจากกลุ่ม
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Confirm Dialog ─────────────────────────────────────────────── */}
+      {confirmDialog && (
+        <div className="fixed inset-0 z-100 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setConfirmDialog(null)}
+          />
+          <div className="relative w-full max-w-xs mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden">
+            <div className="px-6 pt-6 pb-4">
+              <h3 className="text-gray-900 font-semibold text-base mb-1.5">{confirmDialog.title}</h3>
+              <p className="text-gray-500 text-sm leading-relaxed">{confirmDialog.message}</p>
+            </div>
+            <div className="flex border-t border-gray-100">
+              <button
+                onClick={() => setConfirmDialog(null)}
+                className="flex-1 py-3.5 text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <div className="w-px bg-gray-100" />
+              <button
+                onClick={confirmDialog.onConfirm}
+                className={`flex-1 py-3.5 text-sm font-semibold transition-colors ${
+                  confirmDialog.danger
+                    ? "text-red-500 hover:bg-red-50"
+                    : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {confirmDialog.confirmLabel ?? "ยืนยัน"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Image Lightbox ────────────────────────────────────────────────────── */}
       {lightboxUrls.length > 0 && (

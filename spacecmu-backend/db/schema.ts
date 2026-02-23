@@ -21,6 +21,7 @@ export const marketItemStatusEnum = pgEnum("market_item_status", ["available", "
 export const announcementTypeEnum = pgEnum("announcement_type", ["global", "private"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other"]);
 export const roomMemberRoleEnum = pgEnum("room_member_role", ["member", "admin"]);
+export const messageTypeEnum = pgEnum("message_type", ["text", "system"]);
 
 // --- Users Table ---
 // Covers Profile, Settings, Admin User Mgmt
@@ -216,6 +217,9 @@ export const messagesTable = pgTable("messages", {
   // Media attachments (images / videos)
   mediaUrls: text("media_urls"), // JSON array of file paths e.g. ["images-xxx.jpg","images-yyy.mp4"]
   mediaType: varchar("media_type", { length: 20 }), // "image" | "video" | "mixed" | null
+
+  // Message type: "text" = normal, "system" = automated notification (e.g. changed group name)
+  messageType: messageTypeEnum("message_type").default("text"),
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   editedAt: timestamp("edited_at", { withTimezone: true }), // For message editing

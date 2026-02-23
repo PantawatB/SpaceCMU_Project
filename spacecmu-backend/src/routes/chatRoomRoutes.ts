@@ -22,8 +22,8 @@ router.post("/group", sessionMiddleware, upload.single("avatar"), createGroupRoo
 router.get("/me", sessionMiddleware, getUserRooms);
 router.get("/:roomId", sessionMiddleware, getRoomDetails);
 
-// Update room
-router.patch("/:roomId", sessionMiddleware, updateRoom);
+// Update room (supports multipart/form-data for avatar upload)
+router.patch("/:roomId", sessionMiddleware, upload.single("avatar"), updateRoom);
 
 // Manage members
 router.post("/:roomId/members", sessionMiddleware, addMember);
