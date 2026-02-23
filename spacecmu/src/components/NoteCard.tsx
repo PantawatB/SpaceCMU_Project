@@ -16,7 +16,11 @@ function getRelativeTime(time?: string, date?: string): string {
   if (!time) return "";
 
   const [hours, minutes] = time.split(":").map(Number);
-  const baseDate = date ?? new Date().toISOString().slice(0, 10);
+  // Use Bangkok local date as default (not UTC date) to avoid wrong-day at 17:00-24:00 BKK
+  // "sv-SE" locale returns "YYYY-MM-DD" format which is what we need
+  const baseDate = date ?? new Date().toLocaleDateString("sv-SE", {
+    timeZone: "Asia/Bangkok",
+  });
   const [year, month, day] = baseDate.split("-").map(Number);
 
   const eventDate = new Date(year, month - 1, day, hours, minutes, 0);

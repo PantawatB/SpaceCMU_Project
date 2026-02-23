@@ -1195,127 +1195,95 @@ export default function PostCard({
       )}
 
       {/* Image Lightbox Popup */}
-      {showImageLightbox && post.media && (
-        <div
-          className="fixed inset-0 backdrop-blur-sm bg-black/30 z-100 flex items-center justify-center p-4"
-          onClick={() => setShowImageLightbox(false)}
-        >
-          {/* Close Button */}
-          <button
-            onClick={() => setShowImageLightbox(false)}
-            className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors z-101"
-          >
-            <svg
-              className="w-8 h-8"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-
-          {/* Image Counter */}
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black bg-opacity-50 px-4 py-2 rounded-full z-101">
-            {selectedImageIndex + 1} /{" "}
-            {post.media.filter((m) => m.mediaType === "image").length}
-          </div>
-
-          {/* Previous Button */}
-          {selectedImageIndex > 0 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedImageIndex((prev) => prev - 1);
-              }}
-              className="absolute left-4 text-white hover:text-gray-300 transition-colors z-101"
-            >
-              <svg
-                className="w-12 h-12"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-          )}
-
-          {/* Next Button */}
-          {selectedImageIndex <
-            post.media.filter((m) => m.mediaType === "image").length - 1 && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setSelectedImageIndex((prev) => prev + 1);
-              }}
-              className="absolute right-4 text-white hover:text-gray-300 transition-colors z-101"
-            >
-              <svg
-                className="w-12 h-12"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
-            </button>
-          )}
-
-          {/* Image */}
+      {showImageLightbox && post.media && (() => {
+        const imageMediaList = post.media.filter((m) => m.mediaType === "image");
+        const totalImages = imageMediaList.length;
+        return (
           <div
-            className="max-w-7xl max-h-full flex items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-100 flex items-center justify-center p-4"
+            onClick={() => setShowImageLightbox(false)}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={apiService.getImageUrl(post.media.filter((m) => m.mediaType === "image")[selectedImageIndex]?.mediaUrl) || ""}
-              alt={`Full size ${selectedImageIndex + 1}`}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-            />
-          </div>
-
-          {/* Download Button */}
-          <a
-            href={apiService.getImageUrl(post.media.filter((m) => m.mediaType === "image")[selectedImageIndex]?.mediaUrl) || "#"}
-            download
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute bottom-4 right-4 bg-white text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2 z-101"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            {/* Close Button */}
+            <button
+              onClick={() => setShowImageLightbox(false)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/30 text-white transition-colors"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Image Counter */}
+            {totalImages > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/40 text-white text-sm font-medium">
+                {selectedImageIndex + 1} / {totalImages}
+              </div>
+            )}
+
+            {/* Previous Button */}
+            {selectedImageIndex > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => prev - 1); }}
+                className="absolute left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/30 text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Next Button */}
+            {selectedImageIndex < totalImages - 1 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setSelectedImageIndex((prev) => prev + 1); }}
+                className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/30 text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            )}
+
+            {/* Main Image */}
+            <div
+              className="flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={apiService.getImageUrl(imageMediaList[selectedImageIndex]?.mediaUrl) || ""}
+                alt={`Full size ${selectedImageIndex + 1}`}
+                className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+                draggable={false}
               />
-            </svg>
-            Download
-          </a>
-        </div>
-      )}
+            </div>
+
+            {/* Thumbnail Strip */}
+            {totalImages > 1 && (
+              <div
+                className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {imageMediaList.map((m, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    key={m.id}
+                    src={apiService.getImageUrl(m.mediaUrl) || ""}
+                    alt={`Thumbnail ${i + 1}`}
+                    onClick={() => setSelectedImageIndex(i)}
+                    className={`w-12 h-12 object-cover rounded-md cursor-pointer transition-all ${
+                      i === selectedImageIndex
+                        ? "ring-2 ring-white opacity-100"
+                        : "opacity-50 hover:opacity-75"
+                    }`}
+                    draggable={false}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

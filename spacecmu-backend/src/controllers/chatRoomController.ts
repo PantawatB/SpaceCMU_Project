@@ -105,13 +105,26 @@ export const createDirectRoom = async (req: Request, res: Response) => {
 export const createGroupRoom = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
-        const { name, memberIds, avatarUrl } = req.body;
+        // รองรับทั้ง JSON body (memberIds) และ FormData (memberIds[])
+        const name = req.body.name;
+        const rawMemberIds = req.body.memberIds ?? req.body["memberIds[]"];
+        const memberIds: string[] = Array.isArray(rawMemberIds)
+            ? rawMemberIds
+            : rawMemberIds
+            ? [rawMemberIds]
+            : [];
+
+        // ถ้าส่งมาเป็น FormData จะมี req.file, ถ้าส่ง JSON จะไม่มี
+        const uploadedFile = (req as any).file as Express.Multer.File | undefined;
+        const avatarUrl = uploadedFile
+            ? `/uploads/${uploadedFile.filename}`
+            : (req.body.avatarUrl ?? null);
 
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        if (!name || !memberIds || !Array.isArray(memberIds) || memberIds.length < 1) {
+        if (!name || memberIds.length < 1) {
             return res.status(400).json({
                 message: "name and memberIds (array with at least 1 member) are required"
             });
@@ -206,13 +219,35 @@ export const getUserRooms = async (req: Request, res: Response) => {
                     .innerJoin(usersTable, eq(chatRoomMembersTable.userId, usersTable.id))
                     .where(eq(chatRoomMembersTable.roomId, room.id));
 
-                // Get last message
-                const lastMessage = await dbClient
-                    .select()
+                // Get last message (with sender name)
+                const lastMessageRaw = await dbClient
+                    .select({
+                        id: messagesTable.id,
+                        roomId: messagesTable.roomId,
+                        senderId: messagesTable.senderId,
+                        content: messagesTable.content,
+                        createdAt: messagesTable.createdAt,
+                        senderFirstName: usersTable.firstName,
+                        senderLastName: usersTable.lastName,
+                    })
                     .from(messagesTable)
+                    .leftJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
                     .where(eq(messagesTable.roomId, room.id))
                     .orderBy(desc(messagesTable.createdAt))
                     .limit(1);
+
+                const lastMessage = lastMessageRaw[0]
+                    ? {
+                          id: lastMessageRaw[0].id,
+                          senderId: lastMessageRaw[0].senderId,
+                          content: lastMessageRaw[0].content,
+                          createdAt: lastMessageRaw[0].createdAt,
+                          sender: {
+                              firstName: lastMessageRaw[0].senderFirstName ?? "",
+                              lastName: lastMessageRaw[0].senderLastName ?? "",
+                          },
+                      }
+                    : null;
 
                 // Get unread count for this user
                 const userMember = await dbClient
@@ -228,22 +263,31 @@ export const getUserRooms = async (req: Request, res: Response) => {
 
                 let unreadCount = 0;
                 if (userMember[0]?.lastReadAt) {
+                    const lastReadIso = new Date(userMember[0].lastReadAt).toISOString();
                     const unreadResult = await dbClient
                         .select({ count: sql<number>`count(*)` })
                         .from(messagesTable)
                         .where(
                             and(
                                 eq(messagesTable.roomId, room.id),
-                                sql`${messagesTable.createdAt} > ${userMember[0].lastReadAt}`
+                                sql`${messagesTable.createdAt} > ${lastReadIso}::timestamptz`,
+                                // ไม่นับข้อความที่ตัวเองส่ง
+                                sql`${messagesTable.senderId} != ${userId}`
                             )
                         );
                     unreadCount = Number(unreadResult[0]?.count || 0);
                 } else {
-                    // If never read, count all messages
+                    // If never read, count all messages except own
                     const unreadResult = await dbClient
                         .select({ count: sql<number>`count(*)` })
                         .from(messagesTable)
-                        .where(eq(messagesTable.roomId, room.id));
+                        .where(
+                            and(
+                                eq(messagesTable.roomId, room.id),
+                                // ไม่นับข้อความที่ตัวเองส่ง
+                                sql`${messagesTable.senderId} != ${userId}`
+                            )
+                        );
                     unreadCount = Number(unreadResult[0]?.count || 0);
                 }
 
@@ -265,16 +309,20 @@ export const getUserRooms = async (req: Request, res: Response) => {
                     displayAvatar,
                     members,
                     memberCount: members.length,
-                    lastMessage: lastMessage[0] || null,
+                    lastMessage: lastMessage || null,
                     unreadCount,
                 };
             })
         );
 
-        // Sort by last message time
+        // Sort by last message time, then by room updatedAt/createdAt for new rooms
         roomsWithDetails.sort((a, b) => {
-            const timeA = a.lastMessage?.createdAt ? new Date(a.lastMessage.createdAt).getTime() : 0;
-            const timeB = b.lastMessage?.createdAt ? new Date(b.lastMessage.createdAt).getTime() : 0;
+            const timeA = a.lastMessage?.createdAt
+                ? new Date(a.lastMessage.createdAt).getTime()
+                : new Date(a.updatedAt ?? a.createdAt).getTime();
+            const timeB = b.lastMessage?.createdAt
+                ? new Date(b.lastMessage.createdAt).getTime()
+                : new Date(b.updatedAt ?? b.createdAt).getTime();
             return timeB - timeA;
         });
 
@@ -352,32 +400,50 @@ export const updateRoom = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
         const { roomId } = req.params;
-        const { name, avatarUrl } = req.body;
+        const { name, avatarUrl: avatarUrlBody } = req.body;
 
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Check if user is admin of the room
+        // Check the room exists and get its type
+        const room = await dbClient
+            .select()
+            .from(chatRoomsTable)
+            .where(eq(chatRoomsTable.id, roomId))
+            .limit(1);
+
+        if (room.length === 0) {
+            return res.status(404).json({ message: "Room not found" });
+        }
+
+        const isGroup = room[0].isGroup;
+
+        // For both group and direct rooms: any member can update
         const membership = await dbClient
             .select()
             .from(chatRoomMembersTable)
             .where(
                 and(
                     eq(chatRoomMembersTable.roomId, roomId),
-                    eq(chatRoomMembersTable.userId, userId),
-                    eq(chatRoomMembersTable.role, "admin")
+                    eq(chatRoomMembersTable.userId, userId)
                 )
             )
             .limit(1);
 
         if (membership.length === 0) {
-            return res.status(403).json({ message: "Only admins can update room details" });
+            return res.status(403).json({ message: "You are not a member of this room" });
         }
 
         const updates: any = {};
         if (name !== undefined) updates.name = name;
-        if (avatarUrl !== undefined) updates.avatarUrl = avatarUrl;
+
+        // Handle avatar: if a file was uploaded, use the file path; otherwise use avatarUrl from body
+        if (req.file) {
+            updates.avatarUrl = `/uploads/${req.file.filename}`;
+        } else if (avatarUrlBody !== undefined) {
+            updates.avatarUrl = avatarUrlBody;
+        }
 
         if (Object.keys(updates).length === 0) {
             return res.status(400).json({ message: "No fields to update" });
@@ -388,6 +454,37 @@ export const updateRoom = async (req: Request, res: Response) => {
             .set(updates)
             .where(eq(chatRoomsTable.id, roomId))
             .returning();
+
+        // ── Insert system message(s) for group chats ──────────────────────────
+        if (isGroup) {
+            // Fetch actor's name
+            const actor = await dbClient
+                .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+                .from(usersTable)
+                .where(eq(usersTable.id, userId))
+                .limit(1);
+
+            const actorName = actor[0]
+                ? `${actor[0].firstName} ${actor[0].lastName}`.trim()
+                : "สมาชิก";
+
+            if (updates.name !== undefined) {
+                await dbClient.insert(messagesTable).values({
+                    roomId,
+                    senderId: userId,
+                    content: `${actorName} ได้เปลี่ยนชื่อกลุ่มแล้ว`,
+                    messageType: "system",
+                });
+            }
+            if (updates.avatarUrl !== undefined) {
+                await dbClient.insert(messagesTable).values({
+                    roomId,
+                    senderId: userId,
+                    content: `${actorName} ได้เปลี่ยนรูปโปรไฟล์กลุ่มแล้ว`,
+                    messageType: "system",
+                });
+            }
+        }
 
         res.json({
             message: "Room updated successfully",
@@ -414,21 +511,20 @@ export const addMember = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "newUserId is required" });
         }
 
-        // Check if requester is admin
+        // Check if requester is a member (any role can add)
         const membership = await dbClient
             .select()
             .from(chatRoomMembersTable)
             .where(
                 and(
                     eq(chatRoomMembersTable.roomId, roomId),
-                    eq(chatRoomMembersTable.userId, userId),
-                    eq(chatRoomMembersTable.role, "admin")
+                    eq(chatRoomMembersTable.userId, userId)
                 )
             )
             .limit(1);
 
         if (membership.length === 0) {
-            return res.status(403).json({ message: "Only admins can add members" });
+            return res.status(403).json({ message: "You are not a member of this room" });
         }
 
         // Check if room is a group
@@ -456,6 +552,28 @@ export const addMember = async (req: Request, res: Response) => {
             })
             .returning();
 
+        // Insert system message
+        const actor = await dbClient
+            .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+        const added = await dbClient
+            .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(eq(usersTable.id, newUserId))
+            .limit(1);
+
+        const actorName = actor[0] ? `${actor[0].firstName} ${actor[0].lastName}`.trim() : "สมาชิก";
+        const addedName = added[0] ? `${added[0].firstName} ${added[0].lastName}`.trim() : "ผู้ใช้";
+
+        await dbClient.insert(messagesTable).values({
+            roomId,
+            senderId: userId,
+            content: `${actorName} ได้เพิ่ม ${addedName} เข้ากลุ่ม`,
+            messageType: "system",
+        });
+
         res.status(201).json({
             message: "Member added successfully",
             member: newMember[0],
@@ -479,27 +597,38 @@ export const removeMember = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Check if requester is admin
+        // Check if requester is a member (any member can remove others)
         const membership = await dbClient
             .select()
             .from(chatRoomMembersTable)
             .where(
                 and(
                     eq(chatRoomMembersTable.roomId, roomId),
-                    eq(chatRoomMembersTable.userId, userId),
-                    eq(chatRoomMembersTable.role, "admin")
+                    eq(chatRoomMembersTable.userId, userId)
                 )
             )
             .limit(1);
 
         if (membership.length === 0) {
-            return res.status(403).json({ message: "Only admins can remove members" });
+            return res.status(403).json({ message: "You are not a member of this room" });
         }
 
-        // Cannot remove yourself as admin (use leave instead)
+        // Cannot remove yourself (use leave instead)
         if (targetUserId === userId) {
             return res.status(400).json({ message: "Use leave endpoint to exit the room" });
         }
+
+        // Fetch names before removal for system message
+        const actor = await dbClient
+            .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+        const target = await dbClient
+            .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(eq(usersTable.id, targetUserId))
+            .limit(1);
 
         // Remove member
         await dbClient
@@ -510,6 +639,17 @@ export const removeMember = async (req: Request, res: Response) => {
                     eq(chatRoomMembersTable.userId, targetUserId)
                 )
             );
+
+        // Insert system message
+        const actorName = actor[0] ? `${actor[0].firstName} ${actor[0].lastName}`.trim() : "สมาชิก";
+        const targetName = target[0] ? `${target[0].firstName} ${target[0].lastName}`.trim() : "ผู้ใช้";
+
+        await dbClient.insert(messagesTable).values({
+            roomId,
+            senderId: userId,
+            content: `${actorName} ได้นำ ${targetName} ออกจากกลุ่ม`,
+            messageType: "system",
+        });
 
         res.json({
             message: "Member removed successfully",
@@ -547,6 +687,15 @@ export const leaveRoom = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "You are not a member of this room" });
         }
 
+        // Fetch actor name before removal
+        const actor = await dbClient
+            .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        const actorName = actor[0] ? `${actor[0].firstName} ${actor[0].lastName}`.trim() : "สมาชิก";
+
         // Remove user from room
         await dbClient
             .delete(chatRoomMembersTable)
@@ -573,6 +722,14 @@ export const leaveRoom = async (req: Request, res: Response) => {
                 message: "Left room successfully. Room was deleted as it's now empty.",
             });
         }
+
+        // Insert system message
+        await dbClient.insert(messagesTable).values({
+            roomId,
+            senderId: userId,
+            content: `${actorName} ได้ออกจากกลุ่ม`,
+            messageType: "system",
+        });
 
         res.json({
             message: "Left room successfully",

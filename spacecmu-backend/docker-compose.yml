@@ -10,7 +10,8 @@ services:
       - db_data:/var/lib/postgresql/data
       - ./db/_entrypoint:/docker-entrypoint-initdb.d
     environment:
-      - TZ=Asia/Bangkok
+      - TZ=UTC
+      - PGTZ=UTC
     networks:
       - spacecmu-net
     env_file:
@@ -27,6 +28,7 @@ services:
       - POSTGRES_HOST=database
       - NODE_ENV=development
       - PORT=3001
+      - TZ=UTC
     volumes:
       - .:/app
       - /app/node_modules

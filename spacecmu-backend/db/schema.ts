@@ -21,6 +21,7 @@ export const marketItemStatusEnum = pgEnum("market_item_status", ["available", "
 export const announcementTypeEnum = pgEnum("announcement_type", ["global", "private"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other"]);
 export const roomMemberRoleEnum = pgEnum("room_member_role", ["member", "admin"]);
+export const messageTypeEnum = pgEnum("message_type", ["text", "system"]);
 
 // --- Users Table ---
 // Covers Profile, Settings, Admin User Mgmt
@@ -48,7 +49,7 @@ export const usersTable = pgTable("users", {
   // Admin & Status
   role: userRoleEnum("role").default("user"),
   status: userStatusEnum("status").default("active"),
-  lastActiveAt: timestamp("last_active_at"),
+  lastActiveAt: timestamp("last_active_at", { withTimezone: true }),
 
   // Settings (JSON for flexibility)
   // Notifications: { email: bool, push: bool, sms: bool }
@@ -63,8 +64,8 @@ export const usersTable = pgTable("users", {
   isAnonymous: boolean("is_anonymous").default(false).notNull(),
   parentUserId: uuid("parent_user_id").references((): AnyPgColumn => usersTable.id),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Posts Table ---
@@ -86,8 +87,8 @@ export const postsTable = pgTable("posts", {
 
   status: postStatusEnum("status").default("active"), // For Admin ban
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Event Posts Table ---
@@ -98,12 +99,12 @@ export const eventPostsTable = pgTable("event_posts", {
 
   eventTitle: varchar("event_title", { length: 255 }).notNull(),
   eventDescription: text("event_description"),
-  eventStartTime: timestamp("event_start_time").notNull(),
-  eventEndTime: timestamp("event_end_time"),
+  eventStartTime: timestamp("event_start_time", { withTimezone: true }).notNull(),
+  eventEndTime: timestamp("event_end_time", { withTimezone: true }),
   eventType: varchar("event_type", { length: 50 }).default("event"), // event, class, activity, appointment
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Post Media Table ---
@@ -123,7 +124,7 @@ export const postMediaTable = pgTable("post_media", {
   duration: integer("duration"), // For videos (seconds)
   fileSize: integer("file_size"), // In bytes
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Market Categories Table ---
@@ -131,7 +132,7 @@ export const marketCategoriesTable = pgTable("market_categories", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 100 }).unique().notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Market Items Table ---
@@ -149,8 +150,8 @@ export const marketItemsTable = pgTable("market_items", {
 
   status: marketItemStatusEnum("status").default("available"),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Friendships Table ---
@@ -162,8 +163,8 @@ export const friendshipsTable = pgTable("friendships", {
 
   status: friendshipStatusEnum("status").default("pending"),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Chat Rooms Table ---
@@ -177,8 +178,8 @@ export const chatRoomsTable = pgTable("chat_rooms", {
 
   createdBy: uuid("created_by").references(() => usersTable.id).notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Chat Room Members Table ---
@@ -191,8 +192,8 @@ export const chatRoomMembersTable = pgTable("chat_room_members", {
 
   role: roomMemberRoleEnum("role").default("member"), // For group chats: member or admin
 
-  joinedAt: timestamp("joined_at").defaultNow().notNull(),
-  lastReadAt: timestamp("last_read_at"), // Track read status per user
+  joinedAt: timestamp("joined_at", { withTimezone: true }).defaultNow().notNull(),
+  lastReadAt: timestamp("last_read_at", { withTimezone: true }), // Track read status per user
 }, (t) => ({
   unq: {
     name: 'unique_room_user',
@@ -210,12 +211,19 @@ export const messagesTable = pgTable("messages", {
   senderId: uuid("sender_id").references(() => usersTable.id).notNull(),
   receiverId: uuid("receiver_id").references(() => usersTable.id), // Deprecated, kept for backward compatibility
 
-  content: text("content").notNull(),
+  content: text("content").notNull().default(""),
   isRead: boolean("is_read").default(false), // Deprecated, use lastReadAt in chatRoomMembers instead
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  editedAt: timestamp("edited_at"), // For message editing
-  deletedAt: timestamp("deleted_at"), // For soft delete
+  // Media attachments (images / videos)
+  mediaUrls: text("media_urls"), // JSON array of file paths e.g. ["images-xxx.jpg","images-yyy.mp4"]
+  mediaType: varchar("media_type", { length: 20 }), // "image" | "video" | "mixed" | null
+
+  // Message type: "text" = normal, "system" = automated notification (e.g. changed group name)
+  messageType: messageTypeEnum("message_type").default("text"),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  editedAt: timestamp("edited_at", { withTimezone: true }), // For message editing
+  deletedAt: timestamp("deleted_at", { withTimezone: true }), // For soft delete
 });
 
 // --- Calendar Events Table ---
@@ -227,14 +235,14 @@ export const calendarEventsTable = pgTable("calendar_events", {
   title: varchar("title", { length: 255 }).notNull(),
   description: text("description"),
 
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time"),
+  startTime: timestamp("start_time", { withTimezone: true }).notNull(),
+  endTime: timestamp("end_time", { withTimezone: true }),
 
   type: varchar("type", { length: 50 }).default("event"), // class, activity, appointment
   status: varchar("status", { length: 20 }).default("pending"), // pending, completed, cancelled
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Announcements Table ---
@@ -247,7 +255,7 @@ export const announcementsTable = pgTable("announcements", {
   type: announcementTypeEnum("type").default("global"),
   targetUserId: uuid("target_user_id").references(() => usersTable.id), // If private
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Activities / Audit Log Table ---
@@ -260,7 +268,7 @@ export const activitiesTable = pgTable("activities", {
   details: text("details"),
   ipAddress: varchar("ip_address", { length: 45 }),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Comments Table ---
@@ -271,8 +279,8 @@ export const commentsTable = pgTable("comments", {
 
   content: text("content").notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Comment Media Table ---
@@ -285,7 +293,7 @@ export const commentMediaTable = pgTable("comment_media", {
   order: integer("order").default(0).notNull(),
   fileSize: bigint("file_size", { mode: "number" }),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Likes Table ---
@@ -294,7 +302,7 @@ export const likesTable = pgTable("likes", {
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
   userId: uuid("user_id").references(() => usersTable.id).notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   unq: {
     name: 'unique_user_post_like',
@@ -309,7 +317,7 @@ export const savedPostsTable = pgTable("saved_posts", {
   userId: uuid("user_id").references(() => usersTable.id).notNull(),
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   unq: {
     name: 'unique_user_post_save',
@@ -329,7 +337,7 @@ export const notificationsTable = pgTable("notifications", {
 
   isRead: boolean("is_read").default(false),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Reposts Table ---
@@ -338,7 +346,7 @@ export const repostsTable = pgTable("reposts", {
   userId: uuid("user_id").references(() => usersTable.id).notNull(),
   postId: uuid("post_id").references(() => postsTable.id, { onDelete: "cascade" }).notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   unq: {
     name: 'unique_user_post_repost',
@@ -358,7 +366,7 @@ export const sessionsTable = pgTable("sessions", {
   ipAddress: varchar("ip_address", { length: 45 }),
   userAgent: text("user_agent"),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 // --- Official Accounts Table ---
@@ -377,8 +385,8 @@ export const officialAccountsTable = pgTable("official_accounts", {
   // The primary owner / head admin (first admin assigned, only one)
   ownerId: uuid("owner_id").references(() => usersTable.id).notNull(),
 
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
 // --- Official Account Admins Table ---
@@ -395,7 +403,7 @@ export const officialAccountAdminsTable = pgTable("official_account_admins", {
     .references(() => usersTable.id, { onDelete: "cascade" })
     .notNull(),
 
-  grantedAt: timestamp("granted_at").defaultNow().notNull(),
+  grantedAt: timestamp("granted_at", { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   unq: {
     name: "unique_official_account_admin",

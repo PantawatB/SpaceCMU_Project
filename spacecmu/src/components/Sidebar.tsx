@@ -375,8 +375,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     
     try {
       await apiService.switchMode(newMode);
-      // Refresh user data silently (without showing loading screen)
-      await refreshUser(true);
+      // Reload the page so all page-level state (chat rooms, messages, etc.) refreshes
+      window.location.reload();
     } catch (err) {
       console.error('Failed to switch mode:', err);
       
@@ -711,7 +711,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         {/* Official mode: big "Return to main account" button */}
         {officialMode ? (
           <button
-            onClick={exitOfficialMode}
+            onClick={async () => { await exitOfficialMode(); window.location.reload(); }}
             className="w-full flex items-center gap-2.5 justify-center rounded-xl px-3 py-3 mb-3 font-bold text-sm transition-all
               bg-linear-to-r from-indigo-500 to-purple-600 text-white shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-purple-700 active:scale-[0.98]"
           >

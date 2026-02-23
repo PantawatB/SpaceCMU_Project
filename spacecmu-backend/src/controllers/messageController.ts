@@ -108,7 +108,7 @@ export const sendMessage = async (req: Request, res: Response) => {
                 roomId: finalRoomId!,
                 senderId,
                 receiverId: receiverId || null, // For backward compatibility
-                content: content.trim()
+                content: content ? content.trim() : ""
             })
             .returning();
 
@@ -116,6 +116,65 @@ export const sendMessage = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error sending message" });
+    }
+};
+
+// Send message with media attachments (images / videos)
+export const sendMessageWithMedia = async (req: Request, res: Response) => {
+    try {
+        const senderId = req.session?.activeUserId;
+        const { roomId } = req.params;
+        const content: string = req.body.content || "";
+        const files = req.files as Express.Multer.File[] | undefined;
+
+        if (!senderId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!files || files.length === 0) {
+            return res.status(400).json({ message: "No files uploaded" });
+        }
+
+        // Verify membership
+        const membership = await dbClient
+            .select()
+            .from(chatRoomMembersTable)
+            .where(and(
+                eq(chatRoomMembersTable.roomId, roomId),
+                eq(chatRoomMembersTable.userId, senderId)
+            ))
+            .limit(1);
+
+        if (membership.length === 0) {
+            return res.status(403).json({ message: "You are not a member of this room" });
+        }
+
+        // Collect uploaded file paths
+        const mediaUrls: string[] = files.map((f) => f.filename);
+
+        // Determine media type
+        const hasImage = files.some((f) => f.mimetype.startsWith("image/"));
+        const hasVideo = files.some((f) => f.mimetype.startsWith("video/"));
+        let mediaType: string;
+        if (hasImage && hasVideo) mediaType = "mixed";
+        else if (hasVideo) mediaType = "video";
+        else mediaType = "image";
+
+        const newMessage = await dbClient
+            .insert(messagesTable)
+            .values({
+                roomId,
+                senderId,
+                content: content.trim(),
+                mediaUrls: JSON.stringify(mediaUrls),
+                mediaType,
+            })
+            .returning();
+
+        res.status(201).json(newMessage[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error sending message with media" });
     }
 };
 
@@ -149,10 +208,27 @@ export const getRoomMessages = async (req: Request, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 50;
         const offset = (page - 1) * limit;
 
-        // Get messages
+        // Get messages with sender info via LEFT JOIN
         const messages = await dbClient
-            .select()
+            .select({
+                id: messagesTable.id,
+                roomId: messagesTable.roomId,
+                senderId: messagesTable.senderId,
+                receiverId: messagesTable.receiverId,
+                content: messagesTable.content,
+                isRead: messagesTable.isRead,
+                mediaUrls: messagesTable.mediaUrls,
+                mediaType: messagesTable.mediaType,
+                messageType: messagesTable.messageType,
+                createdAt: messagesTable.createdAt,
+                editedAt: messagesTable.editedAt,
+                deletedAt: messagesTable.deletedAt,
+                senderFirstName: usersTable.firstName,
+                senderLastName: usersTable.lastName,
+                senderAvatarUrl: usersTable.avatarUrl,
+            })
             .from(messagesTable)
+            .leftJoin(usersTable, eq(messagesTable.senderId, usersTable.id))
             .where(
                 and(
                     eq(messagesTable.roomId, roomId),
@@ -223,7 +299,58 @@ export const markRoomAsRead = async (req: Request, res: Response) => {
     }
 };
 
-// Delete a message (soft delete)
+// Edit a message (update content, set editedAt)
+export const editMessage = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { messageId } = req.params;
+        const { content } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!content || content.trim() === "") {
+            return res.status(400).json({ message: "content is required" });
+        }
+
+        // Verify user is the sender and message exists
+        const message = await dbClient
+            .select()
+            .from(messagesTable)
+            .where(eq(messagesTable.id, messageId))
+            .limit(1);
+
+        if (message.length === 0) {
+            return res.status(404).json({ message: "Message not found" });
+        }
+
+        if (message[0].senderId !== userId) {
+            return res.status(403).json({ message: "You can only edit your own messages" });
+        }
+
+        if (message[0].deletedAt) {
+            return res.status(400).json({ message: "Cannot edit a deleted message" });
+        }
+
+        if (message[0].messageType === "system") {
+            return res.status(400).json({ message: "Cannot edit a system message" });
+        }
+
+        const updated = await dbClient
+            .update(messagesTable)
+            .set({ content: content.trim(), editedAt: new Date() })
+            .where(eq(messagesTable.id, messageId))
+            .returning();
+
+        res.json(updated[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error editing message" });
+    }
+};
+
+// Delete a message (soft delete) + insert system message
 export const deleteMessage = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
@@ -248,15 +375,39 @@ export const deleteMessage = async (req: Request, res: Response) => {
             return res.status(403).json({ message: "You can only delete your own messages" });
         }
 
+        // Soft-delete the message
         await dbClient
             .update(messagesTable)
             .set({ deletedAt: new Date() })
             .where(eq(messagesTable.id, messageId));
 
+        // Get sender's name for system message
+        const sender = await dbClient
+            .select({ firstName: usersTable.firstName, lastName: usersTable.lastName })
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        const senderName = sender[0]
+            ? `${sender[0].firstName} ${sender[0].lastName}`.trim()
+            : "ผู้ใช้";
+
+        // Insert system message so everyone in the room sees the notification
+        const systemMsg = await dbClient
+            .insert(messagesTable)
+            .values({
+                roomId: message[0].roomId,
+                senderId: userId,
+                content: `${senderName} ได้ลบข้อความของตน`,
+                messageType: "system",
+            })
+            .returning();
+
         res.json({
             success: true,
             message: "Message deleted successfully",
-            messageId
+            messageId,
+            systemMessage: systemMsg[0],
         });
     } catch (error) {
         console.error(error);
@@ -626,5 +777,57 @@ export const getUnreadCount = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching unread count" });
+    }
+};
+
+// Get readers info for a room (who read and when)
+// Returns each member's lastReadAt so frontend can compute "seen by" per message
+export const getRoomReaders = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { roomId } = req.params;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Verify requester is a member
+        const membership = await dbClient
+            .select()
+            .from(chatRoomMembersTable)
+            .where(
+                and(
+                    eq(chatRoomMembersTable.roomId, roomId),
+                    eq(chatRoomMembersTable.userId, userId)
+                )
+            )
+            .limit(1);
+
+        if (membership.length === 0) {
+            return res.status(403).json({ message: "You are not a member of this room" });
+        }
+
+        // Get all members' read status (excluding self)
+        const readers = await dbClient
+            .select({
+                userId: chatRoomMembersTable.userId,
+                lastReadAt: chatRoomMembersTable.lastReadAt,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                avatarUrl: usersTable.avatarUrl,
+            })
+            .from(chatRoomMembersTable)
+            .innerJoin(usersTable, eq(chatRoomMembersTable.userId, usersTable.id))
+            .where(
+                and(
+                    eq(chatRoomMembersTable.roomId, roomId),
+                    sql`${chatRoomMembersTable.userId} != ${userId}`
+                )
+            );
+
+        res.json(readers);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching room readers" });
     }
 };
