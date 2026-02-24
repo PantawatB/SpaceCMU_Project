@@ -22,8 +22,8 @@ interface PostMedia {
 }
 
 interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   content: string;
   category: string;
   likeCount: number;
@@ -160,14 +160,14 @@ function FriendProfileCard({
           <button
             disabled={loading !== null}
             onClick={handleUnfriend}
-            className={`flex-1 text-sm font-medium py-2 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1 ${
+            className={`flex-1 min-w-0 text-sm font-medium py-2 px-2 rounded-full transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1 truncate ${
               confirm
                 ? "bg-red-500 text-white hover:bg-red-600"
                 : "bg-red-100 text-red-800 hover:bg-red-200 hover:text-red-600"
             }`}
           >
             {loading === "unfriend" ? (
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+              <svg className="animate-spin w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
@@ -178,12 +178,12 @@ function FriendProfileCard({
             disabled={loading !== null}
             title="View Profile"
             onClick={() => router.push(`/Friends?userId=${friend.id}`)}
-            className="flex-1 text-sm font-medium py-2 rounded-full transition-all bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
+            className="flex-1 min-w-0 text-sm font-medium py-2 px-2 rounded-full transition-all bg-slate-700 text-white hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            View Profile
+            <span className="truncate">View Profile</span>
           </button>
           {/* Chat */}
           <button
@@ -555,7 +555,7 @@ export default function ProfileMainPage() {
   const facultyDisplay = activeUser.faculty || "Unknown";
 
   // Handle like count update
-  const handleLikeUpdate = (postId: number, newLikeCount: number) => {
+  const handleLikeUpdate = (postId: string, newLikeCount: number) => {
     setMyPosts(prevPosts => 
       prevPosts.map(post => 
         post.id === postId 
@@ -587,7 +587,7 @@ export default function ProfileMainPage() {
   };
 
   // Handle repost count update
-  const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+  const handleRepostUpdate = (postId: string, newRepostCount: number) => {
     setMyPosts(prevPosts => 
       prevPosts.map(post => 
         post.id === postId 
@@ -627,12 +627,20 @@ export default function ProfileMainPage() {
     }
   };
 
+  // Handle post delete — remove from all local post lists
+  const handlePostDelete = (postId: string) => {
+    setMyPosts((prev) => prev.filter((p) => p.id !== postId));
+    setLikedPosts((prev) => prev.filter((p) => p.id !== postId));
+    setRepostedPosts((prev) => prev.filter((p) => p.id !== postId));
+    setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
+  };
+
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
         {/* Sidebar */}
         <Sidebar />
         {/* Main Content */}
-        <main className="flex-1 p-8">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8">
           {/* Search bar */}
           <div className="mb-6">
             <div className="relative w-full">
@@ -686,26 +694,26 @@ export default function ProfileMainPage() {
                 )}
               </div>
               {/* Profile Avatar - left aligned */}
-              <div className="absolute left-10 top-28 flex items-center">
+              <div className="absolute left-4 sm:left-10 top-24 sm:top-28 flex items-center">
                 <div className="rounded-full border-4 border-white p-1 bg-white">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={avatarUrl}
                     alt="Profile Avatar"
-                    className="w-[90px] h-[90px] rounded-full object-cover"
+                    className="w-16 h-16 sm:w-[90px] sm:h-[90px] rounded-full object-cover"
                   />
                 </div>
-                {/* Stats - right of avatar, vertically centered, adjust only stats position */}
+                {/* Stats - right of avatar */}
                 <div
-                  className="flex flex-col justify-center ml-6 relative"
+                  className="flex flex-col justify-center ml-3 sm:ml-6 relative"
                   style={{ top: "25px" }}
                 >
-                  <div className="flex gap-8">
-                    <div className="text-center">
-                      <span className="text-xl font-semibold">{activeUser.friendsCount}</span>
-                      <span className="text-gray-500 ml-1">Friends</span>
-                      <span className="text-gray-500 ml-4">|</span>
-                      <span className="text-black-500 ml-4 font-semibold">
+                  <div className="flex gap-2 sm:gap-8 flex-wrap">
+                    <div className="text-center flex items-center gap-1 sm:gap-0 flex-wrap">
+                      <span className="text-base sm:text-xl font-semibold">{activeUser.friendsCount}</span>
+                      <span className="text-gray-500 text-sm sm:text-base ml-1">Friends</span>
+                      <span className="text-gray-500 ml-2 sm:ml-4 hidden sm:inline">|</span>
+                      <span className="text-black font-semibold text-sm sm:text-base ml-2 sm:ml-4 hidden sm:inline">
                         {facultyDisplay}
                       </span>
                     </div>
@@ -713,25 +721,29 @@ export default function ProfileMainPage() {
                 </div>
               </div>
               {/* Name & Verified */}
-              <div className="flex items-center mt-19 ml-8">
-                <span className="text-2xl font-bold">{displayName}</span>
+              <div className="flex items-center mt-16 sm:mt-19 ml-4 sm:ml-8 flex-wrap gap-x-2">
+                <span className="text-lg sm:text-2xl font-bold wrap-break-word">{displayName}</span>
                 <svg
-                  className="w-6 h-6 text-blue-500 ml-2"
+                  className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
                   <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm3.93 6.36l-4.24 4.24a1 1 0 01-1.41 0l-2.12-2.12a1 1 0 111.41-1.41l1.41 1.41 3.54-3.54a1 1 0 111.41 1.41z" />
                 </svg>
               </div>
+              {/* Faculty on mobile (shown below name) */}
+              <div className="ml-4 sm:hidden mt-0.5">
+                <span className="text-gray-500 text-xs">{facultyDisplay}</span>
+              </div>
               {/* Bio */}
-              <div className="text-left text-gray-600 mt-2 px-8">
+              <div className="text-left text-gray-600 mt-2 px-4 sm:px-8">
                 {bio}
               </div>
               {/* Tabs */}
-              <div className="flex justify-center mt-6 border-b border-gray-200">
+              <div className="flex justify-center mt-6 border-b border-gray-200 overflow-x-auto scrollbar-hide">
                 <button
                   onClick={() => setActiveTab("Posts")}
-                  className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Posts"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
@@ -745,7 +757,7 @@ export default function ProfileMainPage() {
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="w-6 h-6"
+                    className="w-4 h-4"
                   >
                     {/* กระดาษ */}
                     <path d="M6 3h9a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
@@ -760,7 +772,7 @@ export default function ProfileMainPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab("Your Market Items")}
-                  className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Your Market Items"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
@@ -783,7 +795,7 @@ export default function ProfileMainPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab("Friends")}
-                  className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Friends"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
@@ -830,7 +842,7 @@ export default function ProfileMainPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab("Reposts")}
-                  className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Reposts"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
@@ -853,7 +865,7 @@ export default function ProfileMainPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab("Liked")}
-                  className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Liked"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
@@ -876,7 +888,7 @@ export default function ProfileMainPage() {
                 </button>
                 <button
                   onClick={() => setActiveTab("Saved")}
-                  className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                  className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Saved"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                       : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
@@ -901,9 +913,9 @@ export default function ProfileMainPage() {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white rounded-2xl shadow p-6">
+            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 min-w-0 overflow-hidden">
               {activeTab === "Posts" && (
-                <div className="max-w-[1400px] mx-left">
+                <div className="w-full min-w-0">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -963,6 +975,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
@@ -1100,7 +1113,7 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Reposts" && (
-                <div className="max-w-[1400px] mx-left">
+                <div className="w-full min-w-0">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -1150,6 +1163,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
@@ -1158,7 +1172,7 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Liked" && (
-                <div className="max-w-[1400px] mx-left">
+                <div className="w-full min-w-0">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -1208,6 +1222,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
@@ -1216,7 +1231,7 @@ export default function ProfileMainPage() {
               )}
 
               {activeTab === "Saved" && (
-                <div className="max-w-[1400px] mx-left">
+                <div className="w-full min-w-0">
                   {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
@@ -1266,6 +1281,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
