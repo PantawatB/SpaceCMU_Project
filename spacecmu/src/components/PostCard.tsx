@@ -16,8 +16,8 @@ interface PostMedia {
 }
 
 interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   content: string;
   category: string;
   likeCount: number;
@@ -42,7 +42,7 @@ interface CommentMedia {
 
 interface Comment {
   id: string | number;
-  postId: number;
+  postId: string;
   userId: string;
   content: string;
   createdAt: string;
@@ -56,9 +56,10 @@ interface Comment {
 
 interface PostCardProps {
   post: Post;
-  onLikeUpdate?: (postId: number, newLikeCount: number) => void;
-  onRepostUpdate?: (postId: number, newRepostCount: number) => void;
-  onSaveUpdate?: (postId: number) => void;
+  onLikeUpdate?: (postId: string, newLikeCount: number) => void;
+  onRepostUpdate?: (postId: string, newRepostCount: number) => void;
+  onSaveUpdate?: (postId: string) => void;
+  onPostDelete?: (postId: string) => void;
 }
 
 export default function PostCard({
@@ -66,6 +67,7 @@ export default function PostCard({
   onLikeUpdate,
   onRepostUpdate,
   onSaveUpdate,
+  onPostDelete,
 }: PostCardProps) {
   const { activeUser } = useUser();
   const [showCommentPopup, setShowCommentPopup] = useState(false);
@@ -77,6 +79,8 @@ export default function PostCard({
   const [showReportPopup, setShowReportPopup] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportMood, setReportMood] = useState<"happy" | "sad" | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingPost, setDeletingPost] = useState(false);
 
   // Image lightbox
   const [showImageLightbox, setShowImageLightbox] = useState(false);
@@ -535,7 +539,30 @@ export default function PostCard({
   };
 
   const handleDeletePost = async () => {
-    // Delete post logic here
+    if (!activeUser) return;
+    setDeletingPost(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/posts/${post.id}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Failed to delete post: ${response.status}`);
+      }
+      setShowDeleteConfirm(false);
+      if (onPostDelete) {
+        onPostDelete(post.id);
+      }
+    } catch (error) {
+      console.error("Error deleting post:", error);
+      alert("Failed to delete post. Please try again.");
+    } finally {
+      setDeletingPost(false);
+    }
   };
 
   // Handle scroll position for media arrows
@@ -1110,6 +1137,31 @@ export default function PostCard({
               onClick={() => setShowPostMenu(false)}
             />
             <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
+              {/* Delete Post — only visible to the post owner */}
+              {activeUser && activeUser.id === post.userId && (
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(true);
+                    setShowPostMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-red-50 text-red-600 flex items-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                  Delete Post
+                </button>
+              )}
               <button
                 onClick={() => {
                   setShowReportPopup(true);
@@ -1137,6 +1189,68 @@ export default function PostCard({
         )}
       </div>
 
+      {/* Delete Confirmation Popup */}
+      {showDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => !deletingPost && setShowDeleteConfirm(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+              <svg
+                className="w-7 h-7 text-red-500"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                />
+              </svg>
+            </div>
+
+            {/* Text */}
+            <div className="text-center">
+              <h2 className="text-lg font-bold text-gray-800">Delete Post?</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                This action cannot be undone. The post and all its media will be permanently removed.
+              </p>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex gap-3 w-full mt-1">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deletingPost}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeletePost}
+                disabled={deletingPost}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletingPost ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : null}
+                {deletingPost ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Report Popup */}
       {showReportPopup && (
         <div
@@ -1144,9 +1258,24 @@ export default function PostCard({
           onClick={() => setShowReportPopup(false)}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 relative"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setShowReportPopup(false);
+                setReportText("");
+                setReportMood(null);
+              }}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
             <h1 className="text-2xl font-bold capitalize text-slate-400 mb-4">
               Feedback
             </h1>

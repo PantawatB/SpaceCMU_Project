@@ -20,8 +20,8 @@ interface PostMedia {
 }
 
 interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   content: string;
   category: string;
   likeCount: number;
@@ -333,7 +333,7 @@ export default function FeedsMainPage() {
   };
 
   // Handle like count update
-  const handleLikeUpdate = (postId: number, newLikeCount: number) => {
+  const handleLikeUpdate = (postId: string, newLikeCount: number) => {
     setPosts((prevPosts) =>
       prevPosts.map((post) =>
         post.id === postId ? { ...post, likeCount: newLikeCount } : post,
@@ -342,7 +342,7 @@ export default function FeedsMainPage() {
   };
 
   // Handle repost count update
-  const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+  const handleRepostUpdate = (postId: string, newRepostCount: number) => {
     setPosts((prevPosts) =>
       prevPosts.map((post) =>
         post.id === postId ? { ...post, repostCount: newRepostCount } : post,
@@ -353,6 +353,11 @@ export default function FeedsMainPage() {
   // Handle save update
   const handleSaveUpdate = () => {
     console.log("Post save status updated");
+  };
+
+  // Handle post delete
+  const handlePostDelete = (postId: string) => {
+    setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
   };
 
   // Mock posts (เก็บไว้สำหรับ reference)
@@ -573,6 +578,7 @@ export default function FeedsMainPage() {
                 onLikeUpdate={handleLikeUpdate}
                 onRepostUpdate={handleRepostUpdate}
                 onSaveUpdate={handleSaveUpdate}
+                onPostDelete={handlePostDelete}
               />
             ))}
         </section>

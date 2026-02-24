@@ -22,8 +22,8 @@ interface PostMedia {
 }
 
 interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   content: string;
   category: string;
   likeCount: number;
@@ -555,7 +555,7 @@ export default function ProfileMainPage() {
   const facultyDisplay = activeUser.faculty || "Unknown";
 
   // Handle like count update
-  const handleLikeUpdate = (postId: number, newLikeCount: number) => {
+  const handleLikeUpdate = (postId: string, newLikeCount: number) => {
     setMyPosts(prevPosts => 
       prevPosts.map(post => 
         post.id === postId 
@@ -587,7 +587,7 @@ export default function ProfileMainPage() {
   };
 
   // Handle repost count update
-  const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+  const handleRepostUpdate = (postId: string, newRepostCount: number) => {
     setMyPosts(prevPosts => 
       prevPosts.map(post => 
         post.id === postId 
@@ -625,6 +625,14 @@ export default function ProfileMainPage() {
       // Trigger a re-fetch by toggling state or calling fetch directly
       console.log('Post save status updated');
     }
+  };
+
+  // Handle post delete — remove from all local post lists
+  const handlePostDelete = (postId: string) => {
+    setMyPosts((prev) => prev.filter((p) => p.id !== postId));
+    setLikedPosts((prev) => prev.filter((p) => p.id !== postId));
+    setRepostedPosts((prev) => prev.filter((p) => p.id !== postId));
+    setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
   return (
@@ -967,6 +975,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
@@ -1154,6 +1163,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
@@ -1212,6 +1222,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
@@ -1270,6 +1281,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onPostDelete={handlePostDelete}
                         />
                       ))}
                     </div>
