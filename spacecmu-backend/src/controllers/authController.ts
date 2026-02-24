@@ -2,8 +2,8 @@ import type { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import axios from "axios";
 import { dbClient } from "../../db/client.js";
-import { usersTable, sessionsTable, officialAccountsTable, officialAccountAdminsTable } from "../../db/schema.js";
-import { eq, and } from "drizzle-orm";
+import { usersTable, sessionsTable, officialAccountsTable, officialAccountAdminsTable, friendshipsTable } from "../../db/schema.js";
+import { eq, and, or } from "drizzle-orm";
 import { getAnonymousAccount, updateSessionActiveUser, getActiveMode, getUserById } from "../utils/sessionUtils.js";
 
 const CMU_ENTRAID_TOKEN_URL = "https://login.microsoftonline.com/cf81f1df-de59-4c29-91da-a2dfd04aa751/oauth2/v2.0/token";
@@ -275,13 +275,29 @@ export const getMe = async (req: Request, res: Response) => {
             if (oa) officialAccount = oa;
         }
 
+        // Compute live friendsCount from friendships table for the active user
+        // (the stored column can be stale / out of sync)
+        const liveFriendships = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                and(
+                    or(
+                        eq(friendshipsTable.userId1, req.activeUser.id),
+                        eq(friendshipsTable.userId2, req.activeUser.id)
+                    ),
+                    eq(friendshipsTable.status, "accepted")
+                )
+            );
+        const liveFriendsCount = liveFriendships.length;
+
         // Remove sensitive data
         const { ...publicUserData } = publicUser;
         const { ...activeUserData } = req.activeUser;
 
         res.json({
             user: publicUserData,
-            activeUser: activeUserData,
+            activeUser: { ...activeUserData, friendsCount: liveFriendsCount },
             activeMode,
             anonymousAccount: anonymousAccount ? {
                 id: anonymousAccount.id,

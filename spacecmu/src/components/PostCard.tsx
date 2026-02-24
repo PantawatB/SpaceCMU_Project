@@ -583,7 +583,7 @@ export default function PostCard({
 
       {/* Post Media - Threads-style Horizontal Layout */}
       {post.media && post.media.length > 0 && (
-        <div className={`mb-3 ${post.media.length <= 2 ? "" : "-mx-6"} relative group/media`}>
+        <div className={`mb-3 ${post.media.length <= 2 ? "" : "-mx-6"} relative group/media max-w-full`}>
           {/* Left Arrow Indicator - Show only when scrolled right and has multiple images */}
           {post.media.length > 1 && showLeftArrow && (
             <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-30 group-hover/media:opacity-100 transition-opacity duration-300">
@@ -630,7 +630,7 @@ export default function PostCard({
             className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? "" : "px-6"}`}
             onScroll={handleMediaScroll}
           >
-            <div className="flex items-center gap-2 w-max min-w-full justify-center">
+            <div className={`flex items-center gap-2 ${post.media.length === 1 ? "w-full" : "w-max min-w-full"} justify-center`}>
               {post.media.map((media, index) => {
                 const isSingleMedia = post.media!.length === 1;
                 const isSingleImage =
