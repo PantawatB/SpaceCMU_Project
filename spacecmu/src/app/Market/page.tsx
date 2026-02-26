@@ -30,12 +30,18 @@ interface MarketItemAPI {
 }
 
 export default function MarketMainPage() {
-  const { activeMode, refreshUser } = useUser();
+  const { activeMode, refreshUser, activeUser } = useUser();
   const { showSuccess, showError, showWarning } = useToast();
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
   const [showProductDetailPopup, setShowProductDetailPopup] = React.useState(false);
   const [selectedProduct, setSelectedProduct] = React.useState<MarketItemAPI | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = React.useState(0);
+
+  // ── Chat popup state ─────────────────────────────────────────────────────
+  const [showChatPopup, setShowChatPopup] = React.useState(false);
+  const [chatPopupMessage, setChatPopupMessage] = React.useState("");
+  const [isSendingChat, setIsSendingChat] = React.useState(false);
+  const chatPopupTextareaRef = React.useRef<HTMLTextAreaElement>(null);
   const [productTitle, setProductTitle] = React.useState("");
   const [productDescription, setProductDescription] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
@@ -148,6 +154,79 @@ export default function MarketMainPage() {
     setImagePreviews((prev) => prev.filter((_, i) => i !== index));
     // Also remove from uploaded files
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // ── ส่งแชทหาผู้ขาย ────────────────────────────────────────────────────────
+  const handleSendChatToSeller = async () => {
+    if (!selectedProduct || !chatPopupMessage.trim()) return;
+    setIsSendingChat(true);
+    try {
+      // 1) หา / สร้าง direct room กับผู้ขาย (idempotent)
+      const roomResult = await apiService.post<{ room: { id: string } }>(
+        "/api/chat-rooms/direct",
+        { otherUserId: selectedProduct.seller.id }
+      );
+      const roomId = roomResult?.room?.id;
+      if (!roomId) throw new Error("ไม่สามารถสร้างห้องแชทได้");
+
+      // 2) สร้าง Market Card message เป็น JSON payload พิเศษ
+      // Build absolute URLs for all images
+      const toAbsUrl = (url: string) =>
+        url.startsWith("http") ? url : `${API_CONFIG.BASE_URL}${url}`;
+
+      // Parse imageUrls (JSON string array from API)
+      let allImageUrls: string[] = [];
+      if (selectedProduct.imageUrls) {
+        try {
+          const parsed = JSON.parse(selectedProduct.imageUrls);
+          if (Array.isArray(parsed)) {
+            allImageUrls = parsed.map(toAbsUrl);
+          }
+        } catch { /* ignore parse error */ }
+      }
+      // Fallback: use single imageUrl if no imageUrls array
+      if (allImageUrls.length === 0 && selectedProduct.imageUrl) {
+        allImageUrls = [toAbsUrl(selectedProduct.imageUrl)];
+      }
+
+      const sellerAvatarAbs = selectedProduct.seller.avatarUrl
+        ? toAbsUrl(selectedProduct.seller.avatarUrl)
+        : null;
+
+      const cardContent = JSON.stringify({
+        __type: "market_card",
+        title: selectedProduct.title,
+        price: parseFloat(selectedProduct.price).toFixed(0),
+        description: selectedProduct.description,
+        imageUrl: allImageUrls[0] ?? null,
+        imageUrls: allImageUrls,
+        sellerName: `${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`,
+        sellerAvatarUrl: sellerAvatarAbs,
+      });
+
+      // ส่ง Market Card ก่อน
+      await apiService.post("/api/messages", {
+        roomId,
+        content: cardContent,
+      });
+
+      // 3) ส่งข้อความของ user ต่อท้าย (ถ้ามี)
+      const userMsg = chatPopupMessage.trim();
+      if (userMsg) {
+        await apiService.post("/api/messages", {
+          roomId,
+          content: userMsg,
+        });
+      }
+
+      setShowChatPopup(false);
+      setChatPopupMessage("");
+      showSuccess(`ส่งข้อความหา ${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName} แล้ว!`);
+    } catch (err) {
+      showError(`ส่งข้อความไม่สำเร็จ: ${err instanceof Error ? err.message : "กรุณาลองใหม่"}`);
+    } finally {
+      setIsSendingChat(false);
+    }
   };
 
   return (
@@ -830,34 +909,38 @@ export default function MarketMainPage() {
                       <p className="font-semibold text-gray-900">
                         {selectedProduct.seller.firstName} {selectedProduct.seller.lastName}
                       </p>
-                      <p className="text-sm text-gray-500">ผู้ขาย</p>
+                      <p className="text-sm text-gray-500">
+                        {selectedProduct.seller.id === activeUser?.id ? "ผู้ขาย (คุณ)" : "ผู้ขาย"}
+                      </p>
                     </div>
                   </div>
                 </div>
 
-                {/* Contact Seller Button */}
-                <button
-                  onClick={() => {
-                    // TODO: Implement chat functionality
-                    showSuccess(`เปิดแชทกับ ${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`);
-                  }}
-                  className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
-                >
-                  <svg 
-                    className="w-6 h-6" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
+                {/* Contact Seller Button — ซ่อนถ้าเป็นสินค้าของตัวเอง */}
+                {selectedProduct.seller.id !== activeUser?.id && (
+                  <button
+                    onClick={() => {
+                      setShowChatPopup(true);
+                      setTimeout(() => chatPopupTextareaRef.current?.focus(), 100);
+                    }}
+                    className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
                   >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" 
-                    />
-                  </svg>
-                  ทักแชทหาผู้ขาย
-                </button>
+                    <svg 
+                      className="w-6 h-6" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                    >
+                      <path 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        strokeWidth={2} 
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" 
+                      />
+                    </svg>
+                    ทักแชทหาผู้ขาย
+                  </button>
+                )}
 
                 {/* Posted Date */}
                 <div className="mt-4 text-center">
@@ -870,6 +953,121 @@ export default function MarketMainPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Chat Popup Modal ─────────────────────────────────────────────────── */}
+      {showChatPopup && selectedProduct && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => { setShowChatPopup(false); setChatPopupMessage(""); }}
+          />
+          {/* Modal */}
+          <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedProduct.seller.avatarUrl
+                    ? (selectedProduct.seller.avatarUrl.startsWith("http")
+                        ? selectedProduct.seller.avatarUrl
+                        : `${API_CONFIG.BASE_URL}${selectedProduct.seller.avatarUrl}`)
+                    : "/default-avatar.svg"}
+                  alt={selectedProduct.seller.firstName}
+                  className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                />
+                <div>
+                  <p className="text-gray-900 font-semibold text-sm leading-tight">
+                    {selectedProduct.seller.firstName} {selectedProduct.seller.lastName}
+                  </p>
+                  <p className="text-gray-400 text-xs">ทักแชทหาผู้ขาย</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowChatPopup(false); setChatPopupMessage(""); }}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Market Card Preview */}
+            <div className="mx-5 mt-4 rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex gap-3 p-3">
+              <div className="w-14 h-14 rounded-lg overflow-hidden flex-none bg-gray-200">
+                {selectedProduct.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selectedProduct.imageUrl.startsWith("http")
+                      ? selectedProduct.imageUrl
+                      : `${API_CONFIG.BASE_URL}${selectedProduct.imageUrl}`}
+                    alt={selectedProduct.title}
+                    className="w-full h-full object-cover"
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 text-sm truncate">{selectedProduct.title}</p>
+                <p className="text-xs text-gray-500 truncate mt-0.5">{selectedProduct.description}</p>
+                <p className="text-orange-600 font-bold text-sm mt-1">฿{parseFloat(selectedProduct.price).toFixed(0)}</p>
+              </div>
+            </div>
+
+            {/* Message input */}
+            <div className="px-5 py-4">
+              <textarea
+                ref={chatPopupTextareaRef}
+                rows={3}
+                placeholder="พิมพ์ข้อความถึงผู้ขาย..."
+                value={chatPopupMessage}
+                onChange={(e) => setChatPopupMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendChatToSeller();
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-xl bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition resize-none leading-relaxed"
+              />
+            </div>
+
+            {/* Send button */}
+            <div className="px-5 pb-5">
+              <button
+                disabled={!chatPopupMessage.trim() || isSendingChat}
+                onClick={handleSendChatToSeller}
+                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                  chatPopupMessage.trim() && !isSendingChat
+                    ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-300 cursor-not-allowed"
+                }`}
+              >
+                {isSendingChat ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                )}
+                {isSendingChat ? "กำลังส่ง..." : "ส่งข้อความ"}
+              </button>
             </div>
           </div>
         </div>
