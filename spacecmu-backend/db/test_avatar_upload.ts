@@ -1,11 +1,7 @@
 import fetch from "node-fetch";
-import FormData from "form-data";
-import fs from "fs";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import * as FormData from "form-data";
+import * as fs from "fs";
+import * as path from "path";
 
 const BASE_URL = "http://localhost:3001";
 
@@ -31,8 +27,8 @@ async function testUploadAvatar() {
     const SESSION_COOKIE = "YOUR_SESSION_COOKIE_HERE";
 
     // Check if test image exists
-    const testImagePath = path.join(__dirname, "../../uploads/images-1770882094895-335899154.avif");
-    
+    const testImagePath = path.join(process.cwd(), "uploads/images-1770882094895-335899154.avif");
+
     if (!fs.existsSync(testImagePath)) {
         console.error("❌ Test image not found at:", testImagePath);
         console.log("Please provide a valid image file for testing");
@@ -54,7 +50,7 @@ async function testUploadAvatar() {
             },
         });
 
-        const data = await response.json();
+        const data = (await response.json()) as any;
 
         console.log("📊 Response Status:", response.status);
         console.log("📊 Response Data:", JSON.stringify(data, null, 2));
@@ -85,8 +81,8 @@ async function testUploadAvatar() {
 async function testUploadAvatarNoAuth() {
     console.log("\n🧪 Testing Avatar Upload without Auth (should fail)...\n");
 
-    const testImagePath = path.join(__dirname, "../../uploads/images-1770882094895-335899154.avif");
-    
+    const testImagePath = path.join(process.cwd(), "uploads/images-1770882094895-335899154.avif");
+
     if (!fs.existsSync(testImagePath)) {
         console.error("❌ Test image not found");
         return;
@@ -102,7 +98,7 @@ async function testUploadAvatarNoAuth() {
             headers: formData.getHeaders(),
         });
 
-        const data = await response.json();
+        const data = (await response.json()) as any;
 
         console.log("📊 Response Status:", response.status);
         console.log("📊 Response Data:", JSON.stringify(data, null, 2));
@@ -124,8 +120,8 @@ async function testUploadAvatarWrongField() {
     console.log("\n🧪 Testing Avatar Upload with wrong field name (should fail)...\n");
 
     const SESSION_COOKIE = "YOUR_SESSION_COOKIE_HERE";
-    const testImagePath = path.join(__dirname, "../../uploads/images-1770882094895-335899154.avif");
-    
+    const testImagePath = path.join(process.cwd(), "uploads/images-1770882094895-335899154.avif");
+
     if (!fs.existsSync(testImagePath)) {
         console.error("❌ Test image not found");
         return;
@@ -145,7 +141,7 @@ async function testUploadAvatarWrongField() {
             },
         });
 
-        const data = await response.json();
+        const data = (await response.json()) as any;
 
         console.log("📊 Response Status:", response.status);
         console.log("📊 Response Data:", JSON.stringify(data, null, 2));
@@ -160,26 +156,30 @@ async function testUploadAvatarWrongField() {
     }
 }
 
-// Run tests
-console.log("=" .repeat(60));
-console.log("🚀 Avatar Upload API Tests");
-console.log("=" .repeat(60));
+async function runAll() {
+    // Run tests
+    console.log("=".repeat(60));
+    console.log("🚀 Avatar Upload API Tests");
+    console.log("=".repeat(60));
 
-// Test 1: No auth (should always work)
-await testUploadAvatarNoAuth();
+    // Test 1: No auth (should always work)
+    await testUploadAvatarNoAuth();
 
-console.log("\n" + "=" .repeat(60));
-console.log("\n⚠️  For the following tests, you need to:");
-console.log("1. Start the backend server: cd spacecmu-backend && npm run dev");
-console.log("2. Login via browser and get session cookie");
-console.log("3. Update SESSION_COOKIE in this file\n");
+    console.log("\n" + "=".repeat(60));
+    console.log("\n⚠️  For the following tests, you need to:");
+    console.log("1. Start the backend server: cd spacecmu-backend && npm run dev");
+    console.log("2. Login via browser and get session cookie");
+    console.log("3. Update SESSION_COOKIE in this file\n");
 
-// Test 2: With auth (requires session cookie)
-// await testUploadAvatar();
+    // Test 2: With auth (requires session cookie)
+    // await testUploadAvatar();
 
-// Test 3: Wrong field name
-// await testUploadAvatarWrongField();
+    // Test 3: Wrong field name
+    // await testUploadAvatarWrongField();
 
-console.log("=" .repeat(60));
-console.log("✨ Tests completed!");
-console.log("=" .repeat(60));
+    console.log("=".repeat(60));
+    console.log("✨ Tests completed!");
+    console.log("=".repeat(60));
+}
+
+runAll().catch(e => console.error(e));

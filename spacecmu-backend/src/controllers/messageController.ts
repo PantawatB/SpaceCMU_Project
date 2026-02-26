@@ -7,7 +7,7 @@ import { eq, or, and, isNull, desc, sql, like } from "drizzle-orm";
 export const sendMessage = async (req: Request, res: Response) => {
     try {
         const senderId = req.session?.activeUserId;
-        const { roomId, content, receiverId } = req.body;
+        const { roomId, content, receiverId, marketItemId, messageType } = req.body;
 
         if (!senderId) {
             return res.status(401).json({ message: "Unauthorized" });
@@ -108,7 +108,9 @@ export const sendMessage = async (req: Request, res: Response) => {
                 roomId: finalRoomId!,
                 senderId,
                 receiverId: receiverId || null, // For backward compatibility
-                content: content ? content.trim() : ""
+                content: content ? content.trim() : "",
+                marketItemId: marketItemId || null,
+                messageType: messageType || "text",
             })
             .returning();
 
@@ -220,6 +222,7 @@ export const getRoomMessages = async (req: Request, res: Response) => {
                 mediaUrls: messagesTable.mediaUrls,
                 mediaType: messagesTable.mediaType,
                 messageType: messagesTable.messageType,
+                marketItemId: messagesTable.marketItemId,
                 createdAt: messagesTable.createdAt,
                 editedAt: messagesTable.editedAt,
                 deletedAt: messagesTable.deletedAt,
@@ -477,6 +480,8 @@ export const searchMessages = async (req: Request, res: Response) => {
                     senderId: msg.senderId,
                     senderName: sender[0] ? `${sender[0].firstName} ${sender[0].lastName}` : "Unknown",
                     content: msg.content,
+                    messageType: msg.messageType,
+                    marketItemId: msg.marketItemId,
                     createdAt: msg.createdAt,
                     matchedText: query
                 };

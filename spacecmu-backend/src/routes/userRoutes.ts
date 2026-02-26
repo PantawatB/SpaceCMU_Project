@@ -7,6 +7,8 @@ import {
     updateBio,
     updateAvatar,
     deleteAvatar,
+    updateBanner,
+    deleteBanner,
     searchUsers,
 } from "../controllers/userController.js";
 import { getMe } from "../controllers/authController.js";
@@ -23,6 +25,8 @@ router.post("/", createUser);
 router.patch("/profile/bio", sessionMiddleware, updateBio);
 router.patch("/profile/avatar", sessionMiddleware, upload.single("avatar"), updateAvatar);
 router.delete("/profile/avatar", sessionMiddleware, deleteAvatar);
+router.patch("/profile/banner", sessionMiddleware, upload.single("banner"), updateBanner);
+router.delete("/profile/banner", sessionMiddleware, deleteBanner);
 router.delete("/account", sessionMiddleware, deleteUser);
 
 export default router;

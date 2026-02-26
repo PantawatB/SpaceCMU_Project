@@ -98,6 +98,81 @@ export const respondToRequest = async (req: Request, res: Response) => {
     }
 };
 
+export const respondToRequestByUserId = async (req: Request, res: Response) => {
+    try {
+        const currentUserId = req.session?.activeUserId;
+        const { userId, status } = req.body; // status: 'accepted', 'blocked', or 'rejected'
+
+        if (!currentUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!userId || !status) {
+            return res.status(400).json({ message: "userId and status are required" });
+        }
+
+        // Find the pending request where the other user is the sender (userId1) and current user is the receiver (userId2)
+        const pendingRequest = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                and(
+                    eq(friendshipsTable.userId1, userId),
+                    eq(friendshipsTable.userId2, currentUserId),
+                    eq(friendshipsTable.status, "pending")
+                )
+            )
+            .limit(1);
+
+        if (pendingRequest.length === 0) {
+            return res.status(404).json({ message: "No pending friend request found from this user" });
+        }
+
+        const requestId = pendingRequest[0].id;
+
+        if (status === "rejected") {
+            const deleted = await dbClient
+                .delete(friendshipsTable)
+                .where(eq(friendshipsTable.id, requestId))
+                .returning();
+
+            return res.json({ message: "Friend request rejected" });
+        }
+
+        const updated = await dbClient
+            .update(friendshipsTable)
+            .set({ status })
+            .where(eq(friendshipsTable.id, requestId))
+            .returning();
+
+        // If accepted, increment friendsCount for both users
+        if (status === "accepted") {
+            const friendship = updated[0];
+
+            await dbClient
+                .update(usersTable)
+                .set({ friendsCount: sql`COALESCE(${usersTable.friendsCount}, 0) + 1` })
+                .where(eq(usersTable.id, friendship.userId1));
+
+            await dbClient
+                .update(usersTable)
+                .set({ friendsCount: sql`COALESCE(${usersTable.friendsCount}, 0) + 1` })
+                .where(eq(usersTable.id, friendship.userId2));
+
+            // Log Activity
+            await import("../utils/activityLogger.js").then(({ logActivity }) => {
+                logActivity(currentUserId, "Accepted friend request", `Accepted friend request from user: ${userId}`, req);
+            });
+        }
+
+        res.json({ message: `Friend request ${status}`, friendship: updated[0] });
+
+    } catch (error) {
+        console.error("Error in respondToRequestByUserId:", error);
+        res.status(500).json({ message: "Error responding to friend request by user ID" });
+    }
+};
+
 
 export const getFriendsList = async (req: Request, res: Response) => {
     try {
@@ -134,6 +209,7 @@ export const getFriendsList = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 username: usersTable.username,
                 avatarUrl: usersTable.avatarUrl,
+                role: usersTable.role,
                 bannerUrl: usersTable.bannerUrl,
                 bio: usersTable.bio,
                 friendsCount: usersTable.friendsCount,
@@ -164,6 +240,7 @@ export const getPendingRequests = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 username: usersTable.username,
                 avatarUrl: usersTable.avatarUrl,
+                role: usersTable.role,
                 bannerUrl: usersTable.bannerUrl,
                 bio: usersTable.bio,
                 createdAt: friendshipsTable.createdAt
@@ -265,6 +342,7 @@ export const getActiveFriends = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 username: usersTable.username,
                 avatarUrl: usersTable.avatarUrl,
+                role: usersTable.role,
                 lastActiveAt: usersTable.lastActiveAt,
             })
             .from(usersTable)
@@ -393,6 +471,7 @@ const suggestByStudentId = async (userId: string) => {
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
             major: usersTable.major,
@@ -419,6 +498,7 @@ const suggestByStudentId = async (userId: string) => {
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
             major: usersTable.major,
@@ -496,6 +576,7 @@ const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => 
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
             major: usersTable.major,
@@ -562,6 +643,7 @@ export const getFriendsByUserId = async (req: Request, res: Response) => {
                 lastName: usersTable.lastName,
                 username: usersTable.username,
                 avatarUrl: usersTable.avatarUrl,
+                role: usersTable.role,
                 bannerUrl: usersTable.bannerUrl,
                 bio: usersTable.bio,
                 friendsCount: usersTable.friendsCount,
