@@ -111,8 +111,8 @@ export const createGroupRoom = async (req: Request, res: Response) => {
         const memberIds: string[] = Array.isArray(rawMemberIds)
             ? rawMemberIds
             : rawMemberIds
-            ? [rawMemberIds]
-            : [];
+                ? [rawMemberIds]
+                : [];
 
         // ถ้าส่งมาเป็น FormData จะมี req.file, ถ้าส่ง JSON จะไม่มี
         const uploadedFile = (req as any).file as Express.Multer.File | undefined;
@@ -238,15 +238,15 @@ export const getUserRooms = async (req: Request, res: Response) => {
 
                 const lastMessage = lastMessageRaw[0]
                     ? {
-                          id: lastMessageRaw[0].id,
-                          senderId: lastMessageRaw[0].senderId,
-                          content: lastMessageRaw[0].content,
-                          createdAt: lastMessageRaw[0].createdAt,
-                          sender: {
-                              firstName: lastMessageRaw[0].senderFirstName ?? "",
-                              lastName: lastMessageRaw[0].senderLastName ?? "",
-                          },
-                      }
+                        id: lastMessageRaw[0].id,
+                        senderId: lastMessageRaw[0].senderId,
+                        content: lastMessageRaw[0].content,
+                        createdAt: lastMessageRaw[0].createdAt,
+                        sender: {
+                            firstName: lastMessageRaw[0].senderFirstName ?? "",
+                            lastName: lastMessageRaw[0].senderLastName ?? "",
+                        },
+                    }
                     : null;
 
                 // Get unread count for this user
@@ -706,20 +706,35 @@ export const leaveRoom = async (req: Request, res: Response) => {
                 )
             );
 
+        // Fetch room info to check if it is a group
+        const room = await dbClient
+            .select()
+            .from(chatRoomsTable)
+            .where(eq(chatRoomsTable.id, roomId))
+            .limit(1);
+
+        const isGroup = room[0]?.isGroup;
+
         // Check if room is now empty
         const remainingMembers = await dbClient
             .select()
             .from(chatRoomMembersTable)
             .where(eq(chatRoomMembersTable.roomId, roomId));
 
-        if (remainingMembers.length === 0) {
-            // Delete the room if empty
+        if (remainingMembers.length === 0 && isGroup) {
+            // Delete the room if empty AND it's a group
             await dbClient
                 .delete(chatRoomsTable)
                 .where(eq(chatRoomsTable.id, roomId));
 
             return res.json({
                 message: "Left room successfully. Room was deleted as it's now empty.",
+            });
+        }
+
+        if (remainingMembers.length === 0 && !isGroup) {
+            return res.json({
+                message: "Left room successfully. 1-on-1 room retained.",
             });
         }
 

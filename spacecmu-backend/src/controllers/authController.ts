@@ -126,6 +126,12 @@ export const callback = async (req: Request, res: Response) => {
             user = upsertedUser;
             console.log("User saved:", user.id);
 
+            // 3.0 Check if user is banned
+            if (user.status === "banned") {
+                console.log("Banned user attempted to login:", user.id);
+                return res.status(403).json({ error: "Your account has been banned." });
+            }
+
             // 3.1 Handle Anonymous Account (Backend Only)
             const anonEmail = cmuAccount + "@anonymous.spacecmu.com";
 

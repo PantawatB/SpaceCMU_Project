@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable } from "../../db/schema.js";
+import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable } from "../../db/schema.js";
 import { eq, desc, and, sql, lt, ne } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -35,6 +35,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(postsTable)
             .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -86,6 +87,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                         authorFirstName: usersTable.firstName,
                         authorLastName: usersTable.lastName,
                         authorAvatarUrl: usersTable.avatarUrl,
+                        authorRole: usersTable.role,
                     })
                     .from(postsTable)
                     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -111,13 +113,99 @@ export const getAllPosts = async (req: Request, res: Response) => {
                             .where(eq(postMediaTable.postId, post.id))
                             .orderBy(postMediaTable.order);
 
-                        const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                        const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                         return {
                             ...postData,
                             author: {
                                 firstName: authorFirstName,
                                 lastName: authorLastName,
                                 avatarUrl: authorAvatarUrl,
+                                role: authorRole,
+                            },
+                            media: media.length > 0 ? media : undefined,
+                        };
+                    })
+                );
+
+                const nextCursor = hasMore && postsToReturn.length > 0
+                    ? postsToReturn[postsToReturn.length - 1].createdAt.toISOString()
+                    : null;
+
+                return res.json({
+                    posts: postsWithMedia,
+                    nextCursor,
+                    hasMore,
+                });
+            } else if (category === 'Follow') {
+                // Follow feed: Show only 'Global' posts from users they follow
+                if (!userId) {
+                    return res.json([]); // Not logged in = no follow feed
+                }
+
+                // Get users whom this user follows
+                const follows = await dbClient
+                    .select()
+                    .from(followsTable)
+                    .where(eq(followsTable.followerId, userId));
+
+                const followingIds = follows.map(f => f.followingId);
+
+                if (followingIds.length === 0) {
+                    return res.json([]); // No followings = empty feed
+                }
+
+                const posts = await dbClient
+                    .select({
+                        id: postsTable.id,
+                        userId: postsTable.userId,
+                        content: postsTable.content,
+                        imageUrl: postsTable.imageUrl,
+                        mediaUrl: postsTable.mediaUrl,
+                        mediaType: postsTable.mediaType,
+                        category: postsTable.category,
+                        likeCount: postsTable.likeCount,
+                        commentCount: postsTable.commentCount,
+                        repostCount: postsTable.repostCount,
+                        status: postsTable.status,
+                        createdAt: postsTable.createdAt,
+                        updatedAt: postsTable.updatedAt,
+                        authorFirstName: usersTable.firstName,
+                        authorLastName: usersTable.lastName,
+                        authorAvatarUrl: usersTable.avatarUrl,
+                        authorRole: usersTable.role,
+                    })
+                    .from(postsTable)
+                    .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+                    .where(
+                        and(
+                            sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                            eq(postsTable.category, 'Global'),
+                            ne(postsTable.status, 'banned')
+                        )
+                    )
+                    .orderBy(desc(postsTable.createdAt))
+                    .limit(limit + 1);
+
+                const hasMore = posts.length > limit;
+                const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
+
+                // Fetch media for each post
+                const postsWithMedia = await Promise.all(
+                    postsToReturn.map(async (post) => {
+                        const media = await dbClient
+                            .select()
+                            .from(postMediaTable)
+                            .where(eq(postMediaTable.postId, post.id))
+                            .orderBy(postMediaTable.order);
+
+                        const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
+                        return {
+                            ...postData,
+                            author: {
+                                firstName: authorFirstName,
+                                lastName: authorLastName,
+                                avatarUrl: authorAvatarUrl,
+                                role: authorRole,
                             },
                             media: media.length > 0 ? media : undefined,
                         };
@@ -153,6 +241,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                         authorFirstName: usersTable.firstName,
                         authorLastName: usersTable.lastName,
                         authorAvatarUrl: usersTable.avatarUrl,
+                        authorRole: usersTable.role,
                     })
                     .from(postsTable)
                     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -172,13 +261,14 @@ export const getAllPosts = async (req: Request, res: Response) => {
                             .where(eq(postMediaTable.postId, post.id))
                             .orderBy(postMediaTable.order);
 
-                        const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                        const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                         return {
                             ...postData,
                             author: {
                                 firstName: authorFirstName,
                                 lastName: authorLastName,
                                 avatarUrl: authorAvatarUrl,
+                                role: authorRole,
                             },
                             media: media.length > 0 ? media : undefined,
                         };
@@ -224,6 +314,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(postsTable)
             .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -244,13 +335,14 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
-                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                 return {
                     ...postData,
                     author: {
                         firstName: authorFirstName,
                         lastName: authorLastName,
                         avatarUrl: authorAvatarUrl,
+                        role: authorRole,
                     },
                     media: media.length > 0 ? media : undefined,
                 };
@@ -785,6 +877,7 @@ export const getRepostedPosts = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(repostsTable)
             .innerJoin(postsTable, eq(repostsTable.postId, postsTable.id))
@@ -801,13 +894,14 @@ export const getRepostedPosts = async (req: Request, res: Response) => {
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
-                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                 return {
                     ...postData,
                     author: {
                         firstName: authorFirstName,
                         lastName: authorLastName,
                         avatarUrl: authorAvatarUrl,
+                        role: authorRole,
                     },
                     media: media.length > 0 ? media : undefined,
                 };
@@ -847,6 +941,7 @@ export const getRepostsByUserId = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(repostsTable)
             .innerJoin(postsTable, eq(repostsTable.postId, postsTable.id))
@@ -863,13 +958,14 @@ export const getRepostsByUserId = async (req: Request, res: Response) => {
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
-                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                 return {
                     ...postData,
                     author: {
                         firstName: authorFirstName,
                         lastName: authorLastName,
                         avatarUrl: authorAvatarUrl,
+                        role: authorRole,
                     },
                     media: media.length > 0 ? media : undefined,
                 };
@@ -907,6 +1003,7 @@ export const getLikedPosts = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(likesTable)
             .innerJoin(postsTable, eq(likesTable.postId, postsTable.id))
@@ -923,13 +1020,14 @@ export const getLikedPosts = async (req: Request, res: Response) => {
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
-                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                 return {
                     ...postData,
                     author: {
                         firstName: authorFirstName,
                         lastName: authorLastName,
                         avatarUrl: authorAvatarUrl,
+                        role: authorRole,
                     },
                     media: media.length > 0 ? media : undefined,
                 };
@@ -1013,6 +1111,7 @@ export const getSavedPosts = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(savedPostsTable)
             .innerJoin(postsTable, eq(savedPostsTable.postId, postsTable.id))
@@ -1029,13 +1128,14 @@ export const getSavedPosts = async (req: Request, res: Response) => {
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
-                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                 return {
                     ...postData,
                     author: {
                         firstName: authorFirstName,
                         lastName: authorLastName,
                         avatarUrl: authorAvatarUrl,
+                        role: authorRole,
                     },
                     media: media.length > 0 ? media : undefined,
                 };
@@ -1071,6 +1171,7 @@ export const getUserPosts = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(postsTable)
             .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -1110,6 +1211,7 @@ export const getUserPosts = async (req: Request, res: Response) => {
                 firstName: post.authorFirstName,
                 lastName: post.authorLastName,
                 avatarUrl: post.authorAvatarUrl,
+                role: post.authorRole,
             },
             media: (mediaMap[String(post.id)] || []).sort((a: any, b: any) => a.order - b.order),
         }));
@@ -1141,6 +1243,7 @@ export const getPostsByUserId = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(postsTable)
             .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
@@ -1180,6 +1283,7 @@ export const getPostsByUserId = async (req: Request, res: Response) => {
                 firstName: post.authorFirstName,
                 lastName: post.authorLastName,
                 avatarUrl: post.authorAvatarUrl,
+                role: post.authorRole,
             },
             media: (mediaMap[String(post.id)] || []).sort((a: any, b: any) => a.order - b.order),
         }));
@@ -1283,6 +1387,7 @@ export const getLikedPostsByUserId = async (req: Request, res: Response) => {
                 authorFirstName: usersTable.firstName,
                 authorLastName: usersTable.lastName,
                 authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
             })
             .from(likesTable)
             .innerJoin(postsTable, eq(likesTable.postId, postsTable.id))
@@ -1299,13 +1404,14 @@ export const getLikedPostsByUserId = async (req: Request, res: Response) => {
                     .where(eq(postMediaTable.postId, post.id))
                     .orderBy(postMediaTable.order);
 
-                const { authorFirstName, authorLastName, authorAvatarUrl, ...postData } = post;
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
                 return {
                     ...postData,
                     author: {
                         firstName: authorFirstName,
                         lastName: authorLastName,
                         avatarUrl: authorAvatarUrl,
+                        role: authorRole,
                     },
                     media: media.length > 0 ? media : undefined,
                 };

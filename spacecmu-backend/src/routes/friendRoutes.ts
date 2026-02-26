@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
     sendFriendRequest,
     respondToRequest,
+    respondToRequestByUserId,
     getFriendsList,
     getPendingRequests,
     deleteFriend,
@@ -16,6 +17,7 @@ const router = Router();
 
 router.post("/request", sessionMiddleware, sendFriendRequest);
 router.post("/respond", sessionMiddleware, respondToRequest);
+router.post("/respond-by-user", sessionMiddleware, respondToRequestByUserId);
 router.get("/me", sessionMiddleware, getFriendsList);
 router.get("/user/:userId", sessionMiddleware, getFriendsByUserId);
 router.get("/status/:otherUserId", sessionMiddleware, getFriendshipStatus);

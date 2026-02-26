@@ -21,7 +21,7 @@ export const marketItemStatusEnum = pgEnum("market_item_status", ["available", "
 export const announcementTypeEnum = pgEnum("announcement_type", ["global", "private"]);
 export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other"]);
 export const roomMemberRoleEnum = pgEnum("room_member_role", ["member", "admin"]);
-export const messageTypeEnum = pgEnum("message_type", ["text", "system"]);
+export const messageTypeEnum = pgEnum("message_type", ["text", "system", "market_card"]);
 
 // --- Users Table ---
 // Covers Profile, Settings, Admin User Mgmt
@@ -167,6 +167,22 @@ export const friendshipsTable = pgTable("friendships", {
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Follows Table ---
+// Covers Following functionality natively
+export const followsTable = pgTable("follows", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  followerId: uuid("follower_id").references(() => usersTable.id).notNull(), // The user who follows
+  followingId: uuid("following_id").references(() => usersTable.id).notNull(), // The user being followed
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  unq: {
+    name: 'unique_user_follow',
+    columns: [t.followerId, t.followingId],
+    unique: true
+  }
+}));
+
 // --- Chat Rooms Table ---
 // Supports both 1-on-1 and group chats
 export const chatRoomsTable = pgTable("chat_rooms", {
@@ -220,6 +236,7 @@ export const messagesTable = pgTable("messages", {
 
   // Message type: "text" = normal, "system" = automated notification (e.g. changed group name)
   messageType: messageTypeEnum("message_type").default("text"),
+  marketItemId: uuid("market_item_id").references((): AnyPgColumn => marketItemsTable.id), // For market cards
 
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   editedAt: timestamp("edited_at", { withTimezone: true }), // For message editing

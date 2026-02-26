@@ -518,6 +518,106 @@ export const deleteAvatar = async (req: Request, res: Response) => {
     }
 };
 
+// Update Banner
+export const updateBanner = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
+        const file = req.file;
+        if (!file) {
+            res.status(400).json({ message: "No image file provided" });
+            return;
+        }
+
+        // Get existing user to check for old banner
+        const existingUser = await dbClient
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        if (existingUser.length === 0) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        const oldBannerUrl = existingUser[0].bannerUrl;
+        const newBannerUrl = `/uploads/${file.filename}`;
+
+        // Delete old file if it's a local upload
+        if (oldBannerUrl && oldBannerUrl.startsWith("/uploads/")) {
+            const oldFilePath = path.join(process.cwd(), oldBannerUrl);
+            if (fs.existsSync(oldFilePath)) {
+                fs.unlinkSync(oldFilePath);
+            }
+        }
+
+        const updatedUser = await dbClient
+            .update(usersTable)
+            .set({ bannerUrl: newBannerUrl })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        res.json({ message: "Banner updated successfully", user: updatedUser[0] });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Updated banner", `Updated banner`, req);
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error updating banner" });
+    }
+};
+
+// Delete Banner
+export const deleteBanner = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
+        // Get existing user to check for old banner
+        const existingUser = await dbClient
+            .select()
+            .from(usersTable)
+            .where(eq(usersTable.id, userId))
+            .limit(1);
+
+        if (existingUser.length === 0) {
+            res.status(404).json({ message: "User not found" });
+            return;
+        }
+
+        const oldBannerUrl = existingUser[0].bannerUrl;
+
+        // Delete file if it's a local upload
+        if (oldBannerUrl && oldBannerUrl.startsWith("/uploads/")) {
+            const oldFilePath = path.join(process.cwd(), oldBannerUrl);
+            if (fs.existsSync(oldFilePath)) {
+                fs.unlinkSync(oldFilePath);
+            }
+        }
+
+        const updatedUser = await dbClient
+            .update(usersTable)
+            .set({ bannerUrl: null })
+            .where(eq(usersTable.id, userId))
+            .returning();
+
+        res.json({ message: "Banner deleted successfully", user: updatedUser[0] });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error deleting banner" });
+    }
+};
+
 // Search Users
 export const searchUsers = async (req: Request, res: Response) => {
     try {

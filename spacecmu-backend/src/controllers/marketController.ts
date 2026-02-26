@@ -480,3 +480,52 @@ export const getMarketItemsByUserId = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error fetching market items by user" });
     }
 };
+
+// Update market item status
+export const updateMarketItemStatus = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { itemId } = req.params;
+        const { status } = req.body;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        if (!status || !["available", "sold"].includes(status)) {
+            return res.status(400).json({ message: "Invalid status" });
+        }
+
+        // Check if item exists and user is seller
+        const item = await dbClient
+            .select()
+            .from(marketItemsTable)
+            .where(eq(marketItemsTable.id, itemId))
+            .limit(1);
+
+        if (item.length === 0) {
+            return res.status(404).json({ message: "Market item not found" });
+        }
+
+        if (item[0].sellerId !== userId) {
+            return res.status(403).json({ message: "You are not authorized to update this item's status" });
+        }
+
+        // Update status
+        const updatedItem = await dbClient
+            .update(marketItemsTable)
+            .set({ status })
+            .where(eq(marketItemsTable.id, itemId))
+            .returning();
+
+        res.json({ message: "Market item status updated successfully", item: updatedItem[0] });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Updated market item status", `Updated status to ${status} for item: ${item[0].title}`, req);
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error updating market item status" });
+    }
+};
