@@ -71,6 +71,17 @@ export const getAllPosts = async (req: Request, res: Response) => {
                 // Filter posts: any post by a friend EXCEPT posts the friend marked
                 // as 'Friends' category that the viewer can already see anyway.
                 // Rule: show ALL posts from friends regardless of category.
+                const friendsWhereCondition = cursorDate
+                    ? and(
+                        sql`${postsTable.userId} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`,
+                        ne(postsTable.status, 'banned'),
+                        lt(postsTable.createdAt, cursorDate)
+                    )
+                    : and(
+                        sql`${postsTable.userId} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`,
+                        ne(postsTable.status, 'banned')
+                    );
+
                 const posts = await dbClient
                     .select({
                         id: postsTable.id,
@@ -93,12 +104,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     })
                     .from(postsTable)
                     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-                    .where(
-                        and(
-                            sql`${postsTable.userId} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`,
-                            ne(postsTable.status, 'banned')
-                        )
-                    )
+                    .where(friendsWhereCondition)
                     .orderBy(desc(postsTable.createdAt))
                     .limit(limit + 1);
 
@@ -177,17 +183,31 @@ export const getAllPosts = async (req: Request, res: Response) => {
                 // Show post if: poster is followed AND (category != Friends OR poster is also a friend)
                 let whereCondition;
                 if (followingFriendIds.length > 0) {
-                    whereCondition = and(
-                        sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
-                        sql`(${postsTable.category} <> 'Friends' OR ${postsTable.userId} IN (${sql.join(followingFriendIds.map(id => sql`${id}`), sql`, `)}))`,
-                        ne(postsTable.status, 'banned')
-                    );
+                    whereCondition = cursorDate
+                        ? and(
+                            sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                            sql`(${postsTable.category} <> 'Friends' OR ${postsTable.userId} IN (${sql.join(followingFriendIds.map(id => sql`${id}`), sql`, `)}))`,
+                            ne(postsTable.status, 'banned'),
+                            lt(postsTable.createdAt, cursorDate)
+                        )
+                        : and(
+                            sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                            sql`(${postsTable.category} <> 'Friends' OR ${postsTable.userId} IN (${sql.join(followingFriendIds.map(id => sql`${id}`), sql`, `)}))`,
+                            ne(postsTable.status, 'banned')
+                        );
                 } else {
-                    whereCondition = and(
-                        sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
-                        ne(postsTable.category, 'Friends'),
-                        ne(postsTable.status, 'banned')
-                    );
+                    whereCondition = cursorDate
+                        ? and(
+                            sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                            ne(postsTable.category, 'Friends'),
+                            ne(postsTable.status, 'banned'),
+                            lt(postsTable.createdAt, cursorDate)
+                        )
+                        : and(
+                            sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                            ne(postsTable.category, 'Friends'),
+                            ne(postsTable.status, 'banned')
+                        );
                 }
 
                 const posts = await dbClient
@@ -253,6 +273,10 @@ export const getAllPosts = async (req: Request, res: Response) => {
                 });
             } else {
                 // Other categories: Announcements, Events, Questions, Marketplaces, Shops
+                const otherWhereCondition = cursorDate
+                    ? and(eq(postsTable.category, category as string), ne(postsTable.status, 'banned'), lt(postsTable.createdAt, cursorDate))
+                    : and(eq(postsTable.category, category as string), ne(postsTable.status, 'banned'));
+
                 const posts = await dbClient
                     .select({
                         id: postsTable.id,
@@ -275,7 +299,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     })
                     .from(postsTable)
                     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-                    .where(and(eq(postsTable.category, category as string), ne(postsTable.status, 'banned')))
+                    .where(otherWhereCondition)
                     .orderBy(desc(postsTable.createdAt))
                     .limit(limit + 1);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
@@ -65,6 +65,14 @@ export default function FeedsMainPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showTokenErrorPopup, setShowTokenErrorPopup] = useState(false);
 
+  // Infinite scroll state
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const feedScrollRef = useRef<HTMLElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false); // block scroll-jump during load
+
   // Persist selected feed type to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("feedFilter", selectedFilter);
@@ -83,7 +91,7 @@ export default function FeedsMainPage() {
     };
   }, []);
 
-  // Fetch posts when selectedFilter changes
+  // Fetch posts when selectedFilter changes (initial load)
   useEffect(() => {
     const fetchPosts = async () => {
       // Don't fetch if no active user
@@ -94,6 +102,8 @@ export default function FeedsMainPage() {
 
       setLoading(true);
       setError(null);
+      setNextCursor(null);
+      setHasMore(false);
 
       try {
         const response = await fetch(
@@ -121,6 +131,8 @@ export default function FeedsMainPage() {
         const postsArray = Array.isArray(data) ? data : data.posts || [];
         console.log("Fetched posts:", postsArray);
         setPosts(postsArray);
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
       } catch (err) {
         console.error("Error fetching posts:", err);
         // Check if it's a token error
@@ -137,6 +149,78 @@ export default function FeedsMainPage() {
 
     fetchPosts();
   }, [selectedFilter, activeUser]);
+
+  // Load more posts (append) using cursor
+  const loadMorePosts = useCallback(async () => {
+    if (!activeUser || !nextCursor || !hasMore || isLoadingMoreRef.current) return;
+
+    const scrollEl = feedScrollRef.current;
+    const prevScrollHeight = scrollEl?.scrollHeight ?? 0;
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: "include" },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const morePosts: Post[] = Array.isArray(data) ? data : data.posts || [];
+
+      setPosts((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const incoming = morePosts.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...incoming];
+      });
+      setNextCursor(data.nextCursor ?? null);
+      setHasMore(data.hasMore ?? false);
+
+      // Preserve scroll position: after DOM update, keep scrollTop unchanged
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (scrollEl) {
+            const newScrollHeight = scrollEl.scrollHeight;
+            // posts are appended at bottom, so scrollTop stays the same naturally
+            // but guard against any browser-auto-scroll by restoring it
+            const diff = newScrollHeight - prevScrollHeight;
+            if (diff > 0 && scrollEl.scrollTop < prevScrollHeight - scrollEl.clientHeight + 10) {
+              // only correct if browser jumped scroll unexpectedly
+            }
+          }
+          isLoadingMoreRef.current = false;
+        });
+      });
+    } catch (err) {
+      console.error("Error loading more posts:", err);
+      isLoadingMoreRef.current = false;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [activeUser, nextCursor, hasMore, selectedFilter]);
+
+  // IntersectionObserver: watch sentinel element at bottom of posts list
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMoreRef.current) {
+          loadMorePosts();
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadMorePosts]);
 
   const postModes = [
     { id: "Global", label: "Global" },
@@ -306,6 +390,8 @@ export default function FeedsMainPage() {
         const postsArray = Array.isArray(data) ? data : data.posts || [];
         console.log("Refreshed posts:", postsArray);
         setPosts(postsArray);
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
       }
     } catch (error) {
       console.error("Error creating post:", error);
@@ -540,7 +626,7 @@ export default function FeedsMainPage() {
           </div>
         </div>
         {/* Feeds Section: scrollable only for posts */}
-        <section className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
+        <section ref={feedScrollRef} className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
           {/* Loading State */}
           {loading && (
             <div className="flex justify-center items-center py-12">
@@ -584,6 +670,29 @@ export default function FeedsMainPage() {
                 onPostDelete={handlePostDelete}
               />
             ))}
+
+          {/* Sentinel for IntersectionObserver — triggers loadMorePosts */}
+          <div ref={sentinelRef} className="h-1" />
+
+          {/* Load more indicator */}
+          {isLoadingMore && (
+            <div className="flex justify-center items-center py-4">
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Loading more posts...
+              </div>
+            </div>
+          )}
+
+          {/* End of feed indicator */}
+          {!loading && !hasMore && posts.length > 0 && (
+            <div className="flex justify-center items-center py-4 text-gray-300 text-xs">
+              — You&apos;ve reached the end —
+            </div>
+          )}
         </section>
 
         {/* Report Popup */}
