@@ -397,10 +397,7 @@ function MarketCardBubble({
                   </div>
                 </div>
 
-                {/* NOTE: No "chat with seller" button intentionally */}
-                <div className="mt-auto text-center">
-                  <p className="text-xs text-gray-400">🛍️ สินค้าจากตลาด SpaceCMU</p>
-                </div>
+                
               </div>
             </div>
           </div>
