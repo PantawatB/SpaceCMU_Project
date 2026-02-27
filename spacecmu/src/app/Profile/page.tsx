@@ -69,6 +69,10 @@ interface MarketItemAPI {
   category: string | null;
 }
 
+function openDirectChatEvent(userId: string) {
+  window.dispatchEvent(new CustomEvent("openDirectChat", { detail: userId }));
+}
+
 function FriendProfileCard({
   friend,
   friendName,
@@ -189,6 +193,7 @@ function FriendProfileCard({
           <button
             disabled={loading !== null}
             title="Chat"
+            onClick={() => openDirectChatEvent(friend.id)}
             className="w-9 h-9 shrink-0 rounded-full transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

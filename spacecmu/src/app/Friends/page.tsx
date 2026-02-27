@@ -11,6 +11,10 @@ import { apiService } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
 
+function openDirectChatEvent(userId: string) {
+  window.dispatchEvent(new CustomEvent("openDirectChat", { detail: userId }));
+}
+
 interface PostMedia {
   id: number;
   postId: number;
@@ -21,8 +25,8 @@ interface PostMedia {
 }
 
 interface Post {
-  id: number;
-  userId: number;
+  id: string;
+  userId: string;
   content: string;
   category: string;
   likeCount: number;
@@ -273,6 +277,7 @@ function UserFriendCard({
             </button>
             {/* Chat */}
             <button
+              onClick={() => openDirectChatEvent(friend.id)}
               title="Chat"
               className="w-9 h-9 shrink-0 rounded-full transition-all bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-800 flex items-center justify-center"
             >
@@ -529,6 +534,7 @@ export default function FriendsMainPage() {
   const [isFriend, setIsFriend] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [isPendingFromMe, setIsPendingFromMe] = useState(false);
+  const [pendingRequestId, setPendingRequestId] = useState<string | null>(null);
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendCardProps[]>([]);
@@ -539,6 +545,12 @@ export default function FriendsMainPage() {
   const [marketItemsError, setMarketItemsError] = useState<string | null>(null);
   const [selectedMarketItem, setSelectedMarketItem] = useState<MarketItemAPI | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  // ── Market chat popup state ───────────────────────────────────────────────
+  const [showMarketChatPopup, setShowMarketChatPopup] = useState(false);
+  const [marketChatItem, setMarketChatItem] = useState<MarketItemAPI | null>(null);
+  const [marketChatMessage, setMarketChatMessage] = useState("");
+  const [isSendingMarketChat, setIsSendingMarketChat] = useState(false);
+  const marketChatTextareaRef = useRef<HTMLTextAreaElement>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -598,8 +610,7 @@ export default function FriendsMainPage() {
             onAccept: handleAcceptRequest,
             onReject: handleRejectRequest,
             onChat: () => {
-              // TODO: integrate chat API
-              console.log("Open chat with sender:", req.senderId);
+              openDirectChatEvent(req.senderId);
             },
           }));
           setFriendRequests(mapped);
@@ -661,6 +672,19 @@ export default function FriendsMainPage() {
         setIsFriend(status === 'friends' || status === 'accepted');
         setIsPending(status === 'pending');
         setIsPendingFromMe(userData.isPendingFrom === 'me');
+
+        // Fetch friendship status to get requestId for accept/cancel
+        try {
+          const statusRes = await fetch(`${API_CONFIG.BASE_URL}/api/friends/status/${userId}`, {
+            credentials: "include",
+          });
+          if (statusRes.ok) {
+            const statusData = await statusRes.json();
+            setPendingRequestId(statusData.requestId ?? null);
+          }
+        } catch {
+          // non-critical
+        }
         
         // Fetch user's posts
         setLoadingPosts(true);
@@ -832,6 +856,7 @@ export default function FriendsMainPage() {
     setIsFriend(false);
     setIsPending(false);
     setIsPendingFromMe(false);
+    setPendingRequestId(null);
     setShowUnfriendConfirm(false);
   };
 
@@ -874,6 +899,22 @@ export default function FriendsMainPage() {
           setIsPendingFromMe(false);
         } else {
           console.error("Failed to cancel friend request");
+        }
+      } else if (isPending && !isPendingFromMe) {
+        // Incoming request — accept it
+        if (!pendingRequestId) return;
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ requestId: pendingRequestId, status: "accepted" }),
+        });
+        if (res.ok) {
+          setIsPending(false);
+          setIsFriend(true);
+          setPendingRequestId(null);
+        } else {
+          console.error("Failed to accept friend request");
         }
       } else {
         // Send friend request — body field is userId2
@@ -946,7 +987,7 @@ export default function FriendsMainPage() {
   }, [activeTab, selectedUser]);
 
   // Handle like count update
-  const handleLikeUpdate = (postId: number, newLikeCount: number) => {    setUserPosts(prevPosts =>
+  const handleLikeUpdate = (postId: string, newLikeCount: number) => {    setUserPosts(prevPosts =>
       prevPosts.map(post =>
         post.id === postId ? { ...post, likeCount: newLikeCount } : post
       )
@@ -954,7 +995,7 @@ export default function FriendsMainPage() {
   };
 
   // Handle repost count update
-  const handleRepostUpdate = (postId: number, newRepostCount: number) => {
+  const handleRepostUpdate = (postId: string, newRepostCount: number) => {
     setUserPosts(prevPosts =>
       prevPosts.map(post =>
         post.id === postId ? { ...post, repostCount: newRepostCount } : post
@@ -965,6 +1006,66 @@ export default function FriendsMainPage() {
   // Handle save update
   const handleSaveUpdate = () => {
     console.log("Post save status updated");
+  };
+
+  // ── Send market chat to seller ────────────────────────────────────────────
+  const handleSendMarketChat = async () => {
+    if (!marketChatItem || !marketChatMessage.trim()) return;
+    setIsSendingMarketChat(true);
+    try {
+      const roomResult = await apiService.post<{ room: { id: string } }>(
+        "/api/chat-rooms/direct",
+        { otherUserId: marketChatItem.seller.id }
+      );
+      const roomId = roomResult?.room?.id;
+      if (!roomId) throw new Error("ไม่สามารถสร้างห้องแชทได้");
+
+      const toAbsUrl = (url: string) =>
+        url.startsWith("http") ? url : `${API_CONFIG.BASE_URL}${url}`;
+
+      let allImageUrls: string[] = [];
+      if (marketChatItem.imageUrls) {
+        try {
+          const parsed = JSON.parse(marketChatItem.imageUrls);
+          if (Array.isArray(parsed)) allImageUrls = parsed.map(toAbsUrl);
+        } catch { /* ignore */ }
+      }
+      if (allImageUrls.length === 0 && marketChatItem.imageUrl) {
+        allImageUrls = [toAbsUrl(marketChatItem.imageUrl)];
+      }
+
+      const sellerAvatarAbs = marketChatItem.seller.avatarUrl
+        ? toAbsUrl(marketChatItem.seller.avatarUrl)
+        : null;
+
+      const cardContent = JSON.stringify({
+        __type: "market_card",
+        title: marketChatItem.title,
+        price: parseFloat(marketChatItem.price).toFixed(0),
+        description: marketChatItem.description,
+        imageUrl: allImageUrls[0] ?? null,
+        imageUrls: allImageUrls,
+        sellerName: `${marketChatItem.seller.firstName} ${marketChatItem.seller.lastName}`,
+        sellerAvatarUrl: sellerAvatarAbs,
+      });
+
+      await apiService.post("/api/messages", { roomId, content: cardContent });
+
+      const userMsg = marketChatMessage.trim();
+      if (userMsg) {
+        await apiService.post("/api/messages", { roomId, content: userMsg });
+      }
+
+      setShowMarketChatPopup(false);
+      setMarketChatMessage("");
+      setMarketChatItem(null);
+      // Open the chatbox on that room
+      window.dispatchEvent(new CustomEvent("openDirectChat", { detail: marketChatItem.seller.id }));
+    } catch (err) {
+      console.error("ส่งข้อความไม่สำเร็จ:", err);
+    } finally {
+      setIsSendingMarketChat(false);
+    }
   };
 
   return (
@@ -1212,8 +1313,23 @@ export default function FriendsMainPage() {
                     </svg>
                   </div>
 
+                  {/* Friend/Unfriend Button + Chat Button */}
+                  <div className="flex items-center gap-2">
+                  {/* Chat Button */}
+                  {selectedUser.id !== activeUser?.id && (
+                    <button
+                      onClick={() => openDirectChatEvent(selectedUser.id)}
+                      title="Chat"
+                      className="flex items-center gap-2 px-4 py-2.5 rounded-full font-medium text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 border-2 border-slate-200 transition-all duration-200"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      <span>Chat</span>
+                    </button>
+                  )}
                   {/* Friend/Unfriend Button */}
-                  <button
+                  {selectedUser.id !== activeUser?.id && <button
                     onClick={handleFriendAction}
                     disabled={isAddingFriend}
                     className={`
@@ -1224,7 +1340,9 @@ export default function FriendsMainPage() {
                           ? 'bg-red-500 text-white hover:bg-red-600 border-2 border-red-500 hover:border-red-600'
                           : 'bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-2 border-gray-200'
                         : isPending
-                          ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:text-red-600 border-2 border-yellow-300 hover:border-red-300'
+                          ? isPendingFromMe
+                            ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:text-red-600 border-2 border-yellow-300 hover:border-red-300'
+                            : 'bg-green-50 text-green-700 hover:bg-green-100 border-2 border-green-300 hover:border-green-400'
                           : 'bg-slate-600 text-white hover:bg-slate-700 hover:shadow-lg hover:shadow-slate-200 border-2 border-slate-600'
                       }
                       disabled:opacity-50 disabled:cursor-not-allowed
@@ -1301,7 +1419,8 @@ export default function FriendsMainPage() {
                         )}
                       </>
                     )}
-                  </button>
+                  </button>}
+                  </div>
                 </div>
 
                 {/* Bio */}
@@ -2015,8 +2134,12 @@ export default function FriendsMainPage() {
                 ) : (
                   <button
                     onClick={() => {
-                      // TODO: implement contact seller chat API
-                      console.log("Contact seller:", selectedMarketItem.seller.id);
+                      setMarketChatItem(selectedMarketItem);
+                      setMarketChatMessage("");
+                      setShowMarketChatPopup(true);
+                      setSelectedMarketItem(null);
+                      setCurrentImageIndex(0);
+                      setTimeout(() => marketChatTextareaRef.current?.focus(), 100);
                     }}
                     className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
                   >
@@ -2038,6 +2161,131 @@ export default function FriendsMainPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Market Chat Popup ─────────────────────────────────────────────── */}
+      {showMarketChatPopup && marketChatItem && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => { setShowMarketChatPopup(false); setMarketChatMessage(""); setMarketChatItem(null); }}
+          />
+          {/* Modal */}
+          <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    marketChatItem.seller.avatarUrl
+                      ? marketChatItem.seller.avatarUrl.startsWith("http")
+                        ? marketChatItem.seller.avatarUrl
+                        : `${API_CONFIG.BASE_URL}${marketChatItem.seller.avatarUrl}`
+                      : "/default-avatar.svg"
+                  }
+                  alt={marketChatItem.seller.firstName}
+                  className="w-9 h-9 rounded-full object-cover border border-gray-200"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                />
+                <div>
+                  <p className="text-gray-900 font-semibold text-sm leading-tight">
+                    {marketChatItem.seller.firstName} {marketChatItem.seller.lastName}
+                  </p>
+                  <p className="text-gray-400 text-xs">ทักแชทหาผู้ขาย</p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowMarketChatPopup(false); setMarketChatMessage(""); setMarketChatItem(null); }}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Market Card Preview */}
+            <div className="mx-5 mt-4 rounded-xl border border-gray-200 bg-gray-50 overflow-hidden flex gap-3 p-3">
+              <div className="w-14 h-14 rounded-lg overflow-hidden flex-none bg-gray-200">
+                {(() => {
+                  let imgUrl: string | null = null;
+                  if (marketChatItem.imageUrls) {
+                    try {
+                      const parsed = JSON.parse(marketChatItem.imageUrls);
+                      if (Array.isArray(parsed) && parsed.length > 0) imgUrl = parsed[0];
+                    } catch { /* ignore */ }
+                  }
+                  if (!imgUrl) imgUrl = marketChatItem.imageUrl;
+                  if (imgUrl) {
+                    const fullUrl = imgUrl.startsWith("http") ? imgUrl : `${API_CONFIG.BASE_URL}${imgUrl}`;
+                    return (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={fullUrl} alt={marketChatItem.title} className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                    );
+                  }
+                  return (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-semibold text-gray-900 text-sm truncate">{marketChatItem.title}</p>
+                <p className="text-xs text-gray-500 truncate mt-0.5">{marketChatItem.description}</p>
+                <p className="text-orange-600 font-bold text-sm mt-1">฿{parseFloat(marketChatItem.price).toFixed(0)}</p>
+              </div>
+            </div>
+
+            {/* Message input */}
+            <div className="px-5 py-4">
+              <textarea
+                ref={marketChatTextareaRef}
+                rows={3}
+                placeholder="พิมพ์ข้อความถึงผู้ขาย..."
+                value={marketChatMessage}
+                onChange={(e) => setMarketChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMarketChat();
+                  }
+                }}
+                className="w-full px-4 py-3 rounded-xl bg-gray-100 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-slate-200 transition resize-none leading-relaxed"
+              />
+            </div>
+
+            {/* Send button */}
+            <div className="px-5 pb-5">
+              <button
+                disabled={!marketChatMessage.trim() || isSendingMarketChat}
+                onClick={handleSendMarketChat}
+                className={`w-full py-3 rounded-xl font-semibold text-sm transition-all flex items-center justify-center gap-2 ${
+                  marketChatMessage.trim() && !isSendingMarketChat
+                    ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
+                    : "bg-slate-100 text-slate-300 cursor-not-allowed"
+                }`}
+              >
+                {isSendingMarketChat ? (
+                  <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                  </svg>
+                )}
+                {isSendingMarketChat ? "กำลังส่ง..." : "ส่งข้อความ"}
+              </button>
             </div>
           </div>
         </div>

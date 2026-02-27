@@ -126,6 +126,287 @@ interface RoomDetail {
   memberCount: number;
 }
 
+// ─── Helper: parse Market Card from message content ──────────────────────────
+
+interface MarketCardPayload {
+  __type: "market_card";
+  title: string;
+  price: string;
+  description: string;
+  imageUrl: string | null;
+  imageUrls?: string[];          // all product images (may be absent in old messages)
+  sellerName?: string;
+  sellerAvatarUrl?: string | null;
+}
+
+function parseMarketCard(content: string): MarketCardPayload | null {
+  if (!content.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.__type === "market_card") return parsed as MarketCardPayload;
+  } catch { /* not JSON */ }
+  return null;
+}
+
+function MarketCardBubble({
+  card,
+  isMine,
+  senderName,
+  senderAvatarUrl,
+}: {
+  card: MarketCardPayload;
+  isMine: boolean;
+  senderName?: string;
+  senderAvatarUrl?: string | null;
+}) {
+  const [imgIndex, setImgIndex] = React.useState(0);
+  const [showModal, setShowModal] = React.useState(false);
+  const [modalImgIndex, setModalImgIndex] = React.useState(0);
+
+  // Resolve seller display info: prefer payload fields, fallback to message sender
+  const resolvedSellerName = card.sellerName ?? senderName ?? "ผู้ขาย";
+  const resolvedSellerAvatar = card.sellerAvatarUrl !== undefined
+    ? (card.sellerAvatarUrl ?? "/default-avatar.svg")
+    : (senderAvatarUrl ?? "/default-avatar.svg");
+
+  // Build a unified images array
+  const images: string[] = React.useMemo(() => {
+    if (card.imageUrls && card.imageUrls.length > 0) return card.imageUrls;
+    if (card.imageUrl) return [card.imageUrl];
+    return [];
+  }, [card.imageUrls, card.imageUrl]);
+
+  const total = images.length;
+
+  const prevImg = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setImgIndex((p) => (p === 0 ? total - 1 : p - 1));
+  };
+  const nextImg = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setImgIndex((p) => (p === total - 1 ? 0 : p + 1));
+  };
+
+  const openModal = () => {
+    setModalImgIndex(imgIndex);
+    setShowModal(true);
+  };
+
+  return (
+    <>
+      {/* ── Card bubble ───────────────────────────────────────────────── */}
+      <article
+        className={`w-64 overflow-hidden rounded-2xl ${
+          isMine ? "bg-slate-700" : "bg-white border border-gray-100 shadow-sm"
+        }`}
+      >
+        {/* Product image with navigation */}
+        <div className="w-full h-36 bg-gray-200 overflow-hidden relative">
+          {images.length > 0 ? (
+            <>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={images[imgIndex]}
+                alt={card.title}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+              />
+              {/* Arrows — only when multiple images */}
+              {total > 1 && (
+                <>
+                  <button
+                    onClick={prevImg}
+                    className="absolute left-1.5 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-0.5 z-10 transition-colors"
+                    aria-label="Previous image"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={nextImg}
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-0.5 z-10 transition-colors"
+                    aria-label="Next image"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </button>
+                  {/* Counter */}
+                  <span className="absolute bottom-1.5 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full z-10">
+                    {imgIndex + 1}/{total}
+                  </span>
+                </>
+              )}
+            </>
+          ) : (
+            <div className={`w-full h-full flex items-center justify-center ${isMine ? "bg-slate-600" : "bg-gray-200"}`}>
+              <svg className={`w-10 h-10 ${isMine ? "text-slate-400" : "text-gray-400"}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          )}
+        </div>
+
+        {/* Card info */}
+        <div className="px-3 py-2.5">
+          <p className={`font-semibold text-sm truncate ${isMine ? "text-white" : "text-gray-900"}`}>{card.title}</p>
+          <p className={`text-xs mt-0.5 line-clamp-2 ${isMine ? "text-slate-300" : "text-gray-500"}`}>{card.description}</p>
+          <p className={`text-sm font-bold mt-1.5 ${isMine ? "text-orange-300" : "text-orange-600"}`}>฿{card.price}</p>
+        </div>
+
+        {/* Footer: seller avatar + name + view button */}
+        <div className={`flex items-center justify-between px-3 py-2.5 border-t ${isMine ? "border-slate-600" : "border-gray-100"}`}>
+          <div className="flex items-center gap-2 min-w-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={resolvedSellerAvatar}
+              alt={resolvedSellerName}
+              className="w-6 h-6 rounded-full object-cover border border-gray-200 flex-none"
+              onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+            />
+            <span className={`text-xs font-medium truncate ${isMine ? "text-slate-200" : "text-gray-700"}`}>
+              {resolvedSellerName}
+            </span>
+          </div>
+          <button
+            onClick={openModal}
+            className={`text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-colors flex-none ml-2 ${
+              isMine
+                ? "bg-white/15 hover:bg-white/25 text-white"
+                : "bg-gray-900 hover:bg-gray-700 text-white"
+            }`}
+          >
+            view
+          </button>
+        </div>
+      </article>
+
+      {/* ── Product detail modal (no chat button) ──────────────────────── */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-200 flex items-center justify-center bg-black/30 backdrop-blur-sm"
+          onClick={() => setShowModal(false)}
+        >
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl w-[900px] max-h-[85vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setShowModal(false)}
+              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Modal Content */}
+            <div className="flex flex-col md:flex-row h-full overflow-y-auto">
+              {/* Left: image gallery */}
+              <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative">
+                <div className="w-full aspect-square max-w-md bg-white rounded-2xl overflow-hidden shadow-md relative flex items-center justify-center">
+                  {images.length > 0 ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={images[modalImgIndex]}
+                        alt={`${card.title} - ${modalImgIndex + 1}`}
+                        className="w-full h-full object-contain"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+                      />
+                      {total > 1 && (
+                        <>
+                          <button
+                            onClick={() => setModalImgIndex((p) => (p === 0 ? total - 1 : p - 1))}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10"
+                            aria-label="Previous"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                            </svg>
+                          </button>
+                          <button
+                            onClick={() => setModalImgIndex((p) => (p === total - 1 ? 0 : p + 1))}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10"
+                            aria-label="Next"
+                          >
+                            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </button>
+                          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/70 text-white px-4 py-2 rounded-full text-sm font-medium backdrop-blur-sm z-10">
+                            {modalImgIndex + 1} / {total}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-200">
+                      <svg className="w-32 h-32 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right: product details */}
+              <div className="w-full md:w-1/2 p-8 flex flex-col">
+                {/* Title & Price */}
+                <div className="mb-6">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-3">{card.title}</h2>
+                  <span className="text-4xl font-bold text-orange-600">฿{card.price}</span>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 my-6" />
+
+                {/* Description */}
+                <div className="mb-6 flex-1">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    รายละเอียดสินค้า
+                  </h3>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">{card.description}</p>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-200 my-6" />
+
+                {/* Seller */}
+                <div className="mb-6">
+                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                    ผู้ขาย
+                  </h3>
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 flex-none">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={resolvedSellerAvatar}
+                        alt={resolvedSellerName}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                      />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{resolvedSellerName}</p>
+                      <p className="text-sm text-gray-500">ผู้ขาย</p>
+                    </div>
+                  </div>
+                </div>
+
+                
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 // ─── Helper: Lightbox Modal ───────────────────────────────────────────────────
 
 function Lightbox({
@@ -1644,12 +1925,15 @@ export default function ChatPage() {
                   ) : (
                     realMessages.map((msg, idx) => {
                       const isMine = msg.senderId === currentUserId;
-                      const prevMsg = realMessages[idx - 1];
-                      const nextMsg = realMessages[idx + 1];
+                      // ใช้ raw สำหรับ date divider (รวม system msg)
+                      const prevMsgRaw = realMessages[idx - 1];
+                      // skip system messages เมื่อคำนวณ grouping
+                      const prevMsg = realMessages.slice(0, idx).reverse().find((m) => m.messageType !== "system");
+                      const nextMsg = realMessages.slice(idx + 1).find((m) => m.messageType !== "system");
 
                       // ─── Date divider: ขึ้นวันใหม่ ────────────────────────────────────────
                       const msgDay = new Date(msg.createdAt).toDateString();
-                      const prevDay = prevMsg ? new Date(prevMsg.createdAt).toDateString() : null;
+                      const prevDay = prevMsgRaw ? new Date(prevMsgRaw.createdAt).toDateString() : null;
                       const showDateDivider = prevDay !== msgDay;
                       const dateDividerLabel = (() => {
                         const d = new Date(msg.createdAt);
@@ -1701,7 +1985,7 @@ export default function ChatPage() {
                         nextMsg.senderId !== msg.senderId ||
                         nextTimeDiff > TIME_GAP_MS;
 
-                      const showAvatar = !isMine && isLastInGroup;
+                      const showAvatar = !isMine && (isLastInGroup || editingMessageId === msg.id);
                       const showTime = isLastInGroup;
                       const showSenderName = !isMine && selectedRoom?.isGroup && isFirstInGroup;
 
@@ -1743,8 +2027,9 @@ export default function ChatPage() {
                       // โดย "อ่านถึงข้อความนี้" = lastReadAt >= createdAt ของ msg นี้
                       //   AND lastReadAt < createdAt ของ msg ถัดไป (ถ้ามี)
                       // กรอง currentUser ออก (ไม่แสดงรูปตัวเอง)
-                      const nextMsgCreatedAtMs = nextMsg
-                        ? new Date(nextMsg.createdAt).getTime()
+                      const nextMsgRaw = realMessages[idx + 1];
+                      const nextMsgCreatedAtMs = nextMsgRaw
+                        ? new Date(nextMsgRaw.createdAt).getTime()
                         : Infinity;
 
                       const readersAtThisMsg = roomReaders.filter((r) => {
@@ -1864,16 +2149,19 @@ export default function ChatPage() {
                               {/* ── Edit/Delete action buttons (own messages only) ─── */}
                               {isMine && activeMessageMenu === msg.id && editingMessageId !== msg.id && (
                                 <div className="flex items-center gap-1 mb-1 self-end">
-                                  <button
-                                    onClick={(e) => { e.stopPropagation(); handleStartEdit(msg); }}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition-colors"
-                                    title="แก้ไขข้อความ"
-                                  >
-                                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                    </svg>
-                                    แก้ไข
-                                  </button>
+                                  {/* ซ่อนปุ่มแก้ไขถ้าเป็น market card */}
+                                  {!parseMarketCard(msg.content) && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleStartEdit(msg); }}
+                                      className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition-colors"
+                                      title="แก้ไขข้อความ"
+                                    >
+                                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                      แก้ไข
+                                    </button>
+                                  )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
                                     className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-50 hover:bg-red-100 text-red-500 text-[11px] font-medium transition-colors"
@@ -2030,12 +2318,30 @@ export default function ChatPage() {
                                     </>
                                   );
                                 })()}
-                                {/* Text content */}
-                                {msg.content && (
-                                  <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
-                                    {msg.content}
-                                  </p>
-                                )}
+                                {/* Market Card or Text content */}
+                                {msg.content && (() => {
+                                  const card = parseMarketCard(msg.content);
+                                  if (card) {
+                                    // Build sender display info for fallback (when card was sent before sellerName was added to payload)
+                                    const senderFullName = [msg.senderFirstName, msg.senderLastName].filter(Boolean).join(" ") || undefined;
+                                    const senderAvatar = msg.senderAvatarUrl
+                                      ? (apiService.getImageUrl(msg.senderAvatarUrl) ?? msg.senderAvatarUrl)
+                                      : null;
+                                    return (
+                                      <MarketCardBubble
+                                        card={card}
+                                        isMine={isMine}
+                                        senderName={senderFullName}
+                                        senderAvatarUrl={senderAvatar}
+                                      />
+                                    );
+                                  }
+                                  return (
+                                    <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                                      {msg.content}
+                                    </p>
+                                  );
+                                })()}
                                 {/* Media-only: no text padding filler */}
                                 {!msg.content && msg.mediaUrls && <div />}
                               </div>
@@ -2368,7 +2674,9 @@ export default function ChatPage() {
                   let lastMsgText = "ยังไม่มีข้อความ";
                   if (room.lastMessage) {
                     const isSentByMe = room.lastMessage.senderId === currentUserId;
-                    const content = room.lastMessage.content;
+                    const rawContent = room.lastMessage.content;
+                    // ถ้าเป็น market card ให้แสดง label แทน JSON
+                    const content = parseMarketCard(rawContent) ? "🛍️ สินค้า" : rawContent;
 
                     if (room.isGroup) {
                       const prefix = isSentByMe
