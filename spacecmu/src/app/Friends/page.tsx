@@ -589,6 +589,9 @@ export default function FriendsMainPage() {
   const [marketChatMessage, setMarketChatMessage] = useState("");
   const [isSendingMarketChat, setIsSendingMarketChat] = useState(false);
   const marketChatTextareaRef = useRef<HTMLTextAreaElement>(null);
+  // ── Follow state ──────────────────────────────────────────────────────────
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
   // ── People you may know ───────────────────────────────────────────────────
   const [friendSuggestions, setFriendSuggestions] = useState<FriendSuggestion[]>([]);
   const [friendSuggestionsLoading, setFriendSuggestionsLoading] = useState(false);
@@ -734,6 +737,19 @@ export default function FriendsMainPage() {
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             setPendingRequestId(statusData.requestId ?? null);
+          }
+        } catch {
+          // non-critical
+        }
+
+        // Fetch follow status
+        try {
+          const followRes = await fetch(`${API_CONFIG.BASE_URL}/api/follows/status/${userId}`, {
+            credentials: "include",
+          });
+          if (followRes.ok) {
+            const followData = await followRes.json();
+            setIsFollowing(followData.isFollowing ?? false);
           }
         } catch {
           // non-critical
@@ -911,6 +927,7 @@ export default function FriendsMainPage() {
     setIsPendingFromMe(false);
     setPendingRequestId(null);
     setShowUnfriendConfirm(false);
+    setIsFollowing(false);
   };
 
   // Handle add/remove friend
@@ -991,9 +1008,35 @@ export default function FriendsMainPage() {
     }
   };
 
+  // Handle follow / unfollow
+  const handleFollowAction = async () => {
+    if (!selectedUser || isFollowLoading) return;
+    setIsFollowLoading(true);
+    try {
+      if (isFollowing) {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/follows/${selectedUser.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (res.ok) setIsFollowing(false);
+      } else {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/follows`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ followingId: selectedUser.id }),
+        });
+        if (res.ok) setIsFollowing(true);
+      }
+    } catch (err) {
+      console.error("Error updating follow status:", err);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
+
   // Fetch selected user's friends when Friends tab is active
-  useEffect(() => {
-    if (activeTab !== "Friends" || !selectedUser) return;
+  useEffect(() => {    if (activeTab !== "Friends" || !selectedUser) return;
     const fetchSelectedUserFriends = async () => {
       setSelectedUserFriendsLoading(true);
       try {
@@ -1407,6 +1450,40 @@ export default function FriendsMainPage() {
 
                   {/* Friend/Unfriend Button + Chat Button */}
                   <div className="flex items-center gap-2">
+                  {/* Follow / Unfollow Button */}
+                  {selectedUser.id !== activeUser?.id && (
+                    <button
+                      onClick={handleFollowAction}
+                      disabled={isFollowLoading}
+                      className={`group relative flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 border-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
+                        isFollowing
+                          ? "bg-slate-50 text-slate-600 border-slate-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                          : "bg-slate-600 text-white border-slate-600 hover:bg-slate-700 hover:border-slate-700"
+                      }`}
+                    >
+                      {isFollowLoading ? (
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : isFollowing ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="group-hover:hidden">Following</span>
+                          <span className="hidden group-hover:inline">Unfollow</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          <span>Follow</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                   {/* Chat Button */}
                   {selectedUser.id !== activeUser?.id && (
                     <button

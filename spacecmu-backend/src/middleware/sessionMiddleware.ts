@@ -92,3 +92,55 @@ export const sessionMiddleware = async (
         res.status(500).json({ message: "Internal server error" });
     }
 };
+
+/**
+ * Optional session middleware — attaches session/activeUser if a valid token is present,
+ * but does NOT return 401 if no token is provided. Use this for public routes that
+ * also need to behave differently for authenticated users (e.g. Friends feed).
+ */
+export const optionalSessionMiddleware = async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+) => {
+    try {
+        let token = req.cookies?.token;
+
+        const authHeader = req.headers.authorization;
+        if (!token && authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.split(" ")[1];
+        }
+
+        if (!token) {
+            return next(); // No token — continue without session
+        }
+
+        const jwtSecret = process.env.JWT_SECRET || "fallback_secret";
+        let decoded: any;
+
+        try {
+            decoded = jwt.verify(token, jwtSecret);
+        } catch {
+            return next(); // Invalid token — continue without session
+        }
+
+        const session = await getSessionByToken(token);
+        if (!session) return next();
+
+        const activeUser = await getUserById(session.activeUserId);
+        if (!activeUser) return next();
+
+        req.session = {
+            userId: session.userId,
+            activeUserId: session.activeUserId,
+            sessionId: session.id,
+            officialAccountId: session.officialAccountId ?? null,
+        };
+        req.activeUser = activeUser;
+
+        next();
+    } catch (error) {
+        console.error("Optional session middleware error:", error);
+        next(); // Don't fail the request
+    }
+};

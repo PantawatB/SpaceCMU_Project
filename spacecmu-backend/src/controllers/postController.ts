@@ -68,7 +68,9 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     return res.json([]); // No friends = empty feed
                 }
 
-                // Filter posts by friends AND category = 'Friends'
+                // Filter posts: any post by a friend EXCEPT posts the friend marked
+                // as 'Friends' category that the viewer can already see anyway.
+                // Rule: show ALL posts from friends regardless of category.
                 const posts = await dbClient
                     .select({
                         id: postsTable.id,
@@ -94,7 +96,6 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     .where(
                         and(
                             sql`${postsTable.userId} IN (${sql.join(friendIds.map(id => sql`${id}`), sql`, `)})`,
-                            eq(postsTable.category, 'Friends'),
                             ne(postsTable.status, 'banned')
                         )
                     )
@@ -136,8 +137,9 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     nextCursor,
                     hasMore,
                 });
-            } else if (category === 'Follow') {
-                // Follow feed: Show only 'Global' posts from users they follow
+            } else if (category === 'Follow' || category === 'Following') {
+                // Following feed: Show posts from followed users.
+                // Friends-category posts are shown only if viewer is also friends with that user.
                 if (!userId) {
                     return res.json([]); // Not logged in = no follow feed
                 }
@@ -152,6 +154,40 @@ export const getAllPosts = async (req: Request, res: Response) => {
 
                 if (followingIds.length === 0) {
                     return res.json([]); // No followings = empty feed
+                }
+
+                // Also get the viewer's friends (to allow Friends-category posts from them)
+                const friendships = await dbClient
+                    .select()
+                    .from(friendshipsTable)
+                    .where(
+                        and(
+                            eq(friendshipsTable.status, 'accepted'),
+                            sql`(${friendshipsTable.userId1} = ${userId} OR ${friendshipsTable.userId2} = ${userId})`
+                        )
+                    );
+                const friendIds = friendships.map(f =>
+                    f.userId1 === userId ? f.userId2 : f.userId1
+                );
+
+                // followingIds that are also friends → can see their Friends-category posts
+                const followingFriendIds = followingIds.filter(id => friendIds.includes(id));
+
+                // Build where condition:
+                // Show post if: poster is followed AND (category != Friends OR poster is also a friend)
+                let whereCondition;
+                if (followingFriendIds.length > 0) {
+                    whereCondition = and(
+                        sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                        sql`(${postsTable.category} <> 'Friends' OR ${postsTable.userId} IN (${sql.join(followingFriendIds.map(id => sql`${id}`), sql`, `)}))`,
+                        ne(postsTable.status, 'banned')
+                    );
+                } else {
+                    whereCondition = and(
+                        sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
+                        ne(postsTable.category, 'Friends'),
+                        ne(postsTable.status, 'banned')
+                    );
                 }
 
                 const posts = await dbClient
@@ -176,13 +212,7 @@ export const getAllPosts = async (req: Request, res: Response) => {
                     })
                     .from(postsTable)
                     .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-                    .where(
-                        and(
-                            sql`${postsTable.userId} IN (${sql.join(followingIds.map(id => sql`${id}`), sql`, `)})`,
-                            eq(postsTable.category, 'Global'),
-                            ne(postsTable.status, 'banned')
-                        )
-                    )
+                    .where(whereCondition)
                     .orderBy(desc(postsTable.createdAt))
                     .limit(limit + 1);
 
@@ -1227,6 +1257,36 @@ export const getUserPosts = async (req: Request, res: Response) => {
 export const getPostsByUserId = async (req: Request, res: Response) => {
     try {
         const { userId } = req.params;
+        const viewerId = req.session?.activeUserId; // may be undefined for unauthenticated
+
+        // Check if the viewer is a friend of the profile owner
+        let viewerIsFriend = false;
+        if (viewerId && viewerId !== userId) {
+            const friendship = await dbClient
+                .select({ id: friendshipsTable.id })
+                .from(friendshipsTable)
+                .where(
+                    and(
+                        eq(friendshipsTable.status, 'accepted'),
+                        sql`(
+                            (${friendshipsTable.userId1} = ${viewerId} AND ${friendshipsTable.userId2} = ${userId}) OR
+                            (${friendshipsTable.userId1} = ${userId}  AND ${friendshipsTable.userId2} = ${viewerId})
+                        )`
+                    )
+                )
+                .limit(1);
+            viewerIsFriend = friendship.length > 0;
+        } else if (viewerId === userId) {
+            // Viewing own profile — can see everything
+            viewerIsFriend = true;
+        }
+
+        // Build visibility filter:
+        // - If viewer is a friend (or self): show all posts
+        // - Otherwise: hide posts with category = 'Friends'
+        const visibilityFilter = viewerIsFriend
+            ? and(eq(postsTable.userId, userId), ne(postsTable.status, 'banned'))
+            : and(eq(postsTable.userId, userId), ne(postsTable.status, 'banned'), sql`${postsTable.category} != 'Friends'`);
 
         // Fetch user's posts with author info
         const posts = await dbClient
@@ -1247,7 +1307,7 @@ export const getPostsByUserId = async (req: Request, res: Response) => {
             })
             .from(postsTable)
             .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
-            .where(eq(postsTable.userId, userId))
+            .where(visibilityFilter)
             .orderBy(desc(postsTable.createdAt));
 
         // Fetch media for all posts
