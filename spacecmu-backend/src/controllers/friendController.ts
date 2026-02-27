@@ -397,6 +397,8 @@ export const getActiveFriends = async (req: Request, res: Response) => {
 // Cache for friend suggestions (5 minutes TTL)
 const suggestionsCache = new Map<string, { data: any[], timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// Clear stale cache on startup (schema may have changed)
+suggestionsCache.clear();
 
 // Get People You May Know (Friend Suggestions)
 export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
@@ -406,13 +408,7 @@ export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Check cache first
-        const cached = suggestionsCache.get(userId);
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            return res.json(cached.data);
-        }
-
-        // Get user's friends count
+        // Get user's accepted friendships
         const friendships = await dbClient
             .select()
             .from(friendshipsTable)
@@ -423,24 +419,47 @@ export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
                 )
             );
 
+        // Get all pending friendships involving this user (both directions)
+        const pendingFriendships = await dbClient
+            .select()
+            .from(friendshipsTable)
+            .where(
+                and(
+                    or(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, userId)),
+                    eq(friendshipsTable.status, "pending")
+                )
+            );
+
+        // Build a set of user IDs that have a pending request sent BY us (outgoing)
+        const outgoingPendingIds = new Set<string>(
+            pendingFriendships
+                .filter(f => f.userId1 === userId)
+                .map(f => f.userId2)
+        );
+
         const hasFriends = friendships.length > 0;
         let suggestions: any[] = [];
 
-        if (!hasFriends) {
-            // Strategy 1: Suggest by student ID proximity (5 before, 5 after)
-            suggestions = await suggestByStudentId(userId);
+        // Check cache (only for the base suggestions, not status)
+        const cached = suggestionsCache.get(userId);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            suggestions = cached.data;
         } else {
-            // Strategy 2: Suggest friends of friends
-            suggestions = await suggestFriendsOfFriends(userId, friendships);
+            if (!hasFriends) {
+                suggestions = await suggestByStudentId(userId);
+            } else {
+                suggestions = await suggestFriendsOfFriends(userId, friendships);
+            }
+            suggestionsCache.set(userId, { data: suggestions, timestamp: Date.now() });
         }
 
-        // Cache the results
-        suggestionsCache.set(userId, {
-            data: suggestions,
-            timestamp: Date.now()
-        });
+        // Attach live friendshipStatus to each suggestion
+        const withStatus = suggestions.map(s => ({
+            ...s,
+            friendshipStatus: outgoingPendingIds.has(s.id) ? "pending" : "none",
+        }));
 
-        res.json(suggestions);
+        res.json(withStatus);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching friend suggestions" });
@@ -471,6 +490,7 @@ const suggestByStudentId = async (userId: string) => {
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            bannerUrl: usersTable.bannerUrl,
             role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
@@ -498,6 +518,7 @@ const suggestByStudentId = async (userId: string) => {
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            bannerUrl: usersTable.bannerUrl,
             role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
@@ -576,6 +597,7 @@ const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => 
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            bannerUrl: usersTable.bannerUrl,
             role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
