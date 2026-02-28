@@ -179,6 +179,31 @@ class ApiService {
   }
 
   /**
+   * GET request — silent version: returns null on 404, does NOT log to console.
+   * Use this when "not found" is an expected/normal outcome (e.g. checking if a resource still exists).
+   */
+  async getOptional<T>(endpoint: string): Promise<T | null> {
+    const url = `${this.baseURL}${endpoint}`;
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+      });
+      if (response.status === 404) return null;
+      if (!response.ok) {
+        // For non-404 errors, still throw so callers can handle them
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+      return await response.json() as T;
+    } catch (error) {
+      // Only re-throw non-404 errors; 404 is already handled above
+      throw error;
+    }
+  }
+
+  /**
    * POST request
    */
   async post<T>(

@@ -130,6 +130,7 @@ interface RoomDetail {
 
 interface MarketCardPayload {
   __type: "market_card";
+  itemId?: string;
   title: string;
   price: string;
   description: string;
@@ -162,6 +163,28 @@ function MarketCardBubble({
   const [imgIndex, setImgIndex] = React.useState(0);
   const [showModal, setShowModal] = React.useState(false);
   const [modalImgIndex, setModalImgIndex] = React.useState(0);
+  const [liveStatus, setLiveStatus] = React.useState<"available" | "sold" | "deleted" | "loading">(
+    card.itemId ? "loading" : "available"
+  );
+
+  // Fetch live status from API (getOptional returns null silently for 404/deleted items)
+  React.useEffect(() => {
+    if (!card.itemId) return;
+    apiService.getOptional<{ status: string }>(`/api/market/items/${card.itemId}`)
+      .then((data) => {
+        if (data === null || data.status === "deleted") {
+          setLiveStatus("deleted");
+        } else {
+          setLiveStatus(data.status === "sold" ? "sold" : "available");
+        }
+      })
+      .catch(() => {
+        setLiveStatus("available"); // fallback: show normally on network error
+      });
+  }, [card.itemId]);
+
+  const isSold = liveStatus === "sold";
+  const isDeleted = liveStatus === "deleted";
 
   // Resolve seller display info: prefer payload fields, fallback to message sender
   const resolvedSellerName = card.sellerName ?? senderName ?? "ผู้ขาย";
@@ -196,9 +219,9 @@ function MarketCardBubble({
     <>
       {/* ── Card bubble ───────────────────────────────────────────────── */}
       <article
-        className={`w-64 overflow-hidden rounded-2xl ${
+        className={`w-64 overflow-hidden rounded-2xl transition-all ${
           isMine ? "bg-slate-700" : "bg-white border border-gray-100 shadow-sm"
-        }`}
+        } ${(isSold || isDeleted) ? "opacity-75" : ""}`}
       >
         {/* Product image with navigation */}
         <div className="w-full h-36 bg-gray-200 overflow-hidden relative">
@@ -208,11 +231,11 @@ function MarketCardBubble({
               <img
                 src={images[imgIndex]}
                 alt={card.title}
-                className="w-full h-full object-cover"
+                className={`w-full h-full object-cover transition-all ${(isSold || isDeleted) ? "brightness-50 grayscale" : ""}`}
                 onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
               />
-              {/* Arrows — only when multiple images */}
-              {total > 1 && (
+              {/* Arrows — only when multiple images and not sold/deleted */}
+              {total > 1 && !isSold && !isDeleted && (
                 <>
                   <button
                     onClick={prevImg}
@@ -232,7 +255,6 @@ function MarketCardBubble({
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </button>
-                  {/* Counter */}
                   <span className="absolute bottom-1.5 right-2 bg-black/50 text-white text-[10px] px-1.5 py-0.5 rounded-full z-10">
                     {imgIndex + 1}/{total}
                   </span>
@@ -246,13 +268,33 @@ function MarketCardBubble({
               </svg>
             </div>
           )}
+          {/* SOLD stamp */}
+          {isSold && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-red-500 rounded px-3 py-1 rotate-[-18deg]">
+                <span className="text-red-500 font-black tracking-[0.25em] text-base uppercase" style={{ textShadow: "0 1px 4px rgba(0,0,0,0.4)" }}>SOLD</span>
+              </div>
+            </div>
+          )}
+          {/* DELETED stamp */}
+          {isDeleted && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-gray-400 rounded px-3 py-1 rotate-[-18deg]">
+                <span className="text-gray-400 font-black tracking-[0.15em] text-sm uppercase">REMOVED</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Card info */}
         <div className="px-3 py-2.5">
-          <p className={`font-semibold text-sm truncate ${isMine ? "text-white" : "text-gray-900"}`}>{card.title}</p>
-          <p className={`text-xs mt-0.5 line-clamp-2 ${isMine ? "text-slate-300" : "text-gray-500"}`}>{card.description}</p>
-          <p className={`text-sm font-bold mt-1.5 ${isMine ? "text-orange-300" : "text-orange-600"}`}>฿{card.price}</p>
+          <p className={`font-semibold text-sm truncate ${isMine ? "text-white" : isDeleted ? "text-gray-400" : "text-gray-900"}`}>{card.title}</p>
+          <p className={`text-xs mt-0.5 line-clamp-2 ${isMine ? "text-slate-300" : (isSold || isDeleted) ? "text-gray-400" : "text-gray-500"}`}>{card.description}</p>
+          <p className={`text-sm font-bold mt-1.5 ${
+            isDeleted ? "text-gray-400 line-through" :
+            isSold ? (isMine ? "text-slate-400 line-through" : "text-gray-400 line-through") :
+            isMine ? "text-orange-300" : "text-orange-600"
+          }`}>฿{card.price}</p>
         </div>
 
         {/* Footer: seller avatar + name + view button */}
@@ -262,19 +304,19 @@ function MarketCardBubble({
             <img
               src={resolvedSellerAvatar}
               alt={resolvedSellerName}
-              className="w-6 h-6 rounded-full object-cover border border-gray-200 flex-none"
+              className={`w-6 h-6 rounded-full object-cover border border-gray-200 flex-none ${(isSold || isDeleted) ? "grayscale" : ""}`}
               onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
             />
-            <span className={`text-xs font-medium truncate ${isMine ? "text-slate-200" : "text-gray-700"}`}>
+            <span className={`text-xs font-medium truncate ${isMine ? "text-slate-200" : (isSold || isDeleted) ? "text-gray-400" : "text-gray-700"}`}>
               {resolvedSellerName}
             </span>
           </div>
           <button
             onClick={openModal}
             className={`text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-colors flex-none ml-2 ${
-              isMine
-                ? "bg-white/15 hover:bg-white/25 text-white"
-                : "bg-gray-900 hover:bg-gray-700 text-white"
+              isDeleted ? "bg-gray-200 text-gray-400 cursor-pointer" :
+              isSold ? "bg-gray-200 text-gray-500 cursor-pointer hover:bg-gray-300" :
+              isMine ? "bg-white/15 hover:bg-white/25 text-white" : "bg-gray-900 hover:bg-gray-700 text-white"
             }`}
           >
             view
@@ -282,7 +324,7 @@ function MarketCardBubble({
         </div>
       </article>
 
-      {/* ── Product detail modal (no chat button) ──────────────────────── */}
+      {/* ── Product detail modal ──────────────────────── */}
       {showModal && (
         <div
           className="fixed inset-0 z-200 flex items-center justify-center bg-black/30 backdrop-blur-sm"
@@ -314,10 +356,26 @@ function MarketCardBubble({
                       <img
                         src={images[modalImgIndex]}
                         alt={`${card.title} - ${modalImgIndex + 1}`}
-                        className="w-full h-full object-contain"
+                        className={`w-full h-full object-contain ${(isSold || isDeleted) ? "brightness-60 grayscale" : ""}`}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
                       />
-                      {total > 1 && (
+                      {/* SOLD overlay */}
+                      {isSold && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="border-[3px] border-red-500 rounded-md px-6 py-2 rotate-[-18deg]">
+                            <span className="text-red-500 font-black tracking-[0.3em] text-3xl uppercase" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>SOLD</span>
+                          </div>
+                        </div>
+                      )}
+                      {/* DELETED overlay */}
+                      {isDeleted && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="border-[3px] border-gray-400 rounded-md px-5 py-2 rotate-[-18deg]">
+                            <span className="text-gray-400 font-black tracking-[0.2em] text-2xl uppercase">REMOVED</span>
+                          </div>
+                        </div>
+                      )}
+                      {total > 1 && !isSold && !isDeleted && (
                         <>
                           <button
                             onClick={() => setModalImgIndex((p) => (p === 0 ? total - 1 : p - 1))}
@@ -355,49 +413,64 @@ function MarketCardBubble({
 
               {/* Right: product details */}
               <div className="w-full md:w-1/2 p-8 flex flex-col">
-                {/* Title & Price */}
+                {/* Title, badges & Price */}
                 <div className="mb-6">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-3">{card.title}</h2>
-                  <span className="text-4xl font-bold text-orange-600">฿{card.price}</span>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-gray-200 my-6" />
-
-                {/* Description */}
-                <div className="mb-6 flex-1">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                    รายละเอียดสินค้า
-                  </h3>
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">{card.description}</p>
-                </div>
-
-                {/* Divider */}
-                <div className="border-t border-gray-200 my-6" />
-
-                {/* Seller */}
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                    ผู้ขาย
-                  </h3>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 flex-none">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={resolvedSellerAvatar}
-                        alt={resolvedSellerName}
-                        className="w-full h-full object-cover"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
-                      />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{resolvedSellerName}</p>
-                      <p className="text-sm text-gray-500">ผู้ขาย</p>
-                    </div>
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <h2 className={`text-3xl font-bold ${isDeleted ? "text-gray-400" : "text-gray-900"}`}>{card.title}</h2>
+                    {isSold && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold tracking-widest uppercase">SOLD</span>
+                    )}
+                    {isDeleted && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-bold tracking-widest uppercase">ถูกลบแล้ว</span>
+                    )}
                   </div>
+                  <span className={`text-4xl font-bold ${isDeleted || isSold ? "text-gray-400 line-through" : "text-orange-600"}`}>
+                    ฿{card.price}
+                  </span>
                 </div>
 
-                
+                {isDeleted ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 font-medium">สินค้านี้ถูกลบออกจากตลาดแล้ว</p>
+                    <p className="text-gray-400 text-sm">ผู้ขายได้นำสินค้าออกจากระบบ</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="border-t border-gray-200 my-6" />
+                    <div className="mb-6 flex-1">
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        รายละเอียดสินค้า
+                      </h3>
+                      <p className={`leading-relaxed whitespace-pre-line ${isSold ? "text-gray-400" : "text-gray-700"}`}>{card.description}</p>
+                    </div>
+                    <div className="border-t border-gray-200 my-6" />
+                    <div className="mb-6">
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                        ผู้ขาย
+                      </h3>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-full overflow-hidden border-2 flex-none ${isSold ? "border-gray-200 grayscale" : "border-gray-200"}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={resolvedSellerAvatar}
+                            alt={resolvedSellerName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                          />
+                        </div>
+                        <div>
+                          <p className={`font-semibold ${isSold ? "text-gray-400" : "text-gray-900"}`}>{resolvedSellerName}</p>
+                          <p className="text-sm text-gray-500">ผู้ขาย</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
