@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
@@ -56,6 +56,14 @@ export default function MarketMainPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModeWarning, setShowModeWarning] = useState(false);
 
+  // ── Infinite scroll state ────────────────────────────────────────────────
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const marketScrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
+
   // Force switch to PUBLIC mode when entering Market page
   useEffect(() => {
     const switchToPublicMode = async () => {
@@ -81,18 +89,18 @@ export default function MarketMainPage() {
     switchToPublicMode();
   }, [activeMode, refreshUser]);
 
-  // Fetch market items from API
+  // Fetch initial market items from API
   useEffect(() => {
     const fetchMarketItems = async () => {
       setLoading(true);
       setError(null);
-      
+      setNextCursor(null);
+      setHasMore(false);
+
       try {
         const response = await fetch(
-          `${API_CONFIG.BASE_URL}/api/market/items`,
-          {
-            credentials: 'include',
-          }
+          `${API_CONFIG.BASE_URL}/api/market/items?limit=20`,
+          { credentials: 'include' }
         );
 
         if (!response.ok) {
@@ -100,9 +108,9 @@ export default function MarketMainPage() {
         }
 
         const data = await response.json();
-        console.log('Market items raw response:', data);
-        
-        setApiMarketItems(Array.isArray(data) ? data : []);
+        setApiMarketItems(Array.isArray(data) ? data : (data.items ?? []));
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
       } catch (err) {
         console.error('Error fetching market items:', err);
         setError('Failed to load market items');
@@ -114,6 +122,56 @@ export default function MarketMainPage() {
 
     fetchMarketItems();
   }, []);
+
+  // Load more items when sentinel enters viewport
+  const loadMoreItems = useCallback(async () => {
+    if (!nextCursor || !hasMore || isLoadingMoreRef.current) return;
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/market/items?limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: 'include' }
+      );
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      const moreItems: MarketItemAPI[] = Array.isArray(data) ? data : (data.items ?? []);
+
+      setApiMarketItems((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id));
+        return [...prev, ...moreItems.filter((i) => !existingIds.has(i.id))];
+      });
+      setNextCursor(data.nextCursor ?? null);
+      setHasMore(data.hasMore ?? false);
+    } catch (err) {
+      console.error('Error loading more market items:', err);
+    } finally {
+      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
+    }
+  }, [nextCursor, hasMore]);
+
+  // IntersectionObserver — trigger loadMoreItems when sentinel is visible
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMoreRef.current) {
+          loadMoreItems();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadMoreItems]);
 
   // Handle multiple image uploads
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -363,7 +421,7 @@ export default function MarketMainPage() {
         </div>
 
         {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
+        <div ref={marketScrollRef} className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
           <div className="max-w-9xl pt-8 mx-auto w-full">
             {/* Loading State */}
             {loading && (
@@ -397,14 +455,6 @@ export default function MarketMainPage() {
                         : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`)
                     : "/default-avatar.svg";
 
-                  console.log('Market Item:', {
-                    title: item.title,
-                    rawImageUrl: item.imageUrl,
-                    processedImageUrl: imageUrl,
-                    rawAvatarUrl: item.seller.avatarUrl,
-                    processedAvatarUrl: sellerAvatarUrl
-                  });
-
                   return (
                     <MarketCard 
                       key={item.id} 
@@ -422,6 +472,29 @@ export default function MarketMainPage() {
                     />
                   );
                 })}
+              </div>
+            )}
+
+            {/* Sentinel for IntersectionObserver */}
+            <div ref={sentinelRef} className="h-1" />
+
+            {/* Load more indicator */}
+            {isLoadingMore && (
+              <div className="flex justify-center items-center py-6">
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  กำลังโหลดสินค้าเพิ่มเติม...
+                </div>
+              </div>
+            )}
+
+            {/* End of list */}
+            {!loading && !hasMore && apiMarketItems.length > 0 && (
+              <div className="flex justify-center items-center py-6 text-gray-300 text-xs">
+                — แสดงสินค้าทั้งหมดแล้ว —
               </div>
             )}
           </div>

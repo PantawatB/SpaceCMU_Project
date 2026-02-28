@@ -1,10 +1,10 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { marketItemsTable, marketCategoriesTable, usersTable, messagesTable, chatRoomsTable, chatRoomMembersTable } from "../../db/schema.js";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, and, or, lt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
-// Get all market items with filters
+// Get all market items with filters + cursor-based pagination
 export const getMarketItems = async (req: Request, res: Response) => {
     try {
         // Require authentication
@@ -13,48 +13,62 @@ export const getMarketItems = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized. Please login to view market items." });
         }
 
-        const { category, sortBy } = req.query;
+        const { category, cursor, limit: limitParam } = req.query;
+        const limit = Math.min(parseInt(limitParam as string) || 20, 50);
 
-        let query = dbClient
-            .select({
-                id: marketItemsTable.id,
-                title: marketItemsTable.title,
-                description: marketItemsTable.description,
-                price: marketItemsTable.price,
-                imageUrl: marketItemsTable.imageUrl,
-                imageUrls: marketItemsTable.imageUrls,
-                status: marketItemsTable.status,
-                createdAt: marketItemsTable.createdAt,
-                seller: {
-                    id: usersTable.id,
-                    firstName: usersTable.firstName,
-                    lastName: usersTable.lastName,
-                    avatarUrl: usersTable.avatarUrl,
-                },
-                category: {
-                    id: marketCategoriesTable.id,
-                    name: marketCategoriesTable.name,
-                }
-            })
-            .from(marketItemsTable)
-            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
-            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id));
+        const baseSelect = {
+            id: marketItemsTable.id,
+            title: marketItemsTable.title,
+            description: marketItemsTable.description,
+            price: marketItemsTable.price,
+            imageUrl: marketItemsTable.imageUrl,
+            imageUrls: marketItemsTable.imageUrls,
+            status: marketItemsTable.status,
+            createdAt: marketItemsTable.createdAt,
+            seller: {
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                avatarUrl: usersTable.avatarUrl,
+            },
+            category: {
+                id: marketCategoriesTable.id,
+                name: marketCategoriesTable.name,
+            }
+        };
 
-        const filters = [];
+        const filters: ReturnType<typeof eq>[] = [];
+
         if (category) {
             filters.push(eq(marketCategoriesTable.name, category as string));
         }
 
-        if (filters.length > 0) {
-            query = query.where(and(...filters)) as any;
+        // Cursor: ISO timestamp of the last item seen — fetch items older than it
+        if (cursor) {
+            const cursorDate = new Date(cursor as string);
+            if (!isNaN(cursorDate.getTime())) {
+                filters.push(lt(marketItemsTable.createdAt, cursorDate));
+            }
         }
 
-        if (sortBy === "latest") {
-            query = query.orderBy(desc(marketItemsTable.createdAt)) as any;
-        }
+        const query = dbClient
+            .select(baseSelect)
+            .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
+            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+            .where(filters.length > 0 ? and(...filters) : undefined)
+            .orderBy(desc(marketItemsTable.createdAt))
+            .limit(limit + 1); // fetch one extra to detect hasMore
 
-        const items = await query;
-        res.json(items);
+        const rows = await query;
+        const hasMore = rows.length > limit;
+        const items = hasMore ? rows.slice(0, limit) : rows;
+
+        const nextCursor = hasMore && items.length > 0
+            ? items[items.length - 1].createdAt.toISOString()
+            : null;
+
+        res.json({ items, hasMore, nextCursor });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching market items" });
