@@ -20,12 +20,14 @@ import {
     getRepostsByUserId,
     getLikedPostsByUserId,
 } from "../controllers/postController.js";
-import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
+import { sessionMiddleware, optionalSessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { uploadMultiple } from "../middleware/uploadMiddleware.js";
 
 const router = Router();
 
-router.get("/", getAllPosts);
+// optionalSessionMiddleware: attaches session when token is present (needed for Friends feed),
+// but does not block unauthenticated requests.
+router.get("/", optionalSessionMiddleware, getAllPosts);
 router.post("/", sessionMiddleware, createPost);
 router.post("/media", sessionMiddleware, uploadMultiple.array("media", 20), createPostWithMedia); // Max 20 files
 router.delete("/:postId", sessionMiddleware, deletePost);
@@ -39,7 +41,7 @@ router.get("/saved/me", sessionMiddleware, getSavedPosts);
 router.get("/reposted/me", sessionMiddleware, getRepostedPosts);
 router.get("/liked/me", sessionMiddleware, getLikedPosts);
 router.get("/me", sessionMiddleware, getUserPosts);
-router.get("/user/:userId", sessionMiddleware, getPostsByUserId); // Get posts by user ID
+router.get("/user/:userId", optionalSessionMiddleware, getPostsByUserId); // Get posts by user ID — optional auth (Friends posts hidden from non-friends)
 router.get("/user/:userId/reposts", sessionMiddleware, getRepostsByUserId); // Get reposts by user ID
 router.get("/user/:userId/liked", sessionMiddleware, getLikedPostsByUserId); // Get liked posts by user ID
 router.post("/:postId/accept-event", sessionMiddleware, acceptEventFromPost); // Accept event from post

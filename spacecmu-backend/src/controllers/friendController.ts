@@ -79,6 +79,13 @@ export const respondToRequest = async (req: Request, res: Response) => {
                 .update(usersTable)
                 .set({ friendsCount: sql`COALESCE(${usersTable.friendsCount}, 0) + 1` })
                 .where(eq(usersTable.id, userId2));
+
+            // Bust suggestions cache for both users (all keys starting with their userId)
+            for (const key of suggestionsCache.keys()) {
+                if (key.startsWith(userId1 + ":") || key.startsWith(userId2 + ":")) {
+                    suggestionsCache.delete(key);
+                }
+            }
         }
 
         res.json({ message: `Friend request ${status}`, friendship: updated[0] });
@@ -294,6 +301,13 @@ export const deleteFriend = async (req: Request, res: Response) => {
             .set({ friendsCount: sql`GREATEST(COALESCE(${usersTable.friendsCount}, 0) - 1, 0)` })
             .where(eq(usersTable.id, friendId));
 
+        // Bust suggestions cache for both users
+        for (const key of suggestionsCache.keys()) {
+            if (key.startsWith(userId + ":") || key.startsWith(friendId + ":")) {
+                suggestionsCache.delete(key);
+            }
+        }
+
         res.json({ message: "Friend deleted successfully", friendship: friendship[0] });
 
         // Log Activity
@@ -397,6 +411,8 @@ export const getActiveFriends = async (req: Request, res: Response) => {
 // Cache for friend suggestions (5 minutes TTL)
 const suggestionsCache = new Map<string, { data: any[], timestamp: number }>();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+// Clear stale cache on startup (schema may have changed)
+suggestionsCache.clear();
 
 // Get People You May Know (Friend Suggestions)
 export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
@@ -406,41 +422,61 @@ export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized" });
         }
 
-        // Check cache first
-        const cached = suggestionsCache.get(userId);
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-            return res.json(cached.data);
-        }
-
-        // Get user's friends count
-        const friendships = await dbClient
+        // Get ALL friendships involving this user (accepted + pending)
+        const allFriendships = await dbClient
             .select()
             .from(friendshipsTable)
             .where(
-                and(
-                    or(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, userId)),
-                    eq(friendshipsTable.status, "accepted")
-                )
+                or(eq(friendshipsTable.userId1, userId), eq(friendshipsTable.userId2, userId))
             );
 
-        const hasFriends = friendships.length > 0;
+        const acceptedFriendships = allFriendships.filter(f => f.status === "accepted");
+        const pendingFriendships = allFriendships.filter(f => f.status === "pending");
+
+        // Set of ALL user IDs that already have any friendship with us (exclude from suggestions)
+        const excludeIds = new Set<string>(
+            allFriendships.map(f => f.userId1 === userId ? f.userId2 : f.userId1)
+        );
+
+        // Set of user IDs that have a pending request sent BY us (outgoing)
+        const outgoingPendingIds = new Set<string>(
+            pendingFriendships
+                .filter(f => f.userId1 === userId)
+                .map(f => f.userId2)
+        );
+
+        // Set of accepted friend IDs
+        const acceptedFriendIds = new Set<string>(
+            acceptedFriendships.map(f => f.userId1 === userId ? f.userId2 : f.userId1)
+        );
+
+        const hasFriends = acceptedFriendships.length > 0;
         let suggestions: any[] = [];
 
-        if (!hasFriends) {
-            // Strategy 1: Suggest by student ID proximity (5 before, 5 after)
-            suggestions = await suggestByStudentId(userId);
+        // Cache keyed by userId — but we must bust the cache when friendship count changes,
+        // so append the friend count to the cache key.
+        const cacheKey = `${userId}:${acceptedFriendships.length}`;
+        const cached = suggestionsCache.get(cacheKey);
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+            suggestions = cached.data;
         } else {
-            // Strategy 2: Suggest friends of friends
-            suggestions = await suggestFriendsOfFriends(userId, friendships);
+            if (!hasFriends) {
+                suggestions = await suggestByStudentId(userId, excludeIds);
+            } else {
+                suggestions = await suggestFriendsOfFriends(userId, acceptedFriendships, excludeIds);
+            }
+            suggestionsCache.set(cacheKey, { data: suggestions, timestamp: Date.now() });
         }
 
-        // Cache the results
-        suggestionsCache.set(userId, {
-            data: suggestions,
-            timestamp: Date.now()
-        });
+        // Attach live friendshipStatus — filter out anyone already accepted (safety net)
+        const withStatus = suggestions
+            .filter(s => !acceptedFriendIds.has(s.id))  // never show existing friends
+            .map(s => ({
+                ...s,
+                friendshipStatus: outgoingPendingIds.has(s.id) ? "pending" : "none",
+            }));
 
-        res.json(suggestions);
+        res.json(withStatus);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching friend suggestions" });
@@ -448,7 +484,7 @@ export const getPeopleYouMayKnow = async (req: Request, res: Response) => {
 };
 
 // Strategy 1: Suggest users with nearby student IDs
-const suggestByStudentId = async (userId: string) => {
+const suggestByStudentId = async (userId: string, excludeIds: Set<string>) => {
     // Get current user's studentId
     const currentUser = await dbClient
         .select({ studentId: usersTable.studentId })
@@ -471,6 +507,7 @@ const suggestByStudentId = async (userId: string) => {
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            bannerUrl: usersTable.bannerUrl,
             role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
@@ -498,6 +535,7 @@ const suggestByStudentId = async (userId: string) => {
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            bannerUrl: usersTable.bannerUrl,
             role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,
@@ -516,18 +554,20 @@ const suggestByStudentId = async (userId: string) => {
         .orderBy(sql`${usersTable.studentId} ASC`)
         .limit(5);
 
-    // Combine and add suggestion reason
-    const suggestions = [...usersBefore.reverse(), ...usersAfter].map(user => ({
-        ...user,
-        mutualFriendsCount: 0,
-        suggestionReason: "nearby_student_id"
-    }));
+    // Combine and add suggestion reason — filter out anyone already in a friendship with us
+    const suggestions = [...usersBefore.reverse(), ...usersAfter]
+        .filter(user => !excludeIds.has(user.id))
+        .map(user => ({
+            ...user,
+            mutualFriendsCount: 0,
+            suggestionReason: "nearby_student_id"
+        }));
 
     return suggestions;
 };
 
 // Strategy 2: Suggest friends of friends
-const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => {
+const suggestFriendsOfFriends = async (userId: string, myFriendships: any[], excludeIds: Set<string>) => {
     // Get my friend IDs
     const myFriendIds = myFriendships.map(f =>
         f.userId1 === userId ? f.userId2 : f.userId1
@@ -551,12 +591,11 @@ const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => 
             )
         );
 
-    // Extract unique friend-of-friend IDs
+    // Extract unique friend-of-friend IDs — exclude self and ANYONE already in any friendship with us
     const friendOfFriendIds = new Set<string>();
     friendsOfFriendships.forEach(f => {
         const fofId = myFriendIds.includes(f.userId1) ? f.userId2 : f.userId1;
-        // Exclude self and existing friends
-        if (fofId !== userId && !myFriendIds.includes(fofId)) {
+        if (fofId !== userId && !excludeIds.has(fofId)) {
             friendOfFriendIds.add(fofId);
         }
     });
@@ -576,6 +615,7 @@ const suggestFriendsOfFriends = async (userId: string, myFriendships: any[]) => 
             username: usersTable.username,
             studentId: usersTable.studentId,
             avatarUrl: usersTable.avatarUrl,
+            bannerUrl: usersTable.bannerUrl,
             role: usersTable.role,
             bio: usersTable.bio,
             faculty: usersTable.faculty,

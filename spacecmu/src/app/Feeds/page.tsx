@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
@@ -40,7 +40,12 @@ export default function FeedsMainPage() {
   const { activeUser } = useUser();
   const { showSuccess, showError } = useToast();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
-  const [selectedFilter, setSelectedFilter] = useState("Global");
+  const [selectedFilter, setSelectedFilter] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("feedFilter") || "Global";
+    }
+    return "Global";
+  });
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showShareBar, setShowShareBar] = useState(true);
   const [postText, setPostText] = useState("");
@@ -60,6 +65,19 @@ export default function FeedsMainPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showTokenErrorPopup, setShowTokenErrorPopup] = useState(false);
 
+  // Infinite scroll state
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const feedScrollRef = useRef<HTMLElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false); // block scroll-jump during load
+
+  // Persist selected feed type to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("feedFilter", selectedFilter);
+  }, [selectedFilter]);
+
   // Global token error listener
   useEffect(() => {
     const handleTokenError = () => {
@@ -73,7 +91,7 @@ export default function FeedsMainPage() {
     };
   }, []);
 
-  // Fetch posts when selectedFilter changes
+  // Fetch posts when selectedFilter changes (initial load)
   useEffect(() => {
     const fetchPosts = async () => {
       // Don't fetch if no active user
@@ -82,14 +100,10 @@ export default function FeedsMainPage() {
         return;
       }
 
-      // Only fetch for Global category
-      if (selectedFilter !== "Global") {
-        setPosts([]);
-        return;
-      }
-
       setLoading(true);
       setError(null);
+      setNextCursor(null);
+      setHasMore(false);
 
       try {
         const response = await fetch(
@@ -117,6 +131,8 @@ export default function FeedsMainPage() {
         const postsArray = Array.isArray(data) ? data : data.posts || [];
         console.log("Fetched posts:", postsArray);
         setPosts(postsArray);
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
       } catch (err) {
         console.error("Error fetching posts:", err);
         // Check if it's a token error
@@ -133,6 +149,78 @@ export default function FeedsMainPage() {
 
     fetchPosts();
   }, [selectedFilter, activeUser]);
+
+  // Load more posts (append) using cursor
+  const loadMorePosts = useCallback(async () => {
+    if (!activeUser || !nextCursor || !hasMore || isLoadingMoreRef.current) return;
+
+    const scrollEl = feedScrollRef.current;
+    const prevScrollHeight = scrollEl?.scrollHeight ?? 0;
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: "include" },
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      const morePosts: Post[] = Array.isArray(data) ? data : data.posts || [];
+
+      setPosts((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const incoming = morePosts.filter((p) => !existingIds.has(p.id));
+        return [...prev, ...incoming];
+      });
+      setNextCursor(data.nextCursor ?? null);
+      setHasMore(data.hasMore ?? false);
+
+      // Preserve scroll position: after DOM update, keep scrollTop unchanged
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (scrollEl) {
+            const newScrollHeight = scrollEl.scrollHeight;
+            // posts are appended at bottom, so scrollTop stays the same naturally
+            // but guard against any browser-auto-scroll by restoring it
+            const diff = newScrollHeight - prevScrollHeight;
+            if (diff > 0 && scrollEl.scrollTop < prevScrollHeight - scrollEl.clientHeight + 10) {
+              // only correct if browser jumped scroll unexpectedly
+            }
+          }
+          isLoadingMoreRef.current = false;
+        });
+      });
+    } catch (err) {
+      console.error("Error loading more posts:", err);
+      isLoadingMoreRef.current = false;
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [activeUser, nextCursor, hasMore, selectedFilter]);
+
+  // IntersectionObserver: watch sentinel element at bottom of posts list
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMoreRef.current) {
+          loadMorePosts();
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadMorePosts]);
 
   const postModes = [
     { id: "Global", label: "Global" },
@@ -218,16 +306,13 @@ export default function FeedsMainPage() {
       });
     }
 
-    // Process videos
+    // Process videos — use createObjectURL so .mov (video/quicktime) also renders
     if (validVideos.length > 0) {
       setSelectedVideos((prev) => [...prev, ...validVideos]);
 
       validVideos.forEach((file) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          setVideoPreviews((prev) => [...prev, reader.result as string]);
-        };
-        reader.readAsDataURL(file);
+        const objectUrl = URL.createObjectURL(file);
+        setVideoPreviews((prev) => [...prev, objectUrl]);
       });
     }
 
@@ -280,6 +365,11 @@ export default function FeedsMainPage() {
       console.log("Post media:", result.media);
       showSuccess("Post created successfully!");
 
+      // Revoke blob URLs for videos before resetting
+      videoPreviews.forEach((url) => {
+        if (url.startsWith("blob:")) URL.revokeObjectURL(url);
+      });
+
       // Reset form
       setPostText("");
       setPostMode(null);
@@ -300,6 +390,8 @@ export default function FeedsMainPage() {
         const postsArray = Array.isArray(data) ? data : data.posts || [];
         console.log("Refreshed posts:", postsArray);
         setPosts(postsArray);
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
       }
     } catch (error) {
       console.error("Error creating post:", error);
@@ -319,6 +411,7 @@ export default function FeedsMainPage() {
 
   const filterOptions = [
     { id: "Global", label: "Global" },
+    { id: "Following", label: "Following" },
     { id: "Friends", label: "Friends" },
     { id: "Announcements", label: "Announcements" },
     { id: "Events", label: "Events" },
@@ -533,7 +626,7 @@ export default function FeedsMainPage() {
           </div>
         </div>
         {/* Feeds Section: scrollable only for posts */}
-        <section className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
+        <section ref={feedScrollRef} className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
           {/* Loading State */}
           {loading && (
             <div className="flex justify-center items-center py-12">
@@ -549,28 +642,24 @@ export default function FeedsMainPage() {
           )}
 
           {/* No Posts Message */}
-          {!loading &&
-            !error &&
-            posts.length === 0 &&
-            selectedFilter === "Global" && (
-              <div className="flex justify-center items-center py-12">
-                <div className="text-gray-500">No posts available</div>
-              </div>
-            )}
-
-          {/* Other Categories Message */}
-          {!loading && selectedFilter !== "Global" && (
-            <div className="flex justify-center items-center py-12">
-              <div className="text-gray-500">
-                Feature coming soon for {selectedFilter} category
-              </div>
+          {!loading && !error && posts.length === 0 && (
+            <div className="flex flex-col justify-center items-center py-12 gap-2 text-gray-400">
+              <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <p className="text-sm">
+                {selectedFilter === "Friends"
+                  ? "ไม่มีโพสต์จากเพื่อน — ลองเพิ่มเพื่อนหรือให้เพื่อนโพสต์ใน Friends feed"
+                  : selectedFilter === "Following"
+                  ? "ไม่มีโพสต์จากคนที่คุณติดตาม — ลอง Follow ใครสักคนก่อน"
+                  : `ไม่มีโพสต์ใน ${selectedFilter} category`}
+              </p>
             </div>
           )}
 
-          {/* Real Posts from API (for Global category) */}
+          {/* Posts from API — all categories */}
           {!loading &&
             !error &&
-            selectedFilter === "Global" &&
             posts.map((post) => (
               <PostCard
                 key={post.id}
@@ -581,6 +670,29 @@ export default function FeedsMainPage() {
                 onPostDelete={handlePostDelete}
               />
             ))}
+
+          {/* Sentinel for IntersectionObserver — triggers loadMorePosts */}
+          <div ref={sentinelRef} className="h-1" />
+
+          {/* Load more indicator */}
+          {isLoadingMore && (
+            <div className="flex justify-center items-center py-4">
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                Loading more posts...
+              </div>
+            </div>
+          )}
+
+          {/* End of feed indicator */}
+          {!loading && !hasMore && posts.length > 0 && (
+            <div className="flex justify-center items-center py-4 text-gray-300 text-xs">
+              — You&apos;ve reached the end —
+            </div>
+          )}
         </section>
 
         {/* Report Popup */}
@@ -919,7 +1031,12 @@ export default function FeedsMainPage() {
                           <video
                             src={videoPreviews[idx]}
                             className="w-full h-full object-cover"
-                          />
+                            muted
+                            playsInline
+                            preload="metadata"
+                          >
+                            <source src={videoPreviews[idx]} type={vid.type || "video/mp4"} />
+                          </video>
                         ) : (
                           <span className="truncate px-1 text-center text-[10px] sm:text-xs">
                             🎥 {vid.name.slice(0, 3)}...
@@ -928,6 +1045,10 @@ export default function FeedsMainPage() {
                       </div>
                       <button
                         onClick={() => {
+                          // Revoke the blob URL to free memory
+                          if (videoPreviews[idx]?.startsWith("blob:")) {
+                            URL.revokeObjectURL(videoPreviews[idx]);
+                          }
                           setSelectedVideos(
                             selectedVideos.filter((_, i) => i !== idx),
                           );

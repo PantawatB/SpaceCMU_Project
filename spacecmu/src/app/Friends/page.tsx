@@ -69,7 +69,7 @@ interface FriendCardProps {
 function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAccept, onReject, onChat }: FriendCardProps) {
   const [loading, setLoading] = React.useState<"accept" | "reject" | null>(null);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
-  const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) : null;
+  const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) || null : null;
 
   const handleAccept = async () => {
     setLoading("accept");
@@ -84,15 +84,15 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
   };
 
   return (
-    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
+    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col overflow-hidden">
       {/* Cover banner */}
-      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden relative bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
         {bannerSrc && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={bannerSrc}
             alt="banner"
-            className="w-full h-full object-cover"
+            className="absolute inset-0 w-full h-full object-cover"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
           />
         )}
@@ -112,12 +112,12 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
         </div>
 
         {/* Name */}
-        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight">
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight mt-1">
           {name}
         </p>
 
         {/* Username */}
-        <p className="text-xs text-gray-400 text-center mt-0.5">
+        <p className="text-xs text-gray-400 text-center mt-0.5 truncate w-full px-2">
           @{username}
         </p>
 
@@ -127,7 +127,7 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
         </p>
 
         {/* Actions */}
-        <div className="flex items-center gap-2 w-full justify-center">
+        <div className="flex items-center gap-2 w-full">
           {/* Accept */}
           <button
             disabled={loading !== null}
@@ -292,6 +292,21 @@ function UserFriendCard({
   );
 }
 
+// ── API type for friend suggestions ─────────────────────────────────────────
+interface FriendSuggestion {
+  id: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  avatarUrl: string | null;
+  bannerUrl: string | null;
+  bio: string | null;
+  friendsCount: number;
+  mutualFriendsCount: number;
+  suggestionReason: string;
+  friendshipStatus?: string; // "pending" | "none" | undefined
+}
+
 // "People you may know" card
 interface SuggestedPersonCardProps {
   id: string;
@@ -300,27 +315,45 @@ interface SuggestedPersonCardProps {
   bio: string;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
-  onAddFriend: (id: string) => void;
+  mutualFriendsCount?: number;
+  initialStatus?: "idle" | "requested";
+  onAddFriend: (id: string) => Promise<void>;
+  onCancelRequest: (id: string) => Promise<void>;
   onViewProfile: (id: string) => void;
   onChat: (id: string) => void;
 }
-function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, onAddFriend, onViewProfile, onChat }: SuggestedPersonCardProps) {
-  const [added, setAdded] = React.useState(false);
+function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, mutualFriendsCount, initialStatus = "idle", onAddFriend, onCancelRequest, onViewProfile, onChat }: SuggestedPersonCardProps) {
+  const [status, setStatus] = React.useState<"idle" | "loading" | "requested" | "cancelling">(initialStatus);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
-  const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) : null;
+  const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) || null : null;
 
-  const handleAddFriend = () => {
-    setAdded(true);
-    onAddFriend(id);
+  const handleAddFriend = async () => {
+    setStatus("loading");
+    try {
+      await onAddFriend(id);
+      setStatus("requested");
+    } catch {
+      setStatus("idle");
+    }
+  };
+
+  const handleCancel = async () => {
+    setStatus("cancelling");
+    try {
+      await onCancelRequest(id);
+      setStatus("idle");
+    } catch {
+      setStatus("requested");
+    }
   };
 
   return (
-    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col">
-      {/* Cover banner */}
-      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
+    <div className="relative rounded-2xl shadow-md bg-white w-full flex flex-col overflow-hidden">
+      {/* Cover banner — always render the gradient; show image on top if available */}
+      <div className="h-28 sm:h-32 w-full shrink-0 rounded-t-2xl overflow-hidden relative bg-linear-to-r from-pink-200 via-yellow-200 to-green-200">
         {bannerSrc && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={bannerSrc} alt="banner" className="w-full h-full object-cover"
+          <img src={bannerSrc} alt="banner" className="absolute inset-0 w-full h-full object-cover"
             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
         )}
       </div>
@@ -334,48 +367,65 @@ function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, on
             onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }} />
         </div>
         {/* Name */}
-        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight">
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight mt-1">
           {name}
         </p>
         {/* Username */}
-        <p className="text-xs text-gray-400 text-center mt-0.5">@{username}</p>
+        <p className="text-xs text-gray-400 text-center mt-0.5 truncate w-full px-2">@{username}</p>
+        {/* Mutual friends */}
+        {mutualFriendsCount !== undefined && mutualFriendsCount > 0 && (
+          <p className="text-xs text-blue-500 font-medium mt-0.5">{mutualFriendsCount} mutual</p>
+        )}
         {/* Bio */}
         <p className="text-xs sm:text-sm text-gray-500 text-center line-clamp-2 w-full px-2 mt-1 mb-4 leading-relaxed min-h-10 overflow-hidden">
           {bio || <span className="italic text-gray-300">No bio yet</span>}
         </p>
-        {/* Actions: [+ Add Friend] [👤 View Profile] [💬] */}
-        <div className="flex items-center gap-2 w-full justify-center">
-          {/* Add Friend */}
+        {/* Actions */}
+        <div className="flex items-center gap-2 w-full">
+          {/* Add / Pending (click to cancel) / Cancelling */}
           <button
-            onClick={handleAddFriend}
-            disabled={added}
-            className={`flex-1 text-sm font-medium py-2 rounded-full transition-all flex items-center justify-center gap-1 ${added ? "bg-green-100 text-green-600 cursor-default" : "bg-slate-700 text-white hover:bg-slate-800"}`}
+            onClick={status === "requested" ? handleCancel : handleAddFriend}
+            disabled={status === "loading" || status === "cancelling"}
+            className={`flex-1 min-w-0 text-sm font-medium py-2 rounded-full transition-all flex items-center justify-center gap-1 ${
+              status === "requested"
+                ? "bg-amber-50 text-amber-600 border border-amber-300 hover:bg-red-50 hover:text-red-500 hover:border-red-300"
+                : status === "cancelling"
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed"
+                : status === "loading"
+                ? "bg-slate-300 text-white cursor-not-allowed"
+                : "bg-slate-700 text-white hover:bg-slate-800"
+            }`}
           >
-            {added ? (
+            {status === "loading" || status === "cancelling" ? (
+              <svg className="animate-spin w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : status === "requested" ? (
               <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                Requested
+                Pending
               </>
             ) : (
               <>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
                 </svg>
-                Add Friend
+                Add
               </>
             )}
           </button>
           {/* View Profile */}
           <button
             onClick={() => onViewProfile(id)}
-            className="flex-1 text-sm font-medium py-2 rounded-full transition-all bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1"
+            className="flex-1 min-w-0 text-sm font-medium py-2 rounded-full transition-all bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center justify-center gap-1"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
-            View Profile
+            Profile
           </button>
           {/* Chat */}
           <button
@@ -393,44 +443,7 @@ function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, on
   );
 }
 
-function HorizontalScrollSection({ title, items }: { title: string; items: FriendCardProps[] }) {  const [startIdx, setStartIdx] = React.useState(0);
-  const visibleCount = 4;
-  const canGoBack = startIdx > 0;
-  const canGoNext = startIdx + visibleCount < items.length;
-  const visibleItems = items.slice(startIdx, startIdx + visibleCount);
-  return (
-    <section className="mb-10 relative">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base sm:text-lg font-semibold">{title}</h2>
-        <div className="flex gap-2 ml-auto">
-          <button
-            onClick={() => setStartIdx(Math.max(0, startIdx - visibleCount))}
-            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoBack ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!canGoBack}
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
-          </button>
-          <button
-            onClick={() => setStartIdx(Math.min(items.length - visibleCount, startIdx + visibleCount))}
-            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoNext ? 'opacity-50 cursor-not-allowed' : ''}`}
-            disabled={!canGoNext}
-          >
-            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-          </button>
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {visibleItems.map((f, idx) => (
-          <div key={idx} className="w-full">
-            <FriendCard {...f} />
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function HorizontalScrollSectionSuggested({ title, items }: { title: string; items: SuggestedPersonCardProps[] }) {
+function HorizontalScrollSection({ title, items }: { title: string; items: FriendCardProps[] }) {
   const [startIdx, setStartIdx] = React.useState(0);
   const visibleCount = 4;
   const canGoBack = startIdx > 0;
@@ -457,10 +470,11 @@ function HorizontalScrollSectionSuggested({ title, items }: { title: string; ite
           </button>
         </div>
       </div>
+      {/* Grid – works at every breakpoint */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {visibleItems.map((p, idx) => (
-          <div key={idx} className="w-full">
-            <SuggestedPersonCard {...p} />
+        {visibleItems.map((f) => (
+          <div key={f.requestId} className="w-full">
+            <FriendCard {...f} />
           </div>
         ))}
       </div>
@@ -468,54 +482,75 @@ function HorizontalScrollSectionSuggested({ title, items }: { title: string; ite
   );
 }
 
-// Mock data – "People you may know"
-const peopleYouMayKnow: SuggestedPersonCardProps[] = [
-  {
-    id: "mock-1",
-    name: "People 5",
-    username: "people5",
-    bio: "Design is my passion",
-    onAddFriend: (id) => console.log("Add friend", id),
-    onViewProfile: (id) => console.log("View profile", id),
-    onChat: (id) => console.log("Chat with", id),
-  },
-  {
-    id: "mock-2",
-    name: "People 6",
-    username: "people6",
-    bio: "Always learning",
-    onAddFriend: (id) => console.log("Add friend", id),
-    onViewProfile: (id) => console.log("View profile", id),
-    onChat: (id) => console.log("Chat with", id),
-  },
-  {
-    id: "mock-3",
-    name: "People 7",
-    username: "people7",
-    bio: "Fullstack developer",
-    onAddFriend: (id) => console.log("Add friend", id),
-    onViewProfile: (id) => console.log("View profile", id),
-    onChat: (id) => console.log("Chat with", id),
-  },
-  {
-    id: "mock-4",
-    name: "People 8",
-    username: "people8",
-    bio: "Marketing & growth hacker",
-    onAddFriend: (id) => console.log("Add friend", id),
-    onViewProfile: (id) => console.log("View profile", id),
-    onChat: (id) => console.log("Chat with", id),
-  },
-  {
-    id: "mock-5",
-    name: "Tomás García",
-    username: "tomas_garcia",
-    bio: "React Native expert",
-    onAddFriend: (id) => console.log("Add friend", id),
-    onViewProfile: (id) => console.log("View profile", id),
-    onChat: (id) => console.log("Chat with", id),
-  },
-];
+function HorizontalScrollSectionSuggested({
+  title,
+  items,
+  loading,
+  excludeIds,
+}: {
+  title: string;
+  items: SuggestedPersonCardProps[];
+  loading?: boolean;
+  excludeIds?: Set<string>;
+}) {
+  const [startIdx, setStartIdx] = React.useState(0);
+  const visibleCount = 4;
+  // Filter out people who already sent us a friend request
+  const filteredItems = excludeIds
+    ? items.filter((p) => !excludeIds.has(p.id))
+    : items;
+  const canGoBack = startIdx > 0;
+  const canGoNext = startIdx + visibleCount < filteredItems.length;
+  const visibleItems = filteredItems.slice(startIdx, startIdx + visibleCount);
+
+  return (
+    <section className="mb-10 relative">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base sm:text-lg font-semibold">{title}</h2>
+        <div className="flex gap-2 ml-auto">
+          <button
+            onClick={() => setStartIdx(Math.max(0, startIdx - visibleCount))}
+            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoBack ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={!canGoBack}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+          </button>
+          <button
+            onClick={() => setStartIdx(Math.min(filteredItems.length - visibleCount, startIdx + visibleCount))}
+            className={`p-1.5 sm:p-2 rounded-full bg-gray-200 hover:bg-gray-300 transition-colors ${!canGoNext ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={!canGoNext}
+          >
+            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <svg className="w-6 h-6 animate-spin text-slate-400" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+        </div>
+      ) : filteredItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-10 text-gray-300 gap-2">
+          <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0" />
+          </svg>
+          <p className="text-sm text-gray-400">ไม่มีคำแนะนำในขณะนี้</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {visibleItems.map((p) => (
+            <div key={p.id} className="w-full">
+              <SuggestedPersonCard {...p} />
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
 
 export default function FriendsMainPage() {
   const router = useRouter();
@@ -538,6 +573,9 @@ export default function FriendsMainPage() {
   const [isAddingFriend, setIsAddingFriend] = useState(false);
   const [showUnfriendConfirm, setShowUnfriendConfirm] = useState(false);
   const [friendRequests, setFriendRequests] = useState<FriendCardProps[]>([]);
+  const [friendRequestSenderIds, setFriendRequestSenderIds] = useState<Set<string>>(new Set());
+  // Map requestId → senderId so we can clean up friendRequestSenderIds on accept/reject
+  const friendRequestSenderMapRef = useRef<Map<string, string>>(new Map());
   const [selectedUserFriends, setSelectedUserFriends] = useState<UserFriend[]>([]);
   const [selectedUserFriendsLoading, setSelectedUserFriendsLoading] = useState(false);
   const [selectedUserMarketItems, setSelectedUserMarketItems] = useState<MarketItemAPI[]>([]);
@@ -551,6 +589,12 @@ export default function FriendsMainPage() {
   const [marketChatMessage, setMarketChatMessage] = useState("");
   const [isSendingMarketChat, setIsSendingMarketChat] = useState(false);
   const marketChatTextareaRef = useRef<HTMLTextAreaElement>(null);
+  // ── Follow state ──────────────────────────────────────────────────────────
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
+  // ── People you may know ───────────────────────────────────────────────────
+  const [friendSuggestions, setFriendSuggestions] = useState<FriendSuggestion[]>([]);
+  const [friendSuggestionsLoading, setFriendSuggestionsLoading] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
@@ -565,6 +609,11 @@ export default function FriendsMainPage() {
       });
       if (res.ok) {
         setFriendRequests((prev) => prev.filter((r) => r.requestId !== requestId));
+        const senderId = friendRequestSenderMapRef.current.get(requestId);
+        if (senderId) {
+          setFriendRequestSenderIds((prev) => { const next = new Set(prev); next.delete(senderId); return next; });
+          friendRequestSenderMapRef.current.delete(requestId);
+        }
       } else {
         console.error("Failed to accept friend request");
       }
@@ -583,6 +632,11 @@ export default function FriendsMainPage() {
       });
       if (res.ok) {
         setFriendRequests((prev) => prev.filter((r) => r.requestId !== requestId));
+        const senderId = friendRequestSenderMapRef.current.get(requestId);
+        if (senderId) {
+          setFriendRequestSenderIds((prev) => { const next = new Set(prev); next.delete(senderId); return next; });
+          friendRequestSenderMapRef.current.delete(requestId);
+        }
       } else {
         console.error("Failed to reject friend request");
       }
@@ -614,6 +668,8 @@ export default function FriendsMainPage() {
             },
           }));
           setFriendRequests(mapped);
+          setFriendRequestSenderIds(new Set(data.map((req) => req.senderId)));
+          friendRequestSenderMapRef.current = new Map(data.map((req) => [req.requestId, req.senderId]));
         }
       } catch (err) {
         console.error("Failed to load friend requests:", err);
@@ -681,6 +737,19 @@ export default function FriendsMainPage() {
           if (statusRes.ok) {
             const statusData = await statusRes.json();
             setPendingRequestId(statusData.requestId ?? null);
+          }
+        } catch {
+          // non-critical
+        }
+
+        // Fetch follow status
+        try {
+          const followRes = await fetch(`${API_CONFIG.BASE_URL}/api/follows/status/${userId}`, {
+            credentials: "include",
+          });
+          if (followRes.ok) {
+            const followData = await followRes.json();
+            setIsFollowing(followData.isFollowing ?? false);
           }
         } catch {
           // non-critical
@@ -858,6 +927,7 @@ export default function FriendsMainPage() {
     setIsPendingFromMe(false);
     setPendingRequestId(null);
     setShowUnfriendConfirm(false);
+    setIsFollowing(false);
   };
 
   // Handle add/remove friend
@@ -938,9 +1008,35 @@ export default function FriendsMainPage() {
     }
   };
 
+  // Handle follow / unfollow
+  const handleFollowAction = async () => {
+    if (!selectedUser || isFollowLoading) return;
+    setIsFollowLoading(true);
+    try {
+      if (isFollowing) {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/follows/${selectedUser.id}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        if (res.ok) setIsFollowing(false);
+      } else {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/follows`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ followingId: selectedUser.id }),
+        });
+        if (res.ok) setIsFollowing(true);
+      }
+    } catch (err) {
+      console.error("Error updating follow status:", err);
+    } finally {
+      setIsFollowLoading(false);
+    }
+  };
+
   // Fetch selected user's friends when Friends tab is active
-  useEffect(() => {
-    if (activeTab !== "Friends" || !selectedUser) return;
+  useEffect(() => {    if (activeTab !== "Friends" || !selectedUser) return;
     const fetchSelectedUserFriends = async () => {
       setSelectedUserFriendsLoading(true);
       try {
@@ -1008,6 +1104,45 @@ export default function FriendsMainPage() {
     console.log("Post save status updated");
   };
 
+  // ── Send market chat to seller ────────────────────────────────────────────
+  // Load friend suggestions from API
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      setFriendSuggestionsLoading(true);
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/suggestions`, {
+          credentials: "include",
+        });
+        if (res.ok) {
+          const data: FriendSuggestion[] = await res.json();
+          setFriendSuggestions(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load friend suggestions:", err);
+      } finally {
+        setFriendSuggestionsLoading(false);
+      }
+    };
+    loadSuggestions();
+  }, []);
+
+  const handleAddFriendSuggestion = async (userId: string) => {
+    const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/request`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId2: userId }),
+    });
+    if (!res.ok) throw new Error("Failed to send friend request");
+  };
+
+  const handleCancelFriendSuggestion = async (userId: string) => {
+    const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${userId}`, {
+      method: "DELETE",
+      credentials: "include",
+    });
+    if (!res.ok) throw new Error("Failed to cancel friend request");
+  };
   // ── Send market chat to seller ────────────────────────────────────────────
   const handleSendMarketChat = async () => {
     if (!marketChatItem || !marketChatMessage.trim()) return;
@@ -1315,6 +1450,40 @@ export default function FriendsMainPage() {
 
                   {/* Friend/Unfriend Button + Chat Button */}
                   <div className="flex items-center gap-2">
+                  {/* Follow / Unfollow Button */}
+                  {selectedUser.id !== activeUser?.id && (
+                    <button
+                      onClick={handleFollowAction}
+                      disabled={isFollowLoading}
+                      className={`group relative flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 border-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
+                        isFollowing
+                          ? "bg-slate-50 text-slate-600 border-slate-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                          : "bg-slate-600 text-white border-slate-600 hover:bg-slate-700 hover:border-slate-700"
+                      }`}
+                    >
+                      {isFollowLoading ? (
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                      ) : isFollowing ? (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span className="group-hover:hidden">Following</span>
+                          <span className="hidden group-hover:inline">Unfollow</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                          <span>Follow</span>
+                        </>
+                      )}
+                    </button>
+                  )}
                   {/* Chat Button */}
                   {selectedUser.id !== activeUser?.id && (
                     <button
@@ -1973,7 +2142,22 @@ export default function FriendsMainPage() {
               />
               <HorizontalScrollSectionSuggested
                 title="People you may know"
-                items={peopleYouMayKnow}
+                loading={friendSuggestionsLoading}
+                excludeIds={friendRequestSenderIds}
+                items={friendSuggestions.map((s) => ({
+                  id: s.id,
+                  name: `${s.firstName} ${s.lastName}`,
+                  username: s.username,
+                  bio: s.bio ?? "",
+                  avatarUrl: s.avatarUrl,
+                  bannerUrl: s.bannerUrl,
+                  mutualFriendsCount: s.mutualFriendsCount,
+                  initialStatus: s.friendshipStatus === "pending" ? "requested" as const : "idle" as const,
+                  onAddFriend: handleAddFriendSuggestion,
+                  onCancelRequest: handleCancelFriendSuggestion,
+                  onViewProfile: (id: string) => router.push(`/Friends?userId=${id}`),
+                  onChat: (id: string) => openDirectChatEvent(id),
+                }))}
               />
             </div>
           </>
