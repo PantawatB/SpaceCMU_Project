@@ -98,6 +98,7 @@ interface Suggestion {
 
 interface MarketCardPayload {
   __type: "market_card";
+  itemId?: string;
   title: string;
   price: string;
   description: string;
@@ -159,6 +160,9 @@ function MiniMarketCard({ card, isMine, senderName, senderAvatarUrl }: {
   senderAvatarUrl?: string | null;
 }) {
   const [showModal, setShowModal] = useState(false);
+  const [liveStatus, setLiveStatus] = useState<"available" | "sold" | "deleted" | "loading">(
+    card.itemId ? "loading" : "available"
+  );
   const images = useMemo(() => {
     if (card.imageUrls && card.imageUrls.length > 0) return card.imageUrls;
     if (card.imageUrl) return [card.imageUrl];
@@ -173,14 +177,37 @@ function MiniMarketCard({ card, isMine, senderName, senderAvatarUrl }: {
   const [modalIdx, setModalIdx] = useState(0);
   const total = images.length;
 
+  // Fetch live status from API (getOptional returns null silently for 404/deleted items)
+  useEffect(() => {
+    if (!card.itemId) return;
+    apiService.getOptional<{ status: string }>(`/api/market/items/${card.itemId}`)
+      .then((data) => {
+        if (data === null || data.status === "deleted") {
+          setLiveStatus("deleted");
+        } else {
+          setLiveStatus(data.status === "sold" ? "sold" : "available");
+        }
+      })
+      .catch(() => {
+        setLiveStatus("available"); // fallback: show normally on network error
+      });
+  }, [card.itemId]);
+
+  const isSold = liveStatus === "sold";
+  const isDeleted = liveStatus === "deleted";
+
   return (
     <>
-      <article className={`w-52 overflow-hidden rounded-xl ${isMine ? "bg-slate-600" : "bg-white border border-gray-100 shadow-sm"}`}>
+      {/* ── Card bubble ── */}
+      <article className={`w-52 overflow-hidden rounded-xl transition-all ${
+        isMine ? "bg-slate-600" : "bg-white border border-gray-100 shadow-sm"
+      } ${(isSold || isDeleted) ? "opacity-75" : ""}`}>
         {/* Image */}
         <div className="w-full h-28 bg-gray-200 overflow-hidden relative">
           {images.length > 0 ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={images[0]} alt={card.title} className="w-full h-full object-cover"
+            <img src={images[0]} alt={card.title}
+              className={`w-full h-full object-cover transition-all ${(isSold || isDeleted) ? "brightness-50 grayscale" : ""}`}
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
           ) : (
             <div className={`w-full h-full flex items-center justify-center ${isMine ? "bg-slate-500" : "bg-gray-200"}`}>
@@ -189,26 +216,52 @@ function MiniMarketCard({ card, isMine, senderName, senderAvatarUrl }: {
               </svg>
             </div>
           )}
-          {total > 1 && (
+          {total > 1 && !isSold && !isDeleted && (
             <span className="absolute bottom-1 right-1.5 bg-black/50 text-white text-[9px] px-1.5 py-0.5 rounded-full">{total} รูป</span>
+          )}
+          {/* SOLD stamp */}
+          {isSold && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-red-500 rounded px-2 py-0.5 rotate-[-18deg]">
+                <span className="text-red-500 font-black tracking-[0.2em] text-sm uppercase" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.4)" }}>SOLD</span>
+              </div>
+            </div>
+          )}
+          {/* DELETED stamp */}
+          {isDeleted && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div className="border-2 border-gray-400 rounded px-2 py-0.5 rotate-[-18deg]">
+                <span className="text-gray-400 font-black tracking-[0.15em] text-xs uppercase">REMOVED</span>
+              </div>
+            </div>
           )}
         </div>
         {/* Info */}
         <div className="px-2.5 py-2">
-          <p className={`font-semibold text-xs truncate ${isMine ? "text-white" : "text-gray-900"}`}>{card.title}</p>
-          <p className={`text-[11px] font-bold mt-0.5 ${isMine ? "text-orange-300" : "text-orange-600"}`}>฿{card.price}</p>
+          <p className={`font-semibold text-xs truncate ${isMine ? "text-white" : isDeleted ? "text-gray-400" : "text-gray-900"}`}>{card.title}</p>
+          <p className={`text-[11px] font-bold mt-0.5 ${
+            isDeleted ? "text-gray-400" :
+            isSold ? (isMine ? "text-slate-400 line-through" : "text-gray-400 line-through") :
+            isMine ? "text-orange-300" : "text-orange-600"
+          }`}>฿{card.price}</p>
         </div>
         {/* Footer */}
         <div className={`flex items-center justify-between px-2.5 py-2 border-t ${isMine ? "border-slate-500" : "border-gray-100"}`}>
           <div className="flex items-center gap-1.5 min-w-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={resolvedSellerAvatar} alt={resolvedSellerName}
-              className="w-5 h-5 rounded-full object-cover border border-gray-200 flex-none"
+              className={`w-5 h-5 rounded-full object-cover border border-gray-200 flex-none ${(isSold || isDeleted) ? "grayscale" : ""}`}
               onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
-            <span className={`text-[10px] font-medium truncate ${isMine ? "text-slate-200" : "text-gray-600"}`}>{resolvedSellerName}</span>
+            <span className={`text-[10px] font-medium truncate ${isMine ? "text-slate-200" : (isSold || isDeleted) ? "text-gray-400" : "text-gray-600"}`}>{resolvedSellerName}</span>
           </div>
-          <button onClick={() => { setModalIdx(0); setShowModal(true); }}
-            className={`text-[10px] font-semibold px-2 py-1 rounded-lg flex-none ml-1.5 transition-colors ${isMine ? "bg-white/15 hover:bg-white/25 text-white" : "bg-gray-900 hover:bg-gray-700 text-white"}`}>
+          <button
+            onClick={() => { setModalIdx(0); setShowModal(true); }}
+            className={`text-[10px] font-semibold px-2 py-1 rounded-lg flex-none ml-1.5 transition-colors ${
+              isDeleted ? "bg-gray-200 text-gray-400 cursor-pointer" :
+              isSold ? "bg-gray-200 text-gray-500 cursor-pointer hover:bg-gray-300" :
+              isMine ? "bg-white/15 hover:bg-white/25 text-white" : "bg-gray-900 hover:bg-gray-700 text-white"
+            }`}
+          >
             view
           </button>
         </div>
@@ -228,9 +281,26 @@ function MiniMarketCard({ card, isMine, senderName, senderAvatarUrl }: {
                   {images.length > 0 ? (
                     <>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={images[modalIdx]} alt={card.title} className="w-full h-full object-contain"
+                      <img src={images[modalIdx]} alt={card.title}
+                        className={`w-full h-full object-contain ${(isSold || isDeleted) ? "brightness-60 grayscale" : ""}`}
                         onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                      {total > 1 && (
+                      {/* SOLD overlay on modal image */}
+                      {isSold && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="border-[3px] border-red-500 rounded-md px-5 py-2 rotate-[-18deg]">
+                            <span className="text-red-500 font-black tracking-[0.3em] text-3xl uppercase" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>SOLD</span>
+                          </div>
+                        </div>
+                      )}
+                      {/* DELETED overlay on modal image */}
+                      {isDeleted && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="border-[3px] border-gray-400 rounded-md px-5 py-2 rotate-[-18deg]">
+                            <span className="text-gray-400 font-black tracking-[0.2em] text-2xl uppercase">REMOVED</span>
+                          </div>
+                        </div>
+                      )}
+                      {total > 1 && !isSold && !isDeleted && (
                         <>
                           <button onClick={() => setModalIdx((p) => (p === 0 ? total - 1 : p - 1))}
                             className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-gray-800 rounded-full p-2.5 shadow-lg transition-all hover:scale-110 z-10" aria-label="Previous">
@@ -254,29 +324,51 @@ function MiniMarketCard({ card, isMine, senderName, senderAvatarUrl }: {
               {/* Right: details */}
               <div className="w-full md:w-1/2 p-8 flex flex-col">
                 <div className="mb-6">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-3">{card.title}</h2>
-                  <span className="text-4xl font-bold text-orange-600">฿{card.price}</span>
-                </div>
-                <div className="border-t border-gray-200 my-6" />
-                <div className="mb-6 flex-1">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">รายละเอียดสินค้า</h3>
-                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">{card.description}</p>
-                </div>
-                <div className="border-t border-gray-200 my-6" />
-                <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">ผู้ขาย</h3>
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200 flex-none">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={resolvedSellerAvatar} alt={resolvedSellerName} className="w-full h-full object-cover"
-                        onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-900">{resolvedSellerName}</p>
-                      <p className="text-sm text-gray-500">ผู้ขาย</p>
-                    </div>
+                  <div className="flex items-center gap-3 mb-3 flex-wrap">
+                    <h2 className={`text-3xl font-bold ${isDeleted ? "text-gray-400" : "text-gray-900"}`}>{card.title}</h2>
+                    {isSold && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-bold tracking-widest uppercase">SOLD</span>
+                    )}
+                    {isDeleted && (
+                      <span className="px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs font-bold tracking-widest uppercase">ถูกลบแล้ว</span>
+                    )}
                   </div>
+                  <span className={`text-4xl font-bold ${isDeleted ? "text-gray-400 line-through" : isSold ? "text-gray-400 line-through" : "text-orange-600"}`}>฿{card.price}</span>
                 </div>
+                {isDeleted ? (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center py-8">
+                    <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                      <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </div>
+                    <p className="text-gray-500 font-medium">สินค้านี้ถูกลบออกจากตลาดแล้ว</p>
+                    <p className="text-gray-400 text-sm">ผู้ขายได้นำสินค้าออกจากระบบ</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="border-t border-gray-200 my-6" />
+                    <div className="mb-6 flex-1">
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">รายละเอียดสินค้า</h3>
+                      <p className={`leading-relaxed whitespace-pre-line ${isSold ? "text-gray-400" : "text-gray-700"}`}>{card.description}</p>
+                    </div>
+                    <div className="border-t border-gray-200 my-6" />
+                    <div className="mb-6">
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">ผู้ขาย</h3>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-12 h-12 rounded-full overflow-hidden border-2 flex-none ${isSold ? "border-gray-200 grayscale" : "border-gray-200"}`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={resolvedSellerAvatar} alt={resolvedSellerName} className="w-full h-full object-cover"
+                            onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
+                        </div>
+                        <div>
+                          <p className={`font-semibold ${isSold ? "text-gray-400" : "text-gray-900"}`}>{resolvedSellerName}</p>
+                          <p className="text-sm text-gray-500">ผู้ขาย</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
                 <div className="mt-auto text-center"><p className="text-xs text-gray-400">🛍️ สินค้าจากตลาด SpaceCMU</p></div>
               </div>
             </div>

@@ -1,10 +1,10 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { marketItemsTable, marketCategoriesTable, usersTable, messagesTable, chatRoomsTable, chatRoomMembersTable } from "../../db/schema.js";
-import { eq, desc, and, or } from "drizzle-orm";
+import { eq, desc, and, or, lt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
-// Get all market items with filters
+// Get all market items with filters + cursor-based pagination
 export const getMarketItems = async (req: Request, res: Response) => {
     try {
         // Require authentication
@@ -13,48 +13,62 @@ export const getMarketItems = async (req: Request, res: Response) => {
             return res.status(401).json({ message: "Unauthorized. Please login to view market items." });
         }
 
-        const { category, sortBy } = req.query;
+        const { category, cursor, limit: limitParam } = req.query;
+        const limit = Math.min(parseInt(limitParam as string) || 20, 50);
 
-        let query = dbClient
-            .select({
-                id: marketItemsTable.id,
-                title: marketItemsTable.title,
-                description: marketItemsTable.description,
-                price: marketItemsTable.price,
-                imageUrl: marketItemsTable.imageUrl,
-                imageUrls: marketItemsTable.imageUrls,
-                status: marketItemsTable.status,
-                createdAt: marketItemsTable.createdAt,
-                seller: {
-                    id: usersTable.id,
-                    firstName: usersTable.firstName,
-                    lastName: usersTable.lastName,
-                    avatarUrl: usersTable.avatarUrl,
-                },
-                category: {
-                    id: marketCategoriesTable.id,
-                    name: marketCategoriesTable.name,
-                }
-            })
-            .from(marketItemsTable)
-            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
-            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id));
+        const baseSelect = {
+            id: marketItemsTable.id,
+            title: marketItemsTable.title,
+            description: marketItemsTable.description,
+            price: marketItemsTable.price,
+            imageUrl: marketItemsTable.imageUrl,
+            imageUrls: marketItemsTable.imageUrls,
+            status: marketItemsTable.status,
+            createdAt: marketItemsTable.createdAt,
+            seller: {
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                avatarUrl: usersTable.avatarUrl,
+            },
+            category: {
+                id: marketCategoriesTable.id,
+                name: marketCategoriesTable.name,
+            }
+        };
 
-        const filters = [];
+        const filters: ReturnType<typeof eq>[] = [];
+
         if (category) {
             filters.push(eq(marketCategoriesTable.name, category as string));
         }
 
-        if (filters.length > 0) {
-            query = query.where(and(...filters)) as any;
+        // Cursor: ISO timestamp of the last item seen — fetch items older than it
+        if (cursor) {
+            const cursorDate = new Date(cursor as string);
+            if (!isNaN(cursorDate.getTime())) {
+                filters.push(lt(marketItemsTable.createdAt, cursorDate));
+            }
         }
 
-        if (sortBy === "latest") {
-            query = query.orderBy(desc(marketItemsTable.createdAt)) as any;
-        }
+        const query = dbClient
+            .select(baseSelect)
+            .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
+            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+            .where(filters.length > 0 ? and(...filters) : undefined)
+            .orderBy(desc(marketItemsTable.createdAt))
+            .limit(limit + 1); // fetch one extra to detect hasMore
 
-        const items = await query;
-        res.json(items);
+        const rows = await query;
+        const hasMore = rows.length > limit;
+        const items = hasMore ? rows.slice(0, limit) : rows;
+
+        const nextCursor = hasMore && items.length > 0
+            ? items[items.length - 1].createdAt.toISOString()
+            : null;
+
+        res.json({ items, hasMore, nextCursor });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching market items" });
@@ -394,6 +408,56 @@ export const contactSeller = async (req: Request, res: Response) => {
     }
 };
 
+// Get a single market item by ID
+export const getMarketItemById = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { itemId } = req.params;
+
+        const items = await dbClient
+            .select({
+                id: marketItemsTable.id,
+                title: marketItemsTable.title,
+                description: marketItemsTable.description,
+                price: marketItemsTable.price,
+                imageUrl: marketItemsTable.imageUrl,
+                imageUrls: marketItemsTable.imageUrls,
+                status: marketItemsTable.status,
+                createdAt: marketItemsTable.createdAt,
+                seller: {
+                    id: usersTable.id,
+                    firstName: usersTable.firstName,
+                    lastName: usersTable.lastName,
+                    avatarUrl: usersTable.avatarUrl,
+                },
+                category: {
+                    id: marketCategoriesTable.id,
+                    name: marketCategoriesTable.name,
+                }
+            })
+            .from(marketItemsTable)
+            .innerJoin(usersTable, eq(marketItemsTable.sellerId, usersTable.id))
+            .leftJoin(marketCategoriesTable, eq(marketItemsTable.categoryId, marketCategoriesTable.id))
+            .where(eq(marketItemsTable.id, itemId))
+            .limit(1);
+
+        if (items.length === 0) {
+            // Return 200 with status "deleted" instead of 404
+            // so browser does not log a network error (expected outcome for chat cards)
+            return res.status(200).json({ status: "deleted" });
+        }
+
+        res.json(items[0]);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching market item" });
+    }
+};
+
 // Get market items listed by the current user
 export const getMyMarketItems = async (req: Request, res: Response) => {
     try {
@@ -478,6 +542,47 @@ export const getMarketItemsByUserId = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching market items by user" });
+    }
+};
+
+// Delete a market item (owner only)
+export const deleteMarketItem = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { itemId } = req.params;
+
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        // Check ownership
+        const item = await dbClient
+            .select()
+            .from(marketItemsTable)
+            .where(eq(marketItemsTable.id, itemId))
+            .limit(1);
+
+        if (item.length === 0) {
+            return res.status(404).json({ message: "Market item not found" });
+        }
+
+        if (item[0].sellerId !== userId) {
+            return res.status(403).json({ message: "You are not authorized to delete this item" });
+        }
+
+        await dbClient
+            .delete(marketItemsTable)
+            .where(eq(marketItemsTable.id, itemId));
+
+        res.json({ message: "Market item deleted successfully" });
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Deleted market item", `Deleted item: ${item[0].title}`, req);
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error deleting market item" });
     }
 };
 

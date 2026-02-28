@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
@@ -42,6 +42,10 @@ export default function MarketMainPage() {
   const [chatPopupMessage, setChatPopupMessage] = React.useState("");
   const [isSendingChat, setIsSendingChat] = React.useState(false);
   const chatPopupTextareaRef = React.useRef<HTMLTextAreaElement>(null);
+
+  // ── Manage item state (owner only) ───────────────────────────────────────
+  const [isManaging, setIsManaging] = React.useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
   const [productTitle, setProductTitle] = React.useState("");
   const [productDescription, setProductDescription] = React.useState("");
   const [productPrice, setProductPrice] = React.useState("");
@@ -51,6 +55,14 @@ export default function MarketMainPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showModeWarning, setShowModeWarning] = useState(false);
+
+  // ── Infinite scroll state ────────────────────────────────────────────────
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const marketScrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const isLoadingMoreRef = useRef(false);
 
   // Force switch to PUBLIC mode when entering Market page
   useEffect(() => {
@@ -77,18 +89,18 @@ export default function MarketMainPage() {
     switchToPublicMode();
   }, [activeMode, refreshUser]);
 
-  // Fetch market items from API
+  // Fetch initial market items from API
   useEffect(() => {
     const fetchMarketItems = async () => {
       setLoading(true);
       setError(null);
-      
+      setNextCursor(null);
+      setHasMore(false);
+
       try {
         const response = await fetch(
-          `${API_CONFIG.BASE_URL}/api/market/items`,
-          {
-            credentials: 'include',
-          }
+          `${API_CONFIG.BASE_URL}/api/market/items?limit=20`,
+          { credentials: 'include' }
         );
 
         if (!response.ok) {
@@ -96,9 +108,9 @@ export default function MarketMainPage() {
         }
 
         const data = await response.json();
-        console.log('Market items raw response:', data);
-        
-        setApiMarketItems(Array.isArray(data) ? data : []);
+        setApiMarketItems(Array.isArray(data) ? data : (data.items ?? []));
+        setNextCursor(data.nextCursor ?? null);
+        setHasMore(data.hasMore ?? false);
       } catch (err) {
         console.error('Error fetching market items:', err);
         setError('Failed to load market items');
@@ -110,6 +122,56 @@ export default function MarketMainPage() {
 
     fetchMarketItems();
   }, []);
+
+  // Load more items when sentinel enters viewport
+  const loadMoreItems = useCallback(async () => {
+    if (!nextCursor || !hasMore || isLoadingMoreRef.current) return;
+
+    isLoadingMoreRef.current = true;
+    setIsLoadingMore(true);
+
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/market/items?limit=20&cursor=${encodeURIComponent(nextCursor)}`,
+        { credentials: 'include' }
+      );
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+      const data = await response.json();
+      const moreItems: MarketItemAPI[] = Array.isArray(data) ? data : (data.items ?? []);
+
+      setApiMarketItems((prev) => {
+        const existingIds = new Set(prev.map((i) => i.id));
+        return [...prev, ...moreItems.filter((i) => !existingIds.has(i.id))];
+      });
+      setNextCursor(data.nextCursor ?? null);
+      setHasMore(data.hasMore ?? false);
+    } catch (err) {
+      console.error('Error loading more market items:', err);
+    } finally {
+      setIsLoadingMore(false);
+      isLoadingMoreRef.current = false;
+    }
+  }, [nextCursor, hasMore]);
+
+  // IntersectionObserver — trigger loadMoreItems when sentinel is visible
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMoreRef.current) {
+          loadMoreItems();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, loadMoreItems]);
 
   // Handle multiple image uploads
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,6 +257,7 @@ export default function MarketMainPage() {
 
       const cardContent = JSON.stringify({
         __type: "market_card",
+        itemId: selectedProduct.id,
         title: selectedProduct.title,
         price: parseFloat(selectedProduct.price).toFixed(0),
         description: selectedProduct.description,
@@ -226,6 +289,58 @@ export default function MarketMainPage() {
       showError(`ส่งข้อความไม่สำเร็จ: ${err instanceof Error ? err.message : "กรุณาลองใหม่"}`);
     } finally {
       setIsSendingChat(false);
+    }
+  };
+
+  // ── Mark item as sold ────────────────────────────────────────────────────
+  const handleMarkAsSold = async () => {
+    if (!selectedProduct) return;
+    setIsManaging(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/market/items/${selectedProduct.id}/status`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: selectedProduct.status === "sold" ? "available" : "sold" }),
+        }
+      );
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const newStatus = selectedProduct.status === "sold" ? "available" : "sold";
+      setApiMarketItems((prev) =>
+        prev.map((item) =>
+          item.id === selectedProduct.id ? { ...item, status: newStatus } : item
+        )
+      );
+      setSelectedProduct((prev) => prev ? { ...prev, status: newStatus } : prev);
+      showSuccess(newStatus === "sold" ? "ทำเครื่องหมายว่าขายแล้ว!" : "เปิดขายอีกครั้งแล้ว!");
+    } catch (err) {
+      showError(`เกิดข้อผิดพลาด: ${err instanceof Error ? err.message : "กรุณาลองใหม่"}`);
+    } finally {
+      setIsManaging(false);
+    }
+  };
+
+  // ── Delete item ──────────────────────────────────────────────────────────
+  const handleDeleteItem = async () => {
+    if (!selectedProduct) return;
+    setIsManaging(true);
+    try {
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/market/items/${selectedProduct.id}`,
+        { method: "DELETE", credentials: "include" }
+      );
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      setApiMarketItems((prev) => prev.filter((item) => item.id !== selectedProduct.id));
+      setSelectedProduct(null);
+      setShowDeleteConfirm(false);
+      setCurrentImageIndex(0);
+      showSuccess("ลบสินค้าเรียบร้อยแล้ว!");
+    } catch (err) {
+      showError(`ลบไม่สำเร็จ: ${err instanceof Error ? err.message : "กรุณาลองใหม่"}`);
+    } finally {
+      setIsManaging(false);
     }
   };
 
@@ -306,7 +421,7 @@ export default function MarketMainPage() {
         </div>
 
         {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
+        <div ref={marketScrollRef} className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
           <div className="max-w-9xl pt-8 mx-auto w-full">
             {/* Loading State */}
             {loading && (
@@ -340,14 +455,6 @@ export default function MarketMainPage() {
                         : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`)
                     : "/default-avatar.svg";
 
-                  console.log('Market Item:', {
-                    title: item.title,
-                    rawImageUrl: item.imageUrl,
-                    processedImageUrl: imageUrl,
-                    rawAvatarUrl: item.seller.avatarUrl,
-                    processedAvatarUrl: sellerAvatarUrl
-                  });
-
                   return (
                     <MarketCard 
                       key={item.id} 
@@ -357,6 +464,7 @@ export default function MarketMainPage() {
                       image={imageUrl} 
                       sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
                       sellerImage={sellerAvatarUrl}
+                      status={item.status}
                       onViewClick={() => {
                         setSelectedProduct(item);
                         setShowProductDetailPopup(true);
@@ -364,6 +472,29 @@ export default function MarketMainPage() {
                     />
                   );
                 })}
+              </div>
+            )}
+
+            {/* Sentinel for IntersectionObserver */}
+            <div ref={sentinelRef} className="h-1" />
+
+            {/* Load more indicator */}
+            {isLoadingMore && (
+              <div className="flex justify-center items-center py-6">
+                <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  กำลังโหลดสินค้าเพิ่มเติม...
+                </div>
+              </div>
+            )}
+
+            {/* End of list */}
+            {!loading && !hasMore && apiMarketItems.length > 0 && (
+              <div className="flex justify-center items-center py-6 text-gray-300 text-xs">
+                — แสดงสินค้าทั้งหมดแล้ว —
               </div>
             )}
           </div>
@@ -707,6 +838,7 @@ export default function MarketMainPage() {
               setShowProductDetailPopup(false);
               setSelectedProduct(null);
               setCurrentImageIndex(0);
+              setShowDeleteConfirm(false);
             }}
           />
 
@@ -718,6 +850,7 @@ export default function MarketMainPage() {
                 setShowProductDetailPopup(false);
                 setSelectedProduct(null);
                 setCurrentImageIndex(0);
+                setShowDeleteConfirm(false);
               }}
               className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors bg-white rounded-full p-2 shadow-lg"
             >
@@ -740,6 +873,18 @@ export default function MarketMainPage() {
             <div className="flex flex-col md:flex-row h-full overflow-y-auto">
               {/* Left Side - Product Image with Navigation */}
               <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative">
+
+                {/* SOLD full-panel overlay */}
+                {selectedProduct.status === "sold" && (
+                  <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-tl-2xl rounded-bl-2xl pointer-events-none">
+                    <div className="border-[3px] border-white rounded-lg px-8 py-3 -rotate-12">
+                      <span className="text-white font-black tracking-[0.3em] text-3xl uppercase" style={{ textShadow: "0 2px 8px rgba(0,0,0,0.5)" }}>
+                        SOLD
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="w-full aspect-square max-w-md bg-white rounded-2xl overflow-hidden shadow-md relative flex items-center justify-center">
                   {(() => {
                     // Parse imageUrls if available, otherwise use single imageUrl
@@ -849,13 +994,26 @@ export default function MarketMainPage() {
               <div className="w-full md:w-1/2 p-8 flex flex-col">
                 {/* Product Title and Price */}
                 <div className="mb-6">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-3">
-                    {selectedProduct.title}
-                  </h2>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-orange-600">
+                  <div className="flex items-start gap-3 mb-3">
+                    <h2 className="text-3xl font-bold text-gray-900 flex-1">
+                      {selectedProduct.title}
+                    </h2>
+                    {selectedProduct.status === "sold" && (
+                      <span className="shrink-0 mt-1 inline-flex items-center gap-1 bg-gray-900 text-white text-xs font-bold tracking-widest uppercase px-2.5 py-1 rounded-md">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Sold
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline gap-3">
+                    <span className={`text-4xl font-bold ${selectedProduct.status === "sold" ? "text-gray-300 line-through" : "text-orange-600"}`}>
                       ฿{parseFloat(selectedProduct.price).toFixed(0)}
                     </span>
+                    {selectedProduct.status === "sold" && (
+                      <span className="text-sm text-gray-400 font-medium">สินค้าชิ้นนี้ขายแล้ว</span>
+                    )}
                   </div>
                 </div>
 
@@ -917,7 +1075,7 @@ export default function MarketMainPage() {
                 </div>
 
                 {/* Contact Seller Button — ซ่อนถ้าเป็นสินค้าของตัวเอง */}
-                {selectedProduct.seller.id !== activeUser?.id && (
+                {selectedProduct.seller.id !== activeUser?.id ? (
                   <button
                     onClick={() => {
                       setShowChatPopup(true);
@@ -940,6 +1098,89 @@ export default function MarketMainPage() {
                     </svg>
                     ทักแชทหาผู้ขาย
                   </button>
+                ) : (
+                  /* Owner actions */
+                  <div className="flex flex-col gap-3">
+                    {/* Status badge */}
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
+                        selectedProduct.status === "sold"
+                          ? "bg-red-100 text-red-600"
+                          : "bg-green-100 text-green-700"
+                      }`}>
+                        <span className={`w-2 h-2 rounded-full ${selectedProduct.status === "sold" ? "bg-red-500" : "bg-green-500"}`} />
+                        {selectedProduct.status === "sold" ? "ขายแล้ว" : "กำลังขาย"}
+                      </span>
+                      <span className="text-xs text-gray-400">สินค้าของคุณ</span>
+                    </div>
+
+                    {/* Mark as sold / reopen button */}
+                    <button
+                      onClick={handleMarkAsSold}
+                      disabled={isManaging}
+                      className={`w-full py-3 px-6 rounded-xl font-semibold text-base transition-all flex items-center justify-center gap-2 shadow ${
+                        selectedProduct.status === "sold"
+                          ? "bg-green-600 hover:bg-green-700 text-white"
+                          : "bg-orange-500 hover:bg-orange-600 text-white"
+                      } disabled:opacity-60 disabled:cursor-not-allowed`}
+                    >
+                      {isManaging ? (
+                        <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                      ) : selectedProduct.status === "sold" ? (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      )}
+                      {selectedProduct.status === "sold" ? "เปิดขายอีกครั้ง" : "ทำเครื่องหมายว่าขายแล้ว"}
+                    </button>
+
+                    {/* Delete button */}
+                    {!showDeleteConfirm ? (
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        disabled={isManaging}
+                        className="w-full py-3 px-6 rounded-xl font-semibold text-base border-2 border-red-300 text-red-500 hover:bg-red-50 hover:border-red-400 transition-all flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        ลบสินค้า
+                      </button>
+                    ) : (
+                      <div className="rounded-xl border-2 border-red-300 bg-red-50 p-3">
+                        <p className="text-sm text-red-600 font-medium text-center mb-3">ยืนยันการลบสินค้านี้?</p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleDeleteItem}
+                            disabled={isManaging}
+                            className="flex-1 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white font-semibold text-sm transition-colors disabled:opacity-60 flex items-center justify-center gap-1"
+                          >
+                            {isManaging ? (
+                              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                              </svg>
+                            ) : null}
+                            ยืนยันลบ
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            disabled={isManaging}
+                            className="flex-1 py-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-100 font-semibold text-sm transition-colors"
+                          >
+                            ยกเลิก
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* Posted Date */}
