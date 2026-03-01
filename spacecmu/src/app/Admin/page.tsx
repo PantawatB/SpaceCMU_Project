@@ -53,8 +53,12 @@ function OfficialAccountCard({
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow">
       {/* Card header */}
       <div className="p-5 flex items-start gap-4">
-        <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center text-white text-xl font-bold shrink-0">
-          {account.name[0].toUpperCase()}
+        <div className="w-12 h-12 rounded-full overflow-hidden shrink-0 bg-slate-100">
+          <img // eslint-disable-line @next/next/no-img-element
+            src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+            alt={account.name}
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -247,8 +251,12 @@ function AccountDetailView({
 
         {/* Account header card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center gap-5">
-          <div className="w-14 h-14 rounded-2xl bg-slate-900 flex items-center justify-center text-white text-2xl font-bold shrink-0">
-            {account.name[0].toUpperCase()}
+          <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 bg-slate-100">
+            <img // eslint-disable-line @next/next/no-img-element
+              src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+              alt={account.name}
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap">

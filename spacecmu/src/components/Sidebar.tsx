@@ -534,19 +534,17 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           {/* ── Official Mode: single merged avatar ── */}
           {officialMode && !isSwitchingToOfficial ? (
             <div className="flex flex-col items-center w-full">
-              <div className="w-14 h-14 rounded-full flex items-center justify-center relative shadow-lg bg-linear-to-br from-indigo-500 via-purple-500 to-pink-500">
-                {officialMode.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+              <div className="relative w-14 h-14 shrink-0">
+                <div className="w-14 h-14 rounded-full overflow-hidden shadow-lg bg-slate-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={apiService.getImageUrl(officialMode.avatarUrl) ?? ""}
+                    src={officialMode.avatarUrl ? (apiService.getImageUrl(officialMode.avatarUrl) ?? DEFAULT_AVATAR) : DEFAULT_AVATAR}
                     alt={officialMode.name}
-                    className="w-12 h-12 rounded-full object-cover border-2 border-white"
+                    className="w-full h-full rounded-full object-cover"
                     onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
                   />
-                ) : (
-                  <span className="text-xl font-bold text-white">{officialMode.avatarLetter}</span>
-                )}
-                <span className="absolute top-0 right-0 w-3 h-3 bg-indigo-400 rounded-full border-2 border-white shadow" />
+                </div>
+                <span className="absolute top-0 right-0 w-3 h-3 bg-green-700 rounded-full border-2 border-white shadow" />
               </div>
               <div className="mt-2 text-sm font-bold text-gray-900 truncate max-w-[170px] text-center">
                 {officialMode.name}
@@ -713,7 +711,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           <button
             onClick={async () => { await exitOfficialMode(); window.location.reload(); }}
             className="w-full flex items-center gap-2.5 justify-center rounded-xl px-3 py-3 mb-3 font-bold text-sm transition-all
-              bg-linear-to-r from-indigo-500 to-purple-600 text-white shadow-md hover:shadow-lg hover:from-indigo-600 hover:to-purple-700 active:scale-[0.98]"
+              bg-slate-800 text-white shadow-md hover:bg-slate-700 active:scale-[0.98]"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
