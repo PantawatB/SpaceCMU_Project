@@ -184,7 +184,7 @@ export const getMyOfficialAccounts = async (req: Request, res: Response) => {
         const ids = myAccountIds.map((r) => r.officialAccountId);
 
         // ดึงข้อมูล official accounts ทั้งหมดที่ caller บริหาร
-        // เราต้อง query แบบ in() แต่ใช้ or() เพื่อ compatibility
+        // join usersTable เพื่อดึง avatarUrl ของ official account (เก็บใน user record)
         const accounts = await dbClient
             .select({
                 id: officialAccountsTable.id,
@@ -194,8 +194,10 @@ export const getMyOfficialAccounts = async (req: Request, res: Response) => {
                 createdAt: officialAccountsTable.createdAt,
                 userId: officialAccountsTable.userId,
                 ownerId: officialAccountsTable.ownerId,
+                avatarUrl: usersTable.avatarUrl,
             })
             .from(officialAccountsTable)
+            .leftJoin(usersTable, eq(officialAccountsTable.userId, usersTable.id))
             .where(
                 ids.length === 1
                     ? eq(officialAccountsTable.id, ids[0])

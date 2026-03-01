@@ -296,6 +296,9 @@ export const commentsTable = pgTable("comments", {
 
   content: text("content").notNull(),
 
+  // Reply support: null = top-level comment, set = reply to another comment
+  parentCommentId: uuid("parent_comment_id").references((): AnyPgColumn => commentsTable.id, { onDelete: "cascade" }),
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
@@ -351,6 +354,7 @@ export const notificationsTable = pgTable("notifications", {
 
   type: notificationTypeEnum("type").notNull(),
   referenceId: uuid("reference_id"),
+  message: text("message"),
 
   isRead: boolean("is_read").default(false),
 

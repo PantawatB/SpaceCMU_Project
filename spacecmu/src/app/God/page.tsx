@@ -14,6 +14,7 @@ interface LocalAnnouncement {
   target?: string;
   message: string;
   sentAt: string;
+  count?: number;
 }
 
 
@@ -31,10 +32,16 @@ export default function GodPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const [annType, setAnnType] = useState<"global" | "private">("global");
-  const [annTarget, setAnnTarget] = useState("");
   const [annMsg, setAnnMsg] = useState("");
   const [annHistory, setAnnHistory] = useState<LocalAnnouncement[]>([]);
   const [annSending, setAnnSending] = useState(false);
+
+  // Private recipient search state
+  const [annPrivateSearch, setAnnPrivateSearch] = useState("");
+  const [annPrivateSearchResults, setAnnPrivateSearchResults] = useState<GodUser[]>([]);
+  const [annPrivateSearchLoading, setAnnPrivateSearchLoading] = useState(false);
+  const [annPrivateSelected, setAnnPrivateSelected] = useState<GodUser[]>([]);
+  const annSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Official Account state
   const [offFirstName, setOffFirstName] = useState("");
@@ -143,23 +150,73 @@ export default function GodPage() {
 
   const handleSendAnnouncement = async () => {
     if (!annMsg.trim()) return;
-    if (annType === "private" && !annTarget.trim()) return;
+    if (annType === "private" && annPrivateSelected.length === 0) return;
     setAnnSending(true);
-    await new Promise((r) => setTimeout(r, 600));
-    setAnnHistory((prev) => [
-      {
-        id: Date.now(),
-        type: annType,
-        target: annType === "private" ? annTarget : undefined,
-        message: annMsg,
-        sentAt: new Date().toLocaleString(),
-      },
-      ...prev,
-    ]);
-    setAnnMsg("");
-    setAnnTarget("");
-    setAnnSending(false);
-    showToast(annType === "global" ? "Announcement sent to everyone" : `Message sent to ${annTarget}`);
+    try {
+      let count = 0;
+      if (annType === "global") {
+        const res = await apiService.sendGlobalNotification(annMsg.trim());
+        count = res.count;
+      } else {
+        const res = await apiService.sendPrivateNotifications(
+          annPrivateSelected.map((u) => u.id),
+          annMsg.trim()
+        );
+        count = res.count;
+      }
+
+      setAnnHistory((prev) => [
+        {
+          id: Date.now(),
+          type: annType,
+          target: annType === "private"
+            ? annPrivateSelected.map((u) => `${u.firstName} ${u.lastName}`.trim()).join(", ")
+            : undefined,
+          message: annMsg,
+          sentAt: new Date().toLocaleString(),
+          count,
+        },
+        ...prev,
+      ]);
+      setAnnMsg("");
+      setAnnPrivateSelected([]);
+      setAnnPrivateSearch("");
+      setAnnPrivateSearchResults([]);
+      showToast(
+        annType === "global"
+          ? `Notification sent to ${count} users`
+          : `Notification sent to ${count} user${count !== 1 ? "s" : ""}`
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to send notification", false);
+    } finally {
+      setAnnSending(false);
+    }
+  };
+
+  const handleAnnPrivateSearchChange = (q: string) => {
+    setAnnPrivateSearch(q);
+    if (annSearchDebounceRef.current) clearTimeout(annSearchDebounceRef.current);
+    if (!q.trim()) {
+      setAnnPrivateSearchResults([]);
+      setAnnPrivateSearchLoading(false);
+      return;
+    }
+    setAnnPrivateSearchLoading(true);
+    annSearchDebounceRef.current = setTimeout(async () => {
+      try {
+        // searchUsersForOfficialAccount searches all users (excl. official_account role) — reuse
+        const results = await apiService.searchUsersForOfficialAccount(q);
+        // Filter out already-selected
+        setAnnPrivateSearchResults(
+          results.filter((r) => !annPrivateSelected.some((s) => s.id === r.id))
+        );
+      } catch {
+        setAnnPrivateSearchResults([]);
+      } finally {
+        setAnnPrivateSearchLoading(false);
+      }
+    }, 300);
   };
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -509,17 +566,90 @@ export default function GodPage() {
                     ))}
                   </div>
 
-                  {/* Private target */}
+                  {/* Private target — multi-user search */}
                   {annType === "private" && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-slate-600">Recipient</label>
-                      <input
-                        type="text"
-                        placeholder="Username or email…"
-                        value={annTarget}
-                        onChange={(e) => setAnnTarget(e.target.value)}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
-                      />
+                    <div className="space-y-2">
+                      <label className="text-xs font-medium text-slate-600">Recipients</label>
+
+                      {/* Selected chips */}
+                      {annPrivateSelected.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {annPrivateSelected.map((u) => (
+                            <span
+                              key={u.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-900 text-white text-xs font-medium"
+                            >
+                              {u.firstName} {u.lastName}
+                              {u.username && <span className="opacity-60">@{u.username}</span>}
+                              <button
+                                onClick={() =>
+                                  setAnnPrivateSelected((prev) => prev.filter((p) => p.id !== u.id))
+                                }
+                                className="ml-0.5 hover:text-red-300 transition-colors"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Search input */}
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                          </svg>
+                        </span>
+                        <input
+                          type="text"
+                          placeholder="Search by name, username or email…"
+                          value={annPrivateSearch}
+                          onChange={(e) => handleAnnPrivateSearchChange(e.target.value)}
+                          className="w-full pl-9 pr-3 border border-slate-200 rounded-xl py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                        />
+                        {annPrivateSearchLoading && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <svg className="animate-spin w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                            </svg>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Dropdown results */}
+                      {annPrivateSearchResults.length > 0 && (
+                        <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-48 overflow-y-auto">
+                          {annPrivateSearchResults.map((u) => (
+                            <button
+                              key={u.id}
+                              onClick={() => {
+                                setAnnPrivateSelected((prev) => [...prev, u]);
+                                setAnnPrivateSearchResults((prev) => prev.filter((r) => r.id !== u.id));
+                                setAnnPrivateSearch("");
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-slate-50 transition text-left"
+                            >
+                              <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
+                                {u.firstName?.[0] ?? "?"}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-slate-900 truncate">
+                                  {u.firstName} {u.lastName}
+                                  {u.username && <span className="text-slate-400 font-normal ml-1">@{u.username}</span>}
+                                </p>
+                                <p className="text-xs text-slate-400 truncate">{u.email}</p>
+                              </div>
+                              <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{u.role}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {annPrivateSearch.trim() && !annPrivateSearchLoading && annPrivateSearchResults.length === 0 && (
+                        <p className="text-xs text-slate-400 px-1">No users found</p>
+                      )}
                     </div>
                   )}
 
@@ -542,14 +672,14 @@ export default function GodPage() {
 
                   <button
                     onClick={handleSendAnnouncement}
-                    disabled={annSending || !annMsg.trim() || (annType === "private" && !annTarget.trim())}
+                    disabled={annSending || !annMsg.trim() || (annType === "private" && annPrivateSelected.length === 0)}
                     className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     {annSending
                       ? "Sending…"
                       : annType === "global"
                       ? "Send to Everyone"
-                      : "Send to User"}
+                      : `Send to ${annPrivateSelected.length || ""} User${annPrivateSelected.length !== 1 ? "s" : ""}`.trim()}
                   </button>
                 </div>
 
@@ -587,11 +717,16 @@ export default function GodPage() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm text-slate-800 leading-relaxed">{a.message}</p>
                             <div className="flex items-center gap-2 mt-1.5">
-                              {a.type === "private" && (
-                                <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium">@{a.target}</span>
+                              {a.type === "private" && a.target && (
+                                <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium truncate max-w-[180px]">{a.target}</span>
                               )}
                               {a.type === "global" && (
                                 <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">Platform-wide</span>
+                              )}
+                              {a.count !== undefined && (
+                                <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-600 text-[10px] font-medium">
+                                  {a.count} sent
+                                </span>
                               )}
                               <span className="text-[11px] text-slate-400">{a.sentAt}</span>
                             </div>

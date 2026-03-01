@@ -10,6 +10,8 @@ import {
     addOfficialAccountAdmin,
     removeOfficialAccountAdmin,
     searchUsersForOfficialAccount,
+    sendGlobalNotification,
+    sendPrivateNotifications,
 } from "../controllers/godController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { godMiddleware } from "../middleware/godMiddleware.js";
@@ -37,5 +39,9 @@ router.get("/official-accounts", getOfficialAccounts);
 router.post("/official-accounts", createOfficialAccount);
 router.post("/official-accounts/:id/admins", addOfficialAccountAdmin);
 router.delete("/official-accounts/:id/admins/:adminUserId", removeOfficialAccountAdmin);
+
+// Notifications (god broadcast)
+router.post("/notifications/global", sendGlobalNotification);
+router.post("/notifications/private", sendPrivateNotifications);
 
 export default router;

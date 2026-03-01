@@ -36,8 +36,8 @@ export default function SettingPage() {
       }
       
       // Validate file type
-      if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-        alert('Only JPG, PNG, or GIF files are allowed');
+      if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+        alert('Only JPG, PNG, GIF, or WEBP files are allowed');
         return;
       }
       
@@ -60,8 +60,8 @@ export default function SettingPage() {
       }
       
       // Validate file type
-      if (!['image/jpeg', 'image/png', 'image/gif'].includes(file.type)) {
-        alert('Only JPG, PNG, or GIF files are allowed');
+      if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
+        alert('Only JPG, PNG, GIF, or WEBP files are allowed');
         return;
       }
       
@@ -798,7 +798,7 @@ export default function SettingPage() {
                     <input
                       id="photo-upload"
                       type="file"
-                      accept="image/jpeg,image/png,image/gif"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
                       onChange={handlePhotoUpload}
                       className="hidden"
                     />
@@ -935,13 +935,13 @@ export default function SettingPage() {
                     <input
                       id="banner-upload"
                       type="file"
-                      accept="image/jpeg,image/png,image/gif"
+                      accept="image/jpeg,image/png,image/gif,image/webp"
                       onChange={handleBannerUpload}
                       className="hidden"
                     />
                   </div>
                   <p className="text-xs text-gray-400 mt-3 text-center">
-                    JPG, PNG or GIF • Max 5MB • Recommended size: 1500x500 pixels
+                    JPG, PNG, GIF or WEBP • Max 5MB • Recommended size: 1500x500 pixels
                   </p>
                 </div>
               </div>

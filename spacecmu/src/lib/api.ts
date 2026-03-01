@@ -447,6 +447,22 @@ class ApiService {
     );
   }
 
+  /** Send global notification to all users (god only) */
+  async sendGlobalNotification(message: string): Promise<{ message: string; count: number }> {
+    return this.post<{ message: string; count: number }>(
+      '/api/god/notifications/global',
+      { message }
+    );
+  }
+
+  /** Send private notification to selected users (god only) */
+  async sendPrivateNotifications(recipientIds: string[], message: string): Promise<{ message: string; count: number }> {
+    return this.post<{ message: string; count: number }>(
+      '/api/god/notifications/private',
+      { recipientIds, message }
+    );
+  }
+
 }
 
 // Export singleton instance
