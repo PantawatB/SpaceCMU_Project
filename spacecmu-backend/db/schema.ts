@@ -299,9 +299,27 @@ export const commentsTable = pgTable("comments", {
   // Reply support: null = top-level comment, set = reply to another comment
   parentCommentId: uuid("parent_comment_id").references((): AnyPgColumn => commentsTable.id, { onDelete: "cascade" }),
 
+  // Engagement
+  likeCount: integer("like_count").default(0).notNull(),
+
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
+
+// --- Comment Likes Table ---
+export const commentLikesTable = pgTable("comment_likes", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  commentId: uuid("comment_id").references(() => commentsTable.id, { onDelete: "cascade" }).notNull(),
+  userId: uuid("user_id").references(() => usersTable.id, { onDelete: "cascade" }).notNull(),
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  unq: {
+    name: "unique_user_comment_like",
+    columns: [t.userId, t.commentId],
+    unique: true,
+  },
+}));
 
 // --- Comment Media Table ---
 export const commentMediaTable = pgTable("comment_media", {

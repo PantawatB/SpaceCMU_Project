@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, commentMediaTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable } from "../../db/schema.js";
-import { eq, desc, and, sql, lt, ne } from "drizzle-orm";
+import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable } from "../../db/schema.js";
+import { eq, desc, asc, and, sql, lt, ne, inArray } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
 // --- Post Management ---
@@ -803,11 +803,15 @@ export const deleteComment = async (req: Request, res: Response) => {
 export const getCommentsByPostId = async (req: Request, res: Response) => {
     try {
         const { postId } = req.params;
-        const { cursor, limit: limitParam, parentId } = req.query;
+        const { cursor, limit: limitParam, parentId, sort } = req.query;
+        const requestUserId = req.session?.activeUserId ?? null;
 
         // Pagination: default 20 top-level comments per page, max 50
         const limit = Math.min(parseInt(limitParam as string) || 20, 50);
         const cursorDate = cursor ? new Date(cursor as string) : null;
+
+        // sort: "newest" (default) = newest first, "top" = most liked first
+        const sortMode = sort === "top" ? "top" : "newest";
 
         // Build where conditions
         const whereConditions = parentId
@@ -820,53 +824,137 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
                 ? and(eq(commentsTable.postId, postId), sql`${commentsTable.parentCommentId} IS NULL`, lt(commentsTable.createdAt, cursorDate))
                 : and(eq(commentsTable.postId, postId), sql`${commentsTable.parentCommentId} IS NULL`);
 
-        const comments = await dbClient
-            .select({
-                id: commentsTable.id,
-                content: commentsTable.content,
-                createdAt: commentsTable.createdAt,
-                updatedAt: commentsTable.updatedAt,
-                parentCommentId: commentsTable.parentCommentId,
-                user: {
-                    id: usersTable.id,
-                    firstName: usersTable.firstName,
-                    lastName: usersTable.lastName,
-                    avatarUrl: usersTable.avatarUrl,
-                    username: usersTable.username
-                }
-            })
-            .from(commentsTable)
-            .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
-            .where(whereConditions)
-            .orderBy(desc(commentsTable.createdAt))
-            .limit(limit + 1); // Fetch one extra to determine if there are more
+        // For "top" sort on top-level comments, compute effective likes = own likes + sum of reply likes
+        // For replies or "newest" sort, just use the standard fields/ordering
+        const isTopLevelSort = sortMode === "top" && !parentId;
+
+        let comments: Array<{
+            id: string;
+            content: string | null;
+            likeCount: number;
+            effectiveLikeCount?: number;
+            createdAt: Date | null;
+            updatedAt: Date | null;
+            parentCommentId: string | null;
+            user: {
+                id: string;
+                firstName: string;
+                lastName: string;
+                avatarUrl: string | null;
+                username: string | null;
+            };
+        }>;
+
+        if (isTopLevelSort) {
+            // Use a raw SQL subquery to get effective like count (own + replies)
+            // drizzle-orm doesn't support correlated subqueries in orderBy directly,
+            // so we use sql`` template with table alias
+            const effectiveLikeCountExpr = sql<number>`(
+                ${commentsTable.likeCount} + COALESCE((
+                    SELECT SUM(r.like_count)
+                    FROM comments r
+                    WHERE r.parent_comment_id = ${commentsTable.id}
+                ), 0)
+            )`;
+
+            comments = await dbClient
+                .select({
+                    id: commentsTable.id,
+                    content: commentsTable.content,
+                    likeCount: commentsTable.likeCount,
+                    effectiveLikeCount: effectiveLikeCountExpr,
+                    createdAt: commentsTable.createdAt,
+                    updatedAt: commentsTable.updatedAt,
+                    parentCommentId: commentsTable.parentCommentId,
+                    user: {
+                        id: usersTable.id,
+                        firstName: usersTable.firstName,
+                        lastName: usersTable.lastName,
+                        avatarUrl: usersTable.avatarUrl,
+                        username: usersTable.username
+                    }
+                })
+                .from(commentsTable)
+                .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+                .where(whereConditions)
+                .orderBy(desc(effectiveLikeCountExpr), desc(commentsTable.createdAt))
+                .limit(limit + 1);
+        } else {
+            const orderBy = sortMode === "top"
+                ? [desc(commentsTable.likeCount), desc(commentsTable.createdAt)]
+                : [desc(commentsTable.createdAt)];
+
+            comments = await dbClient
+                .select({
+                    id: commentsTable.id,
+                    content: commentsTable.content,
+                    likeCount: commentsTable.likeCount,
+                    createdAt: commentsTable.createdAt,
+                    updatedAt: commentsTable.updatedAt,
+                    parentCommentId: commentsTable.parentCommentId,
+                    user: {
+                        id: usersTable.id,
+                        firstName: usersTable.firstName,
+                        lastName: usersTable.lastName,
+                        avatarUrl: usersTable.avatarUrl,
+                        username: usersTable.username
+                    }
+                })
+                .from(commentsTable)
+                .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
+                .where(whereConditions)
+                .orderBy(...orderBy)
+                .limit(limit + 1);
+        }
 
         const hasMore = comments.length > limit;
         const pageComments = hasMore ? comments.slice(0, limit) : comments;
         const nextCursor = hasMore ? pageComments[pageComments.length - 1].createdAt?.toISOString() : null;
 
-        // Fetch media + reply count for each comment
-        const commentsWithMeta = await Promise.all(
-            pageComments.map(async (comment) => {
-                const [media, replyCountResult] = await Promise.all([
-                    dbClient
-                        .select()
-                        .from(commentMediaTable)
-                        .where(eq(commentMediaTable.commentId, comment.id))
-                        .orderBy(commentMediaTable.order),
-                    dbClient
-                        .select({ count: sql<number>`count(*)::int` })
-                        .from(commentsTable)
-                        .where(eq(commentsTable.parentCommentId, comment.id)),
-                ]);
+        // Collect comment IDs for batch queries
+        const commentIds = pageComments.map(c => c.id);
 
-                return {
-                    ...comment,
-                    media: media.length > 0 ? media : undefined,
-                    replyCount: replyCountResult[0]?.count ?? 0,
-                };
-            })
-        );
+        // Batch fetch media for all comments at once
+        const allMedia = commentIds.length > 0
+            ? await dbClient
+                .select()
+                .from(commentMediaTable)
+                .where(inArray(commentMediaTable.commentId, commentIds))
+                .orderBy(commentMediaTable.order)
+            : [];
+
+        // Batch fetch reply counts for all comments
+        const replyCounts = commentIds.length > 0
+            ? await dbClient
+                .select({
+                    parentCommentId: commentsTable.parentCommentId,
+                    count: sql<number>`count(*)::int`,
+                })
+                .from(commentsTable)
+                .where(inArray(commentsTable.parentCommentId, commentIds))
+                .groupBy(commentsTable.parentCommentId)
+            : [];
+        const replyCountMap = Object.fromEntries(replyCounts.map(r => [r.parentCommentId!, r.count]));
+
+        // Batch fetch which comments the current user has liked
+        const likedCommentIds = new Set<string>();
+        if (requestUserId && commentIds.length > 0) {
+            const myLikes = await dbClient
+                .select({ commentId: commentLikesTable.commentId })
+                .from(commentLikesTable)
+                .where(and(
+                    eq(commentLikesTable.userId, requestUserId),
+                    inArray(commentLikesTable.commentId, commentIds),
+                ));
+            myLikes.forEach(l => likedCommentIds.add(l.commentId));
+        }
+
+        const commentsWithMeta = pageComments.map((comment) => ({
+            ...comment,
+            media: allMedia.filter(m => m.commentId === comment.id),
+            replyCount: replyCountMap[comment.id] ?? 0,
+            isLikedByMe: likedCommentIds.has(comment.id),
+        }));
 
         res.json({ comments: commentsWithMeta, nextCursor, hasMore });
     } catch (error) {
@@ -1582,5 +1670,54 @@ export const getLikedPostsByUserId = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching user liked posts" });
+    }
+};
+
+// --- Comment Likes ---
+
+export const likeComment = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { commentId } = req.body;
+
+        if (!userId) return res.status(401).json({ message: "Unauthorized" });
+        if (!commentId) return res.status(400).json({ message: "commentId is required" });
+
+        const existing = await dbClient
+            .select()
+            .from(commentLikesTable)
+            .where(and(eq(commentLikesTable.userId, userId), eq(commentLikesTable.commentId, String(commentId))))
+            .limit(1);
+
+        if (existing.length > 0) {
+            // Unlike
+            await dbClient
+                .delete(commentLikesTable)
+                .where(and(eq(commentLikesTable.userId, userId), eq(commentLikesTable.commentId, String(commentId))));
+
+            await dbClient
+                .update(commentsTable)
+                .set({ likeCount: sql`GREATEST(${commentsTable.likeCount} - 1, 0)` })
+                .where(eq(commentsTable.id, String(commentId)));
+
+            const updated = await dbClient.select({ likeCount: commentsTable.likeCount }).from(commentsTable).where(eq(commentsTable.id, String(commentId))).limit(1);
+            return res.json({ message: "Unliked", liked: false, likeCount: updated[0]?.likeCount ?? 0 });
+        } else {
+            // Like
+            await dbClient
+                .insert(commentLikesTable)
+                .values({ userId, commentId: String(commentId) });
+
+            await dbClient
+                .update(commentsTable)
+                .set({ likeCount: sql`${commentsTable.likeCount} + 1` })
+                .where(eq(commentsTable.id, String(commentId)));
+
+            const updated = await dbClient.select({ likeCount: commentsTable.likeCount }).from(commentsTable).where(eq(commentsTable.id, String(commentId))).limit(1);
+            return res.json({ message: "Liked", liked: true, likeCount: updated[0]?.likeCount ?? 0 });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error toggling comment like" });
     }
 };

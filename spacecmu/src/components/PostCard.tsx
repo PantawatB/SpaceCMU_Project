@@ -49,6 +49,8 @@ interface Comment {
   updatedAt?: string | null;
   parentCommentId?: string | null;
   replyCount?: number;
+  likeCount?: number;
+  isLikedByMe?: boolean;
   author?: {
     firstName: string | null;
     lastName: string | null;
@@ -116,9 +118,18 @@ export default function PostCard({
   const [showCommentReportPopup, setShowCommentReportPopup] = useState<string | null>(null);
   const [commentReportText, setCommentReportText] = useState("");
 
+  // Comment sort mode: "newest" = newest first, "top" = most liked first
+  const [commentSort, setCommentSort] = useState<"newest" | "top">("newest");
+
+  // Comment like optimistic state: map commentId -> { likeCount, isLiked }
+  const [commentLikeState, setCommentLikeState] = useState<Record<string, { likeCount: number; isLiked: boolean }>>({});
+
   // Image lightbox
   const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
+  // Comment media scroll arrows (per-comment tracking via commentId key)
+  const [commentMediaScrollState, setCommentMediaScrollState] = useState<Record<string, { left: boolean; right: boolean }>>({});
 
   // Track user's interaction status
   const [isLiked, setIsLiked] = useState(false);
@@ -194,7 +205,7 @@ export default function PostCard({
     checkInteractionStatus();
   }, [activeUser, post.id]);
 
-  // Keyboard navigation for lightbox
+  // Keyboard navigation for post image lightbox
   useEffect(() => {
     if (!showImageLightbox) return;
 
@@ -205,14 +216,14 @@ export default function PostCard({
       if (e.key === "Escape") {
         setShowImageLightbox(false);
       } else if (e.key === "ArrowLeft") {
-        e.preventDefault(); // Prevent page scroll
-        e.stopPropagation(); // Prevent event bubbling
+        e.preventDefault();
+        e.stopPropagation();
         if (selectedImageIndex > 0) {
           setSelectedImageIndex((prev) => prev - 1);
         }
       } else if (e.key === "ArrowRight") {
-        e.preventDefault(); // Prevent page scroll
-        e.stopPropagation(); // Prevent event bubbling
+        e.preventDefault();
+        e.stopPropagation();
         if (
           post.media &&
           selectedImageIndex <
@@ -223,14 +234,47 @@ export default function PostCard({
       }
     };
 
-    // Use capture phase to catch event before it reaches other elements
     window.addEventListener("keydown", handleKeyPress, true);
     return () => {
       window.removeEventListener("keydown", handleKeyPress, true);
-      // Restore body scroll when lightbox closes
       document.body.style.overflow = 'unset';
     };
   }, [showImageLightbox, selectedImageIndex, post.media]);
+
+  // Keyboard navigation for comment/reply media lightbox
+  useEffect(() => {
+    if (!commentLightbox) return;
+
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setCommentLightbox(null);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        e.stopPropagation();
+        setCommentLightbox(prev => {
+          if (!prev || prev.index <= 0) return prev;
+          return { ...prev, index: prev.index - 1 };
+        });
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        e.stopPropagation();
+        setCommentLightbox(prev => {
+          if (!prev) return prev;
+          const imageList = prev.media.filter(m => m.mediaType === "image");
+          if (prev.index >= imageList.length - 1) return prev;
+          return { ...prev, index: prev.index + 1 };
+        });
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress, true);
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress, true);
+      document.body.style.overflow = 'unset';
+    };
+  }, [commentLightbox]);
 
   // Helper function to format time ago
   const getTimeAgo = (dateString: string) => {
@@ -372,7 +416,8 @@ export default function PostCard({
     }
   };
 
-  const fetchComments = async (reset = true) => {
+  const fetchComments = async (reset = true, sortOverride?: "newest" | "top") => {
+    const activeSortMode = sortOverride ?? commentSort;
     if (reset) {
       setLoadingComments(true);
       setComments([]);
@@ -383,8 +428,9 @@ export default function PostCard({
     }
     try {
       const cursorParam = !reset && nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : "";
+      const sortParam = activeSortMode === "top" ? "&sort=top" : "";
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments?limit=20${cursorParam}`,
+        `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments?limit=20${cursorParam}${sortParam}`,
         { credentials: "include" },
       );
 
@@ -407,6 +453,8 @@ export default function PostCard({
           updatedAt: (comment.updatedAt as string | null) ?? null,
           parentCommentId: comment.parentCommentId as string | null,
           replyCount: (comment.replyCount as number) ?? 0,
+          likeCount: (comment.likeCount as number) ?? 0,
+          isLikedByMe: (comment.isLikedByMe as boolean) ?? false,
           author: user ? {
             firstName: user.firstName as string | null,
             lastName: user.lastName as string | null,
@@ -414,6 +462,17 @@ export default function PostCard({
           } : undefined,
           media: comment.media as CommentMedia[] | undefined,
         };
+      });
+
+      // Initialize like state for new comments
+      setCommentLikeState(prev => {
+        const next = { ...prev };
+        fetchedComments.forEach(c => {
+          if (!(String(c.id) in next)) {
+            next[String(c.id)] = { likeCount: c.likeCount ?? 0, isLiked: c.isLikedByMe ?? false };
+          }
+        });
+        return next;
       });
 
       if (reset) {
@@ -453,6 +512,8 @@ export default function PostCard({
           updatedAt: (comment.updatedAt as string | null) ?? null,
           parentCommentId: comment.parentCommentId as string | null,
           replyCount: (comment.replyCount as number) ?? 0,
+          likeCount: (comment.likeCount as number) ?? 0,
+          isLikedByMe: (comment.isLikedByMe as boolean) ?? false,
           author: user ? {
             firstName: user.firstName as string | null,
             lastName: user.lastName as string | null,
@@ -460,6 +521,16 @@ export default function PostCard({
           } : undefined,
           media: comment.media as CommentMedia[] | undefined,
         };
+      });
+      // Initialize like state for replies
+      setCommentLikeState(prev => {
+        const next = { ...prev };
+        fetchedReplies.forEach(r => {
+          if (!(String(r.id) in next)) {
+            next[String(r.id)] = { likeCount: r.likeCount ?? 0, isLiked: r.isLikedByMe ?? false };
+          }
+        });
+        return next;
       });
       setExpandedReplies(prev => ({
         ...prev,
@@ -555,6 +626,51 @@ export default function PostCard({
     }
   };
 
+  const handleLikeComment = async (commentId: string) => {
+    if (!activeUser) return;
+
+    // Optimistic update
+    setCommentLikeState(prev => {
+      const current = prev[commentId] ?? { likeCount: 0, isLiked: false };
+      return {
+        ...prev,
+        [commentId]: {
+          likeCount: current.isLiked ? current.likeCount - 1 : current.likeCount + 1,
+          isLiked: !current.isLiked,
+        },
+      };
+    });
+
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/like`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ commentId }),
+      });
+      if (!response.ok) throw new Error("Failed to like comment");
+      const result = await response.json();
+      // Confirm with server value
+      setCommentLikeState(prev => ({
+        ...prev,
+        [commentId]: { likeCount: result.likeCount, isLiked: result.liked },
+      }));
+    } catch (err) {
+      console.error(err);
+      // Revert optimistic update on error
+      setCommentLikeState(prev => {
+        const current = prev[commentId] ?? { likeCount: 0, isLiked: false };
+        return {
+          ...prev,
+          [commentId]: {
+            likeCount: current.isLiked ? current.likeCount - 1 : current.likeCount + 1,
+            isLiked: !current.isLiked,
+          },
+        };
+      });
+    }
+  };
+
   const handlePostComment = async () => {
     if (!activeUser) {
       alert("Please login to comment");
@@ -621,7 +737,7 @@ export default function PostCard({
 
   const handleCommentClick = () => {
     setShowCommentPopup(true);
-    fetchComments(true);
+    fetchComments(true, commentSort);
   };
 
   const closeCommentPopup = () => {
@@ -819,6 +935,9 @@ export default function PostCard({
                 const isSingleImage =
                   isSingleMedia && media.mediaType === "image";
 
+                // Compute index within image-only list (for lightbox)
+                const imageOnlyIndex = post.media!.slice(0, index + 1).filter(m => m.mediaType === "image").length - 1;
+
                 const getMediaWidth = () => {
                   if (isSingleImage) return "100%";
                   return "auto";
@@ -836,7 +955,7 @@ export default function PostCard({
                     }}
                     onClick={() => {
                       if (media.mediaType === "image") {
-                        setSelectedImageIndex(index);
+                        setSelectedImageIndex(imageOnlyIndex);
                         setShowImageLightbox(true);
                       }
                     }}
@@ -1044,12 +1163,44 @@ export default function PostCard({
 
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">
-                Comments
-                {localCommentCount > 0 && (
-                  <span className="ml-2 text-sm font-normal text-gray-400">({localCommentCount})</span>
-                )}
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold text-gray-800">
+                  Comments
+                  {localCommentCount > 0 && (
+                    <span className="ml-2 text-sm font-normal text-gray-400">({localCommentCount})</span>
+                  )}
+                </h2>
+                {/* Sort Toggle Button */}
+                <button
+                  onClick={() => {
+                    const newSort = commentSort === "newest" ? "top" : "newest";
+                    setCommentSort(newSort);
+                    fetchComments(true, newSort);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 hover:shadow-sm"
+                  style={commentSort === "top"
+                    ? { background: "linear-gradient(135deg, #fef3c7, #fde68a)", borderColor: "#f59e0b", color: "#92400e" }
+                    : { background: "#f8fafc", borderColor: "#e2e8f0", color: "#64748b" }
+                  }
+                  title={commentSort === "newest" ? "เรียงตามยอดไลก์สูงสุด" : "เรียงจากใหม่ → เก่า"}
+                >
+                  {commentSort === "newest" ? (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                      </svg>
+                      ใหม่ → เก่า
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                      </svg>
+                      ยอดไลก์มากสุด
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Comments List — scrollable with styled scrollbar */}
@@ -1115,34 +1266,92 @@ export default function PostCard({
                             <p className="text-sm text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">{comment.content}</p>
                           )}
 
-                          {/* Comment Media — Slideshow */}
+                          {/* Comment Media — Post-style Slideshow */}
                           {comment.media && comment.media.length > 0 && (
-                            <div className="mt-2 relative">
-                              {comment.media.length === 1 ? (
-                                // Single media: full width
-                                <div className="rounded-xl overflow-hidden bg-gray-100">
-                                  {comment.media[0].mediaType === "video" ? (
-                                    <video src={apiService.getImageUrl(comment.media[0].mediaUrl) || ""} controls className="w-full max-h-52 object-cover" />
-                                  ) : (
-                                    // eslint-disable-next-line @next/next/no-img-element
-                                    <img src={apiService.getImageUrl(comment.media[0].mediaUrl) || ""} alt="Comment media" className="w-full max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: comment.media!, index: 0 })} />
-                                  )}
-                                </div>
-                              ) : (
-                                // Multiple: horizontal scroll slideshow
-                                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-                                  {comment.media.map((m, mi) => (
-                                    <div key={m.id} className="shrink-0 rounded-xl overflow-hidden bg-gray-100" style={{ width: "160px", height: "120px" }}>
-                                      {m.mediaType === "video" ? (
-                                        <video src={apiService.getImageUrl(m.mediaUrl) || ""} controls className="w-full h-full object-cover" />
-                                      ) : (
-                                        // eslint-disable-next-line @next/next/no-img-element
-                                        <img src={apiService.getImageUrl(m.mediaUrl) || ""} alt={`media ${mi + 1}`} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: comment.media!, index: mi })} />
-                                      )}
-                                    </div>
-                                  ))}
+                            <div className="mt-2 relative group/cmedia">
+                              {/* Left scroll arrow */}
+                              {comment.media.length > 1 && commentMediaScrollState[String(comment.id)]?.left && (
+                                <div className="absolute left-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-40 group-hover/cmedia:opacity-100 transition-opacity duration-300">
+                                  <div className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-md">
+                                    <svg className="w-3.5 h-3.5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                  </div>
                                 </div>
                               )}
+                              {/* Right scroll arrow */}
+                              {comment.media.length > 1 && commentMediaScrollState[String(comment.id)]?.right !== false && (
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-40 group-hover/cmedia:opacity-100 transition-opacity duration-300">
+                                  <div className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-md">
+                                    <svg className="w-3.5 h-3.5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </div>
+                                </div>
+                              )}
+                              <div
+                                className="overflow-x-auto overflow-y-hidden scrollbar-hide"
+                                onScroll={(e) => {
+                                  const t = e.currentTarget;
+                                  setCommentMediaScrollState(prev => ({
+                                    ...prev,
+                                    [String(comment.id)]: {
+                                      left: t.scrollLeft > 10,
+                                      right: t.scrollLeft < t.scrollWidth - t.clientWidth - 10,
+                                    },
+                                  }));
+                                }}
+                              >
+                                <div className={`flex items-center gap-2 ${comment.media!.length === 1 ? "w-full" : "w-max min-w-full"} justify-center`}>
+                                  {comment.media.map((m, mi) => {
+                                    const isSingle = comment.media!.length === 1;
+                                    const isSingleImage = isSingle && m.mediaType === "image";
+                                    // Compute index within image-only list (for lightbox)
+                                    const imageIndex = comment.media!.slice(0, mi + 1).filter(x => x.mediaType === "image").length - 1;
+                                    return (
+                                      <div
+                                        key={m.id}
+                                        className={`relative rounded-xl overflow-hidden group/citem shrink-0 bg-gray-100 ${m.mediaType === "image" ? "cursor-pointer" : ""}`}
+                                        style={{ width: isSingleImage ? "100%" : "auto", maxWidth: isSingleImage ? "100%" : "none" }}
+                                        onClick={() => { if (m.mediaType === "image") setCommentLightbox({ media: comment.media!, index: imageIndex }); }}
+                                      >
+                                        {m.mediaType === "image" ? (
+                                          <>
+                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                            <img
+                                              src={apiService.getImageUrl(m.mediaUrl) || ""}
+                                              alt={`Comment media ${mi + 1}`}
+                                              className="transition-transform duration-300 group-hover/citem:scale-[1.02] rounded-xl"
+                                              style={{
+                                                width: isSingle ? "100%" : "auto",
+                                                height: isSingle ? "auto" : "220px",
+                                                maxHeight: isSingle ? "400px" : "220px",
+                                                objectFit: "contain",
+                                              }}
+                                              loading="lazy"
+                                            />
+                                            <div className="absolute inset-0 bg-opacity-0 group-hover/citem:bg-opacity-5 transition-all duration-300 pointer-events-none" />
+                                          </>
+                                        ) : (
+                                          <video
+                                            src={apiService.getImageUrl(m.mediaUrl) || ""}
+                                            controls
+                                            preload="metadata"
+                                            className="rounded-xl"
+                                            style={{
+                                              width: "auto",
+                                              height: isSingle ? "auto" : "220px",
+                                              maxHeight: isSingle ? "400px" : "220px",
+                                              maxWidth: isSingle ? "100%" : "none",
+                                              objectFit: "contain",
+                                            }}
+                                          />
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           )}
 
@@ -1192,9 +1401,31 @@ export default function PostCard({
                           </div>
                         </div>
 
-                        {/* Meta row: time + reply + expand button */}
+                        {/* Meta row: time + like + reply + expand button */}
                         <div className="flex items-center gap-3 mt-1 ml-1">
                           <span className="text-xs text-gray-400">{getTimeAgo(comment.createdAt)}</span>
+                          {/* Like button for comment */}
+                          <button
+                            onClick={() => handleLikeComment(String(comment.id))}
+                            disabled={!activeUser}
+                            className={`flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40 ${
+                              (commentLikeState[String(comment.id)]?.isLiked)
+                                ? "text-red-500 hover:text-red-600"
+                                : "text-gray-400 hover:text-red-500"
+                            }`}
+                          >
+                            <svg
+                              className="w-3.5 h-3.5"
+                              fill={(commentLikeState[String(comment.id)]?.isLiked) ? "currentColor" : "none"}
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                            </svg>
+                            {(commentLikeState[String(comment.id)]?.likeCount ?? 0) > 0 && (
+                              <span>{commentLikeState[String(comment.id)]?.likeCount}</span>
+                            )}
+                          </button>
                           {activeUser && (
                             <button
                               onClick={() => setReplyingTo({ id: String(comment.id), name: `${comment.author?.firstName ?? ""} ${comment.author?.lastName ?? ""}`.trim() })}
@@ -1263,32 +1494,92 @@ export default function PostCard({
                                     ) : (
                                       <p className="text-xs text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">{reply.content}</p>
                                     )}
-                                    {/* Reply Media — Slideshow */}
+                                    {/* Reply Media — Post-style Slideshow */}
                                     {reply.media && reply.media.length > 0 && (
-                                      <div className="mt-1.5">
-                                        {reply.media.length === 1 ? (
-                                          <div className="rounded-lg overflow-hidden bg-gray-100">
-                                            {reply.media[0].mediaType === "video" ? (
-                                              <video src={apiService.getImageUrl(reply.media[0].mediaUrl) || ""} controls className="w-full max-h-40 object-cover" />
-                                            ) : (
-                                              // eslint-disable-next-line @next/next/no-img-element
-                                              <img src={apiService.getImageUrl(reply.media[0].mediaUrl) || ""} alt="Reply media" className="w-full max-h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: reply.media!, index: 0 })} />
-                                            )}
-                                          </div>
-                                        ) : (
-                                          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
-                                            {reply.media.map((m, mi) => (
-                                              <div key={m.id} className="shrink-0 rounded-lg overflow-hidden bg-gray-100" style={{ width: "120px", height: "90px" }}>
-                                                {m.mediaType === "video" ? (
-                                                  <video src={apiService.getImageUrl(m.mediaUrl) || ""} controls className="w-full h-full object-cover" />
-                                                ) : (
-                                                  // eslint-disable-next-line @next/next/no-img-element
-                                                  <img src={apiService.getImageUrl(m.mediaUrl) || ""} alt={`media ${mi + 1}`} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: reply.media!, index: mi })} />
-                                                )}
-                                              </div>
-                                            ))}
+                                      <div className="mt-1.5 relative group/rmedia">
+                                        {/* Left scroll arrow */}
+                                        {reply.media.length > 1 && commentMediaScrollState[`reply-${String(reply.id)}`]?.left && (
+                                          <div className="absolute left-0.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-40 group-hover/rmedia:opacity-100 transition-opacity duration-300">
+                                            <div className="bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-md">
+                                              <svg className="w-3 h-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                                              </svg>
+                                            </div>
                                           </div>
                                         )}
+                                        {/* Right scroll arrow */}
+                                        {reply.media.length > 1 && commentMediaScrollState[`reply-${String(reply.id)}`]?.right !== false && (
+                                          <div className="absolute right-0.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-40 group-hover/rmedia:opacity-100 transition-opacity duration-300">
+                                            <div className="bg-white/90 backdrop-blur-sm rounded-full p-1 shadow-md">
+                                              <svg className="w-3 h-3 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                                              </svg>
+                                            </div>
+                                          </div>
+                                        )}
+                                        <div
+                                          className="overflow-x-auto overflow-y-hidden scrollbar-hide"
+                                          onScroll={(e) => {
+                                            const t = e.currentTarget;
+                                            setCommentMediaScrollState(prev => ({
+                                              ...prev,
+                                              [`reply-${String(reply.id)}`]: {
+                                                left: t.scrollLeft > 10,
+                                                right: t.scrollLeft < t.scrollWidth - t.clientWidth - 10,
+                                              },
+                                            }));
+                                          }}
+                                        >
+                                          <div className={`flex items-center gap-1.5 ${reply.media!.length === 1 ? "w-full" : "w-max min-w-full"} justify-center`}>
+                                            {reply.media.map((m, mi) => {
+                                              const isSingle = reply.media!.length === 1;
+                                              const isSingleImage = isSingle && m.mediaType === "image";
+                                              // Compute index within image-only list (for lightbox)
+                                              const imageIndex = reply.media!.slice(0, mi + 1).filter(x => x.mediaType === "image").length - 1;
+                                              return (
+                                                <div
+                                                  key={m.id}
+                                                  className={`relative rounded-lg overflow-hidden group/ritem shrink-0 bg-gray-100 ${m.mediaType === "image" ? "cursor-pointer" : ""}`}
+                                                  style={{ width: isSingleImage ? "100%" : "auto", maxWidth: isSingleImage ? "100%" : "none" }}
+                                                  onClick={() => { if (m.mediaType === "image") setCommentLightbox({ media: reply.media!, index: imageIndex }); }}
+                                                >
+                                                  {m.mediaType === "image" ? (
+                                                    <>
+                                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                      <img
+                                                        src={apiService.getImageUrl(m.mediaUrl) || ""}
+                                                        alt={`Reply media ${mi + 1}`}
+                                                        className="transition-transform duration-300 group-hover/ritem:scale-[1.02] rounded-lg"
+                                                        style={{
+                                                          width: isSingle ? "100%" : "auto",
+                                                          height: isSingle ? "auto" : "160px",
+                                                          maxHeight: isSingle ? "300px" : "160px",
+                                                          objectFit: "contain",
+                                                        }}
+                                                        loading="lazy"
+                                                      />
+                                                      <div className="absolute inset-0 bg-opacity-0 group-hover/ritem:bg-opacity-5 transition-all duration-300 pointer-events-none" />
+                                                    </>
+                                                  ) : (
+                                                    <video
+                                                      src={apiService.getImageUrl(m.mediaUrl) || ""}
+                                                      controls
+                                                      preload="metadata"
+                                                      className="rounded-lg"
+                                                      style={{
+                                                        width: "auto",
+                                                        height: isSingle ? "auto" : "160px",
+                                                        maxHeight: isSingle ? "300px" : "160px",
+                                                        maxWidth: isSingle ? "100%" : "none",
+                                                        objectFit: "contain",
+                                                      }}
+                                                    />
+                                                  )}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+                                        </div>
                                       </div>
                                     )}
                                     {/* Kebab menu for reply */}
@@ -1336,7 +1627,31 @@ export default function PostCard({
                                       )}
                                     </div>
                                   </div>
-                                  <span className="text-xs text-gray-400 ml-1">{getTimeAgo(reply.createdAt)}</span>
+                                  <div className="flex items-center gap-2 mt-0.5 ml-1">
+                                    <span className="text-xs text-gray-400">{getTimeAgo(reply.createdAt)}</span>
+                                    {/* Like button for reply */}
+                                    <button
+                                      onClick={() => handleLikeComment(String(reply.id))}
+                                      disabled={!activeUser}
+                                      className={`flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40 ${
+                                        (commentLikeState[String(reply.id)]?.isLiked)
+                                          ? "text-red-500 hover:text-red-600"
+                                          : "text-gray-400 hover:text-red-500"
+                                      }`}
+                                    >
+                                      <svg
+                                        className="w-3 h-3"
+                                        fill={(commentLikeState[String(reply.id)]?.isLiked) ? "currentColor" : "none"}
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                                      </svg>
+                                      {(commentLikeState[String(reply.id)]?.likeCount ?? 0) > 0 && (
+                                        <span>{commentLikeState[String(reply.id)]?.likeCount}</span>
+                                      )}
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                             ))}
@@ -1818,40 +2133,69 @@ export default function PostCard({
         const cur = commentLightbox.index;
         return (
           <div
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-70 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/85 backdrop-blur-sm z-70 flex items-center justify-center p-4"
             onClick={() => setCommentLightbox(null)}
           >
             {/* Close */}
-            <button onClick={() => setCommentLightbox(null)} className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/40 text-white transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+            <button
+              onClick={() => setCommentLightbox(null)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
             </button>
             {/* Counter */}
             {total > 1 && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/50 text-white text-sm font-medium">{cur + 1} / {total}</div>
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/50 text-white text-sm font-medium">
+                {cur + 1} / {total}
+              </div>
             )}
             {/* Prev */}
             {cur > 0 && (
-              <button onClick={e => { e.stopPropagation(); setCommentLightbox(prev => prev && ({ ...prev, index: prev.index - 1 })); }} className="absolute left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/40 text-white transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+              <button
+                onClick={e => { e.stopPropagation(); setCommentLightbox(prev => prev && ({ ...prev, index: prev.index - 1 })); }}
+                className="absolute left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
+                </svg>
               </button>
             )}
             {/* Next */}
             {cur < total - 1 && (
-              <button onClick={e => { e.stopPropagation(); setCommentLightbox(prev => prev && ({ ...prev, index: prev.index + 1 })); }} className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/40 text-white transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+              <button
+                onClick={e => { e.stopPropagation(); setCommentLightbox(prev => prev && ({ ...prev, index: prev.index + 1 })); }}
+                className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             )}
             {/* Image */}
             <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={apiService.getImageUrl(imageList[cur]?.mediaUrl) || ""} alt={`media ${cur + 1}`} className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none" draggable={false} />
+              <img
+                src={apiService.getImageUrl(imageList[cur]?.mediaUrl) || ""}
+                alt={`media ${cur + 1}`}
+                className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+                draggable={false}
+              />
             </div>
             {/* Thumbnails */}
             {total > 1 && (
               <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2" onClick={e => e.stopPropagation()}>
                 {imageList.map((m, i) => (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img key={m.id} src={apiService.getImageUrl(m.mediaUrl) || ""} alt={`thumb ${i + 1}`} onClick={() => setCommentLightbox(prev => prev && ({ ...prev, index: i }))} className={`w-12 h-12 object-cover rounded-md cursor-pointer transition-all ${i === cur ? "ring-2 ring-white opacity-100" : "opacity-50 hover:opacity-75"}`} draggable={false} />
+                  <img
+                    key={m.id}
+                    src={apiService.getImageUrl(m.mediaUrl) || ""}
+                    alt={`thumb ${i + 1}`}
+                    onClick={() => setCommentLightbox(prev => prev && ({ ...prev, index: i }))}
+                    className={`w-12 h-12 object-cover rounded-md cursor-pointer transition-all ${i === cur ? "ring-2 ring-white opacity-100" : "opacity-50 hover:opacity-75"}`}
+                    draggable={false}
+                  />
                 ))}
               </div>
             )}

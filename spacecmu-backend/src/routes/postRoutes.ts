@@ -9,6 +9,7 @@ import {
     addComment,
     editComment,
     deleteComment,
+    likeComment,
     repostPost,
     toggleSavePost,
     getSavedPosts,
@@ -38,6 +39,7 @@ router.post("/repost", sessionMiddleware, repostPost);
 router.post("/comment", sessionMiddleware, uploadMultiple.array("media", 10), addComment); // Max 10 files for comments
 router.patch("/comment/:commentId", sessionMiddleware, editComment);
 router.delete("/comment/:commentId", sessionMiddleware, deleteComment);
+router.post("/comment/like", sessionMiddleware, likeComment);
 router.post("/save", sessionMiddleware, toggleSavePost);
 router.get("/saved/me", sessionMiddleware, getSavedPosts);
 router.get("/reposted/me", sessionMiddleware, getRepostedPosts);
@@ -47,6 +49,6 @@ router.get("/user/:userId", optionalSessionMiddleware, getPostsByUserId); // Get
 router.get("/user/:userId/reposts", sessionMiddleware, getRepostsByUserId); // Get reposts by user ID
 router.get("/user/:userId/liked", sessionMiddleware, getLikedPostsByUserId); // Get liked posts by user ID
 router.post("/:postId/accept-event", sessionMiddleware, acceptEventFromPost); // Accept event from post
-router.get("/:postId/comments", getCommentsByPostId);
+router.get("/:postId/comments", optionalSessionMiddleware, getCommentsByPostId);
 
 export default router;
