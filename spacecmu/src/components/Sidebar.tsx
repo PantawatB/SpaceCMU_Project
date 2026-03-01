@@ -544,7 +544,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     onError={(e) => { (e.target as HTMLImageElement).src = DEFAULT_AVATAR; }}
                   />
                 </div>
-                <span className="absolute top-0 right-0 w-3 h-3 bg-green-700 rounded-full border-2 border-white shadow" />
+                <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow" />
               </div>
               <div className="mt-2 text-sm font-bold text-gray-900 truncate max-w-[170px] text-center">
                 {officialMode.name}

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable } from "../../db/schema.js";
-import { eq, count, sql, desc, ne, and, ilike, or } from "drizzle-orm";
+import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable, notificationsTable } from "../../db/schema.js";
+import { eq, count, sql, desc, and, ilike, or } from "drizzle-orm";
 
 /** GET /api/god/stats — platform-wide overview */
 export const getPlatformStats = async (req: Request, res: Response) => {
@@ -249,6 +249,12 @@ export const getOfficialAccounts = async (req: Request, res: Response) => {
                 faculty: officialAccountsTable.faculty,
                 createdAt: officialAccountsTable.createdAt,
                 userId: officialAccountsTable.userId,
+                // avatarUrl ของ official account เอง (join ผ่าน userId)
+                avatarUrl: sql<string | null>`(
+                    SELECT u2.avatar_url FROM users u2
+                    WHERE u2.id = ${officialAccountsTable.userId}
+                    LIMIT 1
+                )`,
                 owner: {
                     id: usersTable.id,
                     firstName: usersTable.firstName,
@@ -434,6 +440,99 @@ export const removeOfficialAccountAdmin = async (req: Request, res: Response) =>
         res.json({ message: "Admin removed successfully" });
     } catch (error) {
         console.error("removeOfficialAccountAdmin error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /api/god/notifications/global
+ * ส่ง notification ประเภท "other" ไปหาทุกคนในระบบ (ยกเว้นตัว god เอง)
+ * Body: { message }
+ */
+export const sendGlobalNotification = async (req: Request, res: Response) => {
+    // Use activeUserId so it works correctly even in official account mode
+    const senderId: string = req.session?.activeUserId ?? req.session?.userId ?? "";
+    const { message } = req.body;
+
+    if (!message?.trim()) {
+        return res.status(400).json({ message: "message is required" });
+    }
+
+    try {
+        // ดึง id ผู้ใช้ทุกคน — รวม anonymous ด้วย ไม่มียกเว้น
+        const recipients = await dbClient
+            .select({ id: usersTable.id })
+            .from(usersTable);
+
+        if (recipients.length === 0) {
+            return res.json({ message: "No recipients found", count: 0 });
+        }
+
+        // Batch insert notifications
+        const rows = recipients.map((r) => ({
+            recipientId: r.id,
+            senderId: senderId || null,
+            type: "other" as const,
+            referenceId: null,
+            message: message.trim(),
+            isRead: false,
+        }));
+
+        await dbClient.insert(notificationsTable).values(rows);
+
+        res.json({ message: `Notification sent to ${rows.length} users`, count: rows.length });
+    } catch (error) {
+        console.error("sendGlobalNotification error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * POST /api/god/notifications/private
+ * ส่ง notification ไปหาผู้ใช้ที่เลือก (หลายคน)
+ * Body: { recipientIds: string[], message }
+ */
+export const sendPrivateNotifications = async (req: Request, res: Response) => {
+    const senderId: string = req.session?.activeUserId ?? req.session?.userId ?? "";
+    const { recipientIds, message } = req.body;
+
+    if (!message?.trim()) {
+        return res.status(400).json({ message: "message is required" });
+    }
+    if (!Array.isArray(recipientIds) || recipientIds.length === 0) {
+        return res.status(400).json({ message: "recipientIds must be a non-empty array" });
+    }
+
+    try {
+        // ตรวจว่า users เหล่านั้นมีอยู่จริง
+        const existing = await dbClient
+            .select({ id: usersTable.id })
+            .from(usersTable)
+            .where(
+                sql`${usersTable.id} = ANY(ARRAY[${sql.join(
+                    recipientIds.map((id: string) => sql`${id}::uuid`),
+                    sql`, `
+                )}])`
+            );
+
+        if (existing.length === 0) {
+            return res.status(404).json({ message: "No valid recipients found" });
+        }
+
+        const rows = existing.map((r) => ({
+            recipientId: r.id,
+            senderId: senderId || null,
+            type: "other" as const,
+            referenceId: null,
+            message: message.trim(),
+            isRead: false,
+        }));
+
+        await dbClient.insert(notificationsTable).values(rows);
+
+        res.json({ message: `Notification sent to ${rows.length} users`, count: rows.length });
+    } catch (error) {
+        console.error("sendPrivateNotifications error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };

@@ -5,6 +5,7 @@ import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
+import NotificationsPanel from "../../components/NotificationsPanel";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -1173,35 +1174,8 @@ export default function FeedsMainPage() {
           )}
         </div>
       </main>
-      {/* Right Section: Recent Active Friends (no border) - Hidden together with Sidebar (show at lg and up) */}
-      <aside className="hidden lg:flex w-80 p-8 bg-white flex-col gap-6">
-        <div>
-          <h2 className="text-lg font-bold mb-4">Recent Active Friends</h2>
-          <ul className="space-y-4">
-            <li className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full" />
-              <div>
-                <div className="font-medium">People 1</div>
-                <div className="text-xs text-gray-400">Active now</div>
-              </div>
-            </li>
-            <li className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full" />
-              <div>
-                <div className="font-medium">People 2</div>
-                <div className="text-xs text-gray-400">Active 2m ago</div>
-              </div>
-            </li>
-            <li className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gray-200 rounded-full" />
-              <div>
-                <div className="font-medium">People 3</div>
-                <div className="text-xs text-gray-400">Active 5m ago</div>
-              </div>
-            </li>
-          </ul>
-        </div>
-      </aside>
+      {/* Right Section: Notifications - Hidden together with Sidebar (show at lg and up) */}
+      <NotificationsPanel userId={activeUser?.id ?? null} />
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />

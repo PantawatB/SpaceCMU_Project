@@ -351,6 +351,7 @@ export const notificationsTable = pgTable("notifications", {
 
   type: notificationTypeEnum("type").notNull(),
   referenceId: uuid("reference_id"),
+  message: text("message"),
 
   isRead: boolean("is_read").default(false),
 
