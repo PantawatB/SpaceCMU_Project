@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -46,6 +46,9 @@ interface Comment {
   userId: string;
   content: string;
   createdAt: string;
+  updatedAt?: string | null;
+  parentCommentId?: string | null;
+  replyCount?: number;
   author?: {
     firstName: string | null;
     lastName: string | null;
@@ -82,6 +85,37 @@ export default function PostCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
 
+  // Live comment count (includes replies), initialized from prop
+  const [localCommentCount, setLocalCommentCount] = useState(post.commentCount);
+  // Keep in sync when prop changes (e.g. after feed refresh)
+  useEffect(() => { setLocalCommentCount(post.commentCount); }, [post.commentCount]);
+
+  // Comment pagination
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [hasMoreComments, setHasMoreComments] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Reply support
+  const [replyingTo, setReplyingTo] = useState<{ id: string; name: string } | null>(null);
+  // Expanded replies: map of commentId -> Comment[]
+  const [expandedReplies, setExpandedReplies] = useState<Record<string, Comment[]>>({});
+  const [loadingReplies, setLoadingReplies] = useState<Record<string, boolean>>({});
+  const [repliesCursor, setRepliesCursor] = useState<Record<string, string | null>>({});
+  const [repliesHasMore, setRepliesHasMore] = useState<Record<string, boolean>>({});
+
+  // Scroll ref for infinite scroll
+  const commentsListRef = useRef<HTMLDivElement>(null);
+
+  // Comment kebab menu / edit / delete state
+  const [commentMenuOpen, setCommentMenuOpen] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentText, setEditingCommentText] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [showCommentDeleteConfirm, setShowCommentDeleteConfirm] = useState<string | null>(null);
+  const [showCommentReportPopup, setShowCommentReportPopup] = useState<string | null>(null);
+  const [commentReportText, setCommentReportText] = useState("");
+
   // Image lightbox
   const [showImageLightbox, setShowImageLightbox] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
@@ -93,22 +127,14 @@ export default function PostCard({
 
   // Comment media upload states
   const [commentMediaFiles, setCommentMediaFiles] = useState<File[]>([]);
-  const [commentMediaPreviews, setCommentMediaPreviews] = useState<string[]>(
-    [],
-  );
+  const [commentMediaPreviews, setCommentMediaPreviews] = useState<string[]>([]);
+
+  // Comment media lightbox (for viewing comment/reply images full-size)
+  const [commentLightbox, setCommentLightbox] = useState<{ media: CommentMedia[]; index: number } | null>(null);
 
   // Media scroll position tracking
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
-
-  // Debug log
-  console.log("PostCard render:", {
-    postId: post.id,
-    content: post.content,
-    hasMedia: !!post.media,
-    mediaCount: post.media?.length || 0,
-    media: post.media,
-  });
 
   // Check user's interaction status on mount
   useEffect(() => {
@@ -346,14 +372,20 @@ export default function PostCard({
     }
   };
 
-  const fetchComments = async () => {
-    setLoadingComments(true);
+  const fetchComments = async (reset = true) => {
+    if (reset) {
+      setLoadingComments(true);
+      setComments([]);
+      setNextCursor(null);
+      setHasMoreComments(false);
+    } else {
+      setLoadingMore(true);
+    }
     try {
+      const cursorParam = !reset && nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : "";
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments`,
-        {
-          credentials: "include",
-        },
+        `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments?limit=20${cursorParam}`,
+        { credentials: "include" },
       );
 
       if (!response.ok) {
@@ -361,40 +393,165 @@ export default function PostCard({
       }
 
       const data = await response.json();
-      console.log("Fetched comments data:", data);
 
-      // API returns array directly with 'user' instead of 'author' and includes media
-      const fetchedComments: Comment[] = Array.isArray(data)
-        ? data.map((comment) => {
-            console.log(
-              "Processing comment:",
-              comment.id,
-              "media:",
-              comment.media,
-            );
-            return {
-              id: comment.id,
-              postId: post.id,
-              userId: comment.user.id,
-              content: comment.content,
-              createdAt: comment.createdAt,
-              author: {
-                firstName: comment.user.firstName,
-                lastName: comment.user.lastName,
-                avatarUrl: comment.user.avatarUrl,
-              },
-              media: comment.media || undefined,
-            };
-          })
-        : [];
+      // New API returns { comments, nextCursor, hasMore }
+      const rawComments = Array.isArray(data) ? data : (data.comments ?? []);
+      const fetchedComments: Comment[] = rawComments.map((comment: Record<string, unknown>) => {
+        const user = comment.user as Record<string, unknown> | undefined;
+        return {
+          id: comment.id as string,
+          postId: post.id,
+          userId: (user?.id ?? "") as string,
+          content: comment.content as string,
+          createdAt: comment.createdAt as string,
+          updatedAt: (comment.updatedAt as string | null) ?? null,
+          parentCommentId: comment.parentCommentId as string | null,
+          replyCount: (comment.replyCount as number) ?? 0,
+          author: user ? {
+            firstName: user.firstName as string | null,
+            lastName: user.lastName as string | null,
+            avatarUrl: user.avatarUrl as string | null,
+          } : undefined,
+          media: comment.media as CommentMedia[] | undefined,
+        };
+      });
 
-      console.log("Processed comments:", fetchedComments);
-      setComments(fetchedComments);
+      if (reset) {
+        setComments(fetchedComments);
+      } else {
+        setComments(prev => [...prev, ...fetchedComments]);
+      }
+      setNextCursor(data.nextCursor ?? null);
+      setHasMoreComments(data.hasMore ?? false);
     } catch (error) {
       console.error("Error fetching comments:", error);
-      alert("Failed to load comments. Please try again.");
     } finally {
       setLoadingComments(false);
+      setLoadingMore(false);
+    }
+  };
+
+  const fetchReplies = async (parentCommentId: string, reset = true) => {
+    setLoadingReplies(prev => ({ ...prev, [parentCommentId]: true }));
+    try {
+      const cursorParam = !reset && repliesCursor[parentCommentId] ? `&cursor=${encodeURIComponent(repliesCursor[parentCommentId]!)}` : "";
+      const response = await fetch(
+        `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments?parentId=${parentCommentId}&limit=10${cursorParam}`,
+        { credentials: "include" },
+      );
+      if (!response.ok) throw new Error("Failed to fetch replies");
+      const data = await response.json();
+      const rawReplies = Array.isArray(data) ? data : (data.comments ?? []);
+      const fetchedReplies: Comment[] = rawReplies.map((comment: Record<string, unknown>) => {
+        const user = comment.user as Record<string, unknown> | undefined;
+        return {
+          id: comment.id as string,
+          postId: post.id,
+          userId: (user?.id ?? "") as string,
+          content: comment.content as string,
+          createdAt: comment.createdAt as string,
+          updatedAt: (comment.updatedAt as string | null) ?? null,
+          parentCommentId: comment.parentCommentId as string | null,
+          replyCount: (comment.replyCount as number) ?? 0,
+          author: user ? {
+            firstName: user.firstName as string | null,
+            lastName: user.lastName as string | null,
+            avatarUrl: user.avatarUrl as string | null,
+          } : undefined,
+          media: comment.media as CommentMedia[] | undefined,
+        };
+      });
+      setExpandedReplies(prev => ({
+        ...prev,
+        [parentCommentId]: reset ? fetchedReplies : [...(prev[parentCommentId] ?? []), ...fetchedReplies],
+      }));
+      setRepliesCursor(prev => ({ ...prev, [parentCommentId]: data.nextCursor ?? null }));
+      setRepliesHasMore(prev => ({ ...prev, [parentCommentId]: data.hasMore ?? false }));
+    } catch (error) {
+      console.error("Error fetching replies:", error);
+    } finally {
+      setLoadingReplies(prev => ({ ...prev, [parentCommentId]: false }));
+    }
+  };
+
+  const toggleReplies = async (commentId: string) => {
+    if (expandedReplies[commentId]) {
+      // Collapse
+      setExpandedReplies(prev => {
+        const next = { ...prev };
+        delete next[commentId];
+        return next;
+      });
+    } else {
+      await fetchReplies(commentId, true);
+    }
+  };
+
+  const handleSaveCommentEdit = async (commentId: string) => {
+    if (!editingCommentText.trim()) return;
+    setSavingEdit(true);
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ content: editingCommentText.trim() }),
+      });
+      if (!response.ok) throw new Error("Failed to edit comment");
+      const now = new Date().toISOString();
+      // Update locally — set content + updatedAt
+      setComments(prev => prev.map(c =>
+        String(c.id) === commentId ? { ...c, content: editingCommentText.trim(), updatedAt: now } : c
+      ));
+      // Also update inside expanded replies
+      setExpandedReplies(prev => {
+        const updated = { ...prev };
+        for (const key of Object.keys(updated)) {
+          updated[key] = updated[key].map(r =>
+            String(r.id) === commentId ? { ...r, content: editingCommentText.trim(), updatedAt: now } : r
+          );
+        }
+        return updated;
+      });
+      setEditingCommentId(null);
+      setEditingCommentText("");
+    } catch (err) {
+      console.error(err);
+      alert("Failed to edit comment");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string, isReply: boolean, parentId?: string) => {
+    setDeletingCommentId(commentId);
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to delete comment");
+      if (isReply && parentId) {
+        // Remove from expanded replies
+        setExpandedReplies(prev => ({
+          ...prev,
+          [parentId]: (prev[parentId] ?? []).filter(r => String(r.id) !== commentId),
+        }));
+        // Decrement replyCount on parent comment locally
+        setComments(prev => prev.map(c =>
+          String(c.id) === parentId ? { ...c, replyCount: Math.max((c.replyCount ?? 1) - 1, 0) } : c
+        ));
+      } else {
+        setComments(prev => prev.filter(c => String(c.id) !== commentId));
+      }
+      // Decrement live comment count
+      setLocalCommentCount(prev => Math.max(prev - 1, 0));
+      setShowCommentDeleteConfirm(null);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to delete comment");
+    } finally {
+      setDeletingCommentId(null);
     }
   };
 
@@ -411,47 +568,45 @@ export default function PostCard({
 
     setPostingComment(true);
     try {
-      // Create FormData for multipart/form-data
       const formData = new FormData();
       formData.append("postId", post.id.toString());
       formData.append("content", commentText.trim() || "");
+      if (replyingTo) {
+        formData.append("parentCommentId", replyingTo.id);
+      }
 
-      // Add all media files
       commentMediaFiles.forEach((file) => {
         formData.append("media", file);
-      });
-
-      console.log("Posting comment with:", {
-        postId: post.id,
-        content: commentText.trim(),
-        mediaCount: commentMediaFiles.length,
       });
 
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment`, {
         method: "POST",
         credentials: "include",
         body: formData,
-        // Don't set Content-Type header - browser will set it automatically with boundary
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error("Comment post error:", errorData);
         throw new Error(
-          errorData.message || `Failed to post comment: ${response.status}`,
+          (errorData as { message?: string }).message || `Failed to post comment: ${response.status}`,
         );
       }
 
-      const result = await response.json();
-      console.log("Comment posted successfully:", result);
-
-      // Clear inputs
       setCommentText("");
       setCommentMediaFiles([]);
       setCommentMediaPreviews([]);
 
-      // Refresh comments to show new comment with media
-      await fetchComments();
+      // Increment live count
+      setLocalCommentCount(prev => prev + 1);
+
+      if (replyingTo) {
+        // Refresh replies for the parent comment
+        await fetchReplies(replyingTo.id, true);
+        setReplyingTo(null);
+      } else {
+        // Refresh top-level comments
+        await fetchComments(true);
+      }
     } catch (error) {
       console.error("Error posting comment:", error);
       const errorMessage =
@@ -466,8 +621,7 @@ export default function PostCard({
 
   const handleCommentClick = () => {
     setShowCommentPopup(true);
-    // Always fetch comments when opening popup to get latest data
-    fetchComments();
+    fetchComments(true);
   };
 
   const closeCommentPopup = () => {
@@ -475,6 +629,8 @@ export default function PostCard({
     setCommentText("");
     setCommentMediaFiles([]);
     setCommentMediaPreviews([]);
+    setReplyingTo(null);
+    setExpandedReplies({});
   };
 
   const handleCommentMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -797,9 +953,9 @@ export default function PostCard({
               />
             </svg>
             <span>Comment</span>
-            {post.commentCount > 0 && (
+            {localCommentCount > 0 && (
               <span className="text-xs text-gray-500">
-                ({post.commentCount})
+                ({localCommentCount})
               </span>
             )}
           </button>
@@ -881,104 +1037,372 @@ export default function PostCard({
               className="absolute -top-3 -right-3 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-red-500 hover:bg-red-600 text-white transition-colors shadow-lg"
               aria-label="Close"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
             {/* Header */}
             <div className="px-6 py-4 border-b border-gray-200 shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">Comments</h2>
+              <h2 className="text-xl font-bold text-gray-800">
+                Comments
+                {localCommentCount > 0 && (
+                  <span className="ml-2 text-sm font-normal text-gray-400">({localCommentCount})</span>
+                )}
+              </h2>
             </div>
 
-            {/* Comments List */}
-            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
+            {/* Comments List — scrollable with styled scrollbar */}
+            <div
+              ref={commentsListRef}
+              className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-200 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-300"
+            >
               {loadingComments ? (
                 <div className="animate-pulse flex flex-col gap-4">
                   {[...Array(3)].map((_, idx) => (
                     <div key={idx} className="flex gap-3">
-                      <div className="relative shrink-0">
-                        <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center"></div>
-                      </div>
-                      <div className="flex-1">
-                        <div className="bg-gray-100 rounded-2xl px-4 py-3 h-16"></div>
-                      </div>
+                      <div className="w-10 h-10 rounded-full bg-gray-200 shrink-0" />
+                      <div className="flex-1 bg-gray-100 rounded-2xl h-16" />
                     </div>
                   ))}
                 </div>
               ) : comments.length === 0 ? (
-                <div className="text-center text-gray-500 py-4">
-                  No comments yet. Be the first to comment!
+                <div className="text-center text-gray-400 py-8">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <p className="text-sm">No comments yet. Be the first!</p>
                 </div>
               ) : (
-                comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3">
-                    <div className="relative shrink-0">
+                <>
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-3 group/comment">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={apiService.getImageUrl(comment.author?.avatarUrl) || "/default-avatar.svg"}
                         alt="avatar"
-                        className="w-10 h-10 rounded-full object-cover"
+                        className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5"
                       />
-                    </div>
-                    <div className="flex-1">
-                      <div className="bg-gray-100 rounded-2xl px-4 py-3">
-                        <p className="text-sm font-semibold text-gray-800">
-                          {comment.author?.firstName} {comment.author?.lastName}
-                        </p>
-                        <p className="text-sm text-gray-800 mt-1">
-                          {comment.content}
-                        </p>
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-gray-50 rounded-2xl px-4 py-3 relative">
+                          <p className="text-sm font-semibold text-gray-800 pr-7">
+                            {comment.author?.firstName} {comment.author?.lastName}
+                            {comment.updatedAt && (new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 5000) && (
+                              <span className="ml-1.5 text-xs font-normal text-gray-400">(edited)</span>
+                            )}
+                          </p>
 
-                        {/* Comment Media */}
-                        {comment.media && comment.media.length > 0 && (
-                          <div className="mt-3 grid grid-cols-2 gap-2">
-                            {comment.media.map((media) => (
-                              <div
-                                key={media.id}
-                                className="rounded-lg overflow-hidden bg-gray-200"
-                              >
-                                {media.mediaType === "video" ? (
-                                  <video
-                                    src={apiService.getImageUrl(media.mediaUrl) || ""}
-                                    controls
-                                    className="w-full h-auto max-h-48 object-cover"
-                                  />
-                                ) : (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={apiService.getImageUrl(media.mediaUrl) || ""}
-                                    alt="Comment media"
-                                    className="w-full h-auto max-h-48 object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                                  />
-                                )}
+                          {/* Inline Edit Mode */}
+                          {editingCommentId === String(comment.id) ? (
+                            <div className="mt-1">
+                              <textarea
+                                value={editingCommentText}
+                                onChange={e => setEditingCommentText(e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl bg-white border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm resize-none"
+                                rows={2}
+                                autoFocus
+                                onKeyDown={e => {
+                                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveCommentEdit(String(comment.id)); }
+                                  if (e.key === "Escape") { setEditingCommentId(null); setEditingCommentText(""); }
+                                }}
+                              />
+                              <div className="flex gap-2 mt-1.5 justify-end">
+                                <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
+                                <button onClick={() => handleSaveCommentEdit(String(comment.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">{savingEdit ? "Saving…" : "Save"}</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <p className="text-sm text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">{comment.content}</p>
+                          )}
+
+                          {/* Comment Media — Slideshow */}
+                          {comment.media && comment.media.length > 0 && (
+                            <div className="mt-2 relative">
+                              {comment.media.length === 1 ? (
+                                // Single media: full width
+                                <div className="rounded-xl overflow-hidden bg-gray-100">
+                                  {comment.media[0].mediaType === "video" ? (
+                                    <video src={apiService.getImageUrl(comment.media[0].mediaUrl) || ""} controls className="w-full max-h-52 object-cover" />
+                                  ) : (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img src={apiService.getImageUrl(comment.media[0].mediaUrl) || ""} alt="Comment media" className="w-full max-h-52 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: comment.media!, index: 0 })} />
+                                  )}
+                                </div>
+                              ) : (
+                                // Multiple: horizontal scroll slideshow
+                                <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
+                                  {comment.media.map((m, mi) => (
+                                    <div key={m.id} className="shrink-0 rounded-xl overflow-hidden bg-gray-100" style={{ width: "160px", height: "120px" }}>
+                                      {m.mediaType === "video" ? (
+                                        <video src={apiService.getImageUrl(m.mediaUrl) || ""} controls className="w-full h-full object-cover" />
+                                      ) : (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={apiService.getImageUrl(m.mediaUrl) || ""} alt={`media ${mi + 1}`} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: comment.media!, index: mi })} />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Kebab menu button */}
+                          <div className="absolute top-2.5 right-2.5">
+                            <button
+                              onClick={() => setCommentMenuOpen(commentMenuOpen === String(comment.id) ? null : String(comment.id))}
+                              className="w-6 h-6 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                              </svg>
+                            </button>
+                            {commentMenuOpen === String(comment.id) && (
+                              <>
+                                <div className="fixed inset-0 z-40" onClick={() => setCommentMenuOpen(null)} />
+                                <div className="absolute right-0 top-7 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50">
+                                  {activeUser && activeUser.id === comment.userId && (
+                                    <>
+                                      <button
+                                        onClick={() => { setEditingCommentId(String(comment.id)); setEditingCommentText(comment.content); setCommentMenuOpen(null); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                      >
+                                        <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => { setShowCommentDeleteConfirm(String(comment.id)); setCommentMenuOpen(null); }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                      >
+                                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        Delete
+                                      </button>
+                                      <div className="border-t border-gray-100 my-1" />
+                                    </>
+                                  )}
+                                  <button
+                                    onClick={() => { setShowCommentReportPopup(String(comment.id)); setCommentMenuOpen(null); }}
+                                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                    Report
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Meta row: time + reply + expand button */}
+                        <div className="flex items-center gap-3 mt-1 ml-1">
+                          <span className="text-xs text-gray-400">{getTimeAgo(comment.createdAt)}</span>
+                          {activeUser && (
+                            <button
+                              onClick={() => setReplyingTo({ id: String(comment.id), name: `${comment.author?.firstName ?? ""} ${comment.author?.lastName ?? ""}`.trim() })}
+                              className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                            >
+                              Reply
+                            </button>
+                          )}
+                          {(comment.replyCount ?? 0) > 0 && (
+                            <button
+                              onClick={() => toggleReplies(String(comment.id))}
+                              className="text-xs text-gray-500 hover:text-gray-700 transition-colors flex items-center gap-1"
+                            >
+                              <svg className={`w-3 h-3 transition-transform ${expandedReplies[String(comment.id)] ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                              </svg>
+                              {expandedReplies[String(comment.id)] ? "Hide" : `${comment.replyCount} repl${(comment.replyCount ?? 0) === 1 ? "y" : "ies"}`}
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Expanded Replies */}
+                        {expandedReplies[String(comment.id)] && (
+                          <div className="mt-2 ml-4 space-y-3 border-l-2 border-gray-100 pl-3">
+                            {loadingReplies[String(comment.id)] && (
+                              <div className="animate-pulse flex gap-2">
+                                <div className="w-7 h-7 rounded-full bg-gray-200 shrink-0" />
+                                <div className="flex-1 bg-gray-100 rounded-xl h-12" />
+                              </div>
+                            )}
+                            {expandedReplies[String(comment.id)].map((reply) => (
+                              <div key={reply.id} className="flex gap-2 group/reply">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={apiService.getImageUrl(reply.author?.avatarUrl) || "/default-avatar.svg"}
+                                  alt="avatar"
+                                  className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="bg-gray-50 rounded-xl px-3 py-2 relative">
+                                    <p className="text-xs font-semibold text-gray-800 pr-6">
+                                      {reply.author?.firstName} {reply.author?.lastName}
+                                      {reply.updatedAt && (new Date(reply.updatedAt).getTime() - new Date(reply.createdAt).getTime() > 5000) && (
+                                        <span className="ml-1 text-[10px] font-normal text-gray-400">(edited)</span>
+                                      )}
+                                    </p>
+                                    {/* Inline edit for reply */}
+                                    {editingCommentId === String(reply.id) ? (
+                                      <div className="mt-1">
+                                        <textarea
+                                          value={editingCommentText}
+                                          onChange={e => setEditingCommentText(e.target.value)}
+                                          className="w-full px-2 py-1.5 rounded-lg bg-white border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-xs resize-none"
+                                          rows={2}
+                                          autoFocus
+                                          onKeyDown={e => {
+                                            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveCommentEdit(String(reply.id)); }
+                                            if (e.key === "Escape") { setEditingCommentId(null); setEditingCommentText(""); }
+                                          }}
+                                        />
+                                        <div className="flex gap-1.5 mt-1 justify-end">
+                                          <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5">Cancel</button>
+                                          <button onClick={() => handleSaveCommentEdit(String(reply.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-blue-600 text-white px-2.5 py-0.5 rounded-full hover:bg-blue-700 disabled:opacity-50">{savingEdit ? "…" : "Save"}</button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <p className="text-xs text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">{reply.content}</p>
+                                    )}
+                                    {/* Reply Media — Slideshow */}
+                                    {reply.media && reply.media.length > 0 && (
+                                      <div className="mt-1.5">
+                                        {reply.media.length === 1 ? (
+                                          <div className="rounded-lg overflow-hidden bg-gray-100">
+                                            {reply.media[0].mediaType === "video" ? (
+                                              <video src={apiService.getImageUrl(reply.media[0].mediaUrl) || ""} controls className="w-full max-h-40 object-cover" />
+                                            ) : (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img src={apiService.getImageUrl(reply.media[0].mediaUrl) || ""} alt="Reply media" className="w-full max-h-40 object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: reply.media!, index: 0 })} />
+                                            )}
+                                          </div>
+                                        ) : (
+                                          <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+                                            {reply.media.map((m, mi) => (
+                                              <div key={m.id} className="shrink-0 rounded-lg overflow-hidden bg-gray-100" style={{ width: "120px", height: "90px" }}>
+                                                {m.mediaType === "video" ? (
+                                                  <video src={apiService.getImageUrl(m.mediaUrl) || ""} controls className="w-full h-full object-cover" />
+                                                ) : (
+                                                  // eslint-disable-next-line @next/next/no-img-element
+                                                  <img src={apiService.getImageUrl(m.mediaUrl) || ""} alt={`media ${mi + 1}`} className="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onClick={() => setCommentLightbox({ media: reply.media!, index: mi })} />
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                    {/* Kebab menu for reply */}
+                                    <div className="absolute top-1.5 right-1.5">
+                                      <button
+                                        onClick={() => setCommentMenuOpen(commentMenuOpen === String(reply.id) ? null : String(reply.id))}
+                                        className="w-5 h-5 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-200 transition-colors"
+                                      >
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                                          <circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/>
+                                        </svg>
+                                      </button>
+                                      {commentMenuOpen === String(reply.id) && (
+                                        <>
+                                          <div className="fixed inset-0 z-40" onClick={() => setCommentMenuOpen(null)} />
+                                          <div className="absolute right-0 top-6 w-40 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-50">
+                                            {activeUser && activeUser.id === reply.userId && (
+                                              <>
+                                                <button
+                                                  onClick={() => { setEditingCommentId(String(reply.id)); setEditingCommentText(reply.content); setCommentMenuOpen(null); }}
+                                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                                                >
+                                                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                                                  Edit
+                                                </button>
+                                                <button
+                                                  onClick={() => { setShowCommentDeleteConfirm(`reply:${String(reply.id)}:${String(comment.id)}`); setCommentMenuOpen(null); }}
+                                                  className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                                                >
+                                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                  Delete
+                                                </button>
+                                                <div className="border-t border-gray-100 my-1" />
+                                              </>
+                                            )}
+                                            <button
+                                              onClick={() => { setShowCommentReportPopup(String(reply.id)); setCommentMenuOpen(null); }}
+                                              className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                                            >
+                                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                              Report
+                                            </button>
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span className="text-xs text-gray-400 ml-1">{getTimeAgo(reply.createdAt)}</span>
+                                </div>
                               </div>
                             ))}
+                            {repliesHasMore[String(comment.id)] && (
+                              <button
+                                onClick={() => fetchReplies(String(comment.id), false)}
+                                disabled={loadingReplies[String(comment.id)]}
+                                className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 ml-1 font-medium transition-colors disabled:opacity-50 mt-1"
+                              >
+                                {loadingReplies[String(comment.id)] ? (
+                                  <svg className="animate-spin w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                  </svg>
+                                ) : (
+                                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                  </svg>
+                                )}
+                                {loadingReplies[String(comment.id)] ? "Loading…" : "Load more replies"}
+                              </button>
+                            )}
                           </div>
                         )}
-
-                        <p className="text-xs text-gray-500 mt-2">
-                          {new Date(comment.createdAt).toLocaleString()}
-                        </p>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+
+                  {/* Load more top-level comments */}
+                  {hasMoreComments && (
+                    <div className="flex justify-center pt-2">
+                      <button
+                        onClick={() => fetchComments(false)}
+                        disabled={loadingMore}
+                        className="px-5 py-2 rounded-full text-sm font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {loadingMore ? (
+                          <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                          </svg>
+                        ) : null}
+                        {loadingMore ? "Loading…" : "Load more comments"}
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
 
             {/* Comment Input */}
-            <div className="px-6 py-4 border-t border-gray-200 shrink-0">
+            <div className="px-6 py-4 border-t border-gray-100 shrink-0">
+              {/* Reply banner */}
+              {replyingTo && (
+                <div className="flex items-center justify-between bg-blue-50 rounded-xl px-3 py-2 mb-3">
+                  <span className="text-xs text-blue-600 font-medium">Replying to <span className="font-bold">{replyingTo.name}</span></span>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="text-blue-400 hover:text-blue-600 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
               <div className="flex flex-col gap-3">
                 {/* Avatar + Text Input Row */}
                 <div className="flex items-start gap-3">
@@ -992,15 +1416,14 @@ export default function PostCard({
                     <textarea
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
-                      placeholder="Write a comment..."
+                      placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : "Write a comment…"}
                       rows={1}
                       className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm transition-all resize-none overflow-hidden"
                       style={{ minHeight: "40px", maxHeight: "120px" }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
                         target.style.height = "auto";
-                        target.style.height =
-                          Math.min(target.scrollHeight, 120) + "px";
+                        target.style.height = Math.min(target.scrollHeight, 120) + "px";
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" && !e.shiftKey) {
@@ -1020,17 +1443,10 @@ export default function PostCard({
                       <div key={idx} className="relative">
                         <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden">
                           {commentMediaFiles[idx]?.type.startsWith("video/") ? (
-                            <video
-                              src={preview}
-                              className="w-full h-full object-cover"
-                            />
+                            <video src={preview} className="w-full h-full object-cover" />
                           ) : (
                             // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={preview}
-                              alt={`Preview ${idx}`}
-                              className="w-full h-full object-cover"
-                            />
+                            <img src={preview} alt={`Preview ${idx}`} className="w-full h-full object-cover" />
                           )}
                         </div>
                         <button
@@ -1047,7 +1463,6 @@ export default function PostCard({
                 {/* Action Buttons Row */}
                 <div className="flex items-center justify-between ml-13">
                   <div className="flex items-center gap-2">
-                    {/* Upload Media Button */}
                     <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gray-50 text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-100 transition-all cursor-pointer">
                       <input
                         type="file"
@@ -1057,60 +1472,28 @@ export default function PostCard({
                         className="hidden"
                         disabled={postingComment}
                       />
-                      <svg
-                        className="w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                        />
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                       </svg>
                       <span className="text-xs font-medium">Photo/Video</span>
                       {commentMediaFiles.length > 0 && (
-                        <span className="text-xs font-bold text-blue-600">
-                          ({commentMediaFiles.length}/10)
-                        </span>
+                        <span className="text-xs font-bold text-blue-600">({commentMediaFiles.length}/10)</span>
                       )}
                     </label>
                   </div>
 
-                  {/* Send Button */}
                   <button
                     className="px-6 py-2 rounded-full font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:scale-105"
                     onClick={handlePostComment}
-                    disabled={
-                      postingComment ||
-                      (!commentText.trim() && commentMediaFiles.length === 0)
-                    }
+                    disabled={postingComment || (!commentText.trim() && commentMediaFiles.length === 0)}
                   >
                     {postingComment ? (
-                      <svg
-                        className="animate-spin w-4 h-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
+                      <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
                     ) : (
-                      "Post"
+                      replyingTo ? "Reply" : "Post"
                     )}
                   </button>
                 </div>
@@ -1322,6 +1705,159 @@ export default function PostCard({
           </div>
         </div>
       )}
+
+      {/* Comment Delete Confirmation Popup */}
+      {showCommentDeleteConfirm && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-60 flex items-center justify-center p-4"
+          onClick={() => !deletingCommentId && setShowCommentDeleteConfirm(null)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 flex flex-col items-center gap-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Icon */}
+            <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center">
+              <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            {/* Text */}
+            <div className="text-center">
+              <h2 className="text-lg font-bold text-gray-800">Delete Comment?</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                This action cannot be undone. The comment will be permanently removed.
+              </p>
+            </div>
+            {/* Buttons */}
+            <div className="flex gap-3 w-full mt-1">
+              <button
+                onClick={() => setShowCommentDeleteConfirm(null)}
+                disabled={!!deletingCommentId}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  // parse "reply:commentId:parentId" or just "commentId"
+                  const parts = showCommentDeleteConfirm.split(":");
+                  if (parts[0] === "reply") {
+                    handleDeleteComment(parts[1], true, parts[2]);
+                  } else {
+                    handleDeleteComment(showCommentDeleteConfirm, false);
+                  }
+                }}
+                disabled={!!deletingCommentId}
+                className="flex-1 py-2.5 rounded-xl bg-red-500 hover:bg-red-600 text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {deletingCommentId ? (
+                  <svg className="animate-spin w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : null}
+                {deletingCommentId ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comment Report Popup */}
+      {showCommentReportPopup && (
+        <div
+          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-60 flex items-center justify-center p-4"
+          onClick={() => { setShowCommentReportPopup(null); setCommentReportText(""); }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-md p-4 relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => { setShowCommentReportPopup(null); setCommentReportText(""); }}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              aria-label="Close"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            <h1 className="text-2xl font-bold capitalize text-slate-400 mb-4">Report Comment</h1>
+
+            <textarea
+              value={commentReportText}
+              onChange={(e) => setCommentReportText(e.target.value)}
+              className="w-full min-h-28 resize-none bg-slate-100 p-3 outline-none ring-2 ring-slate-200 duration-300 placeholder:text-slate-400 focus:ring-slate-400 rounded-md text-slate-600 mb-3"
+              placeholder="Why are you reporting this comment?"
+            />
+
+            <div className="flex gap-3">
+              <div className="flex-1" />
+              <button
+                onClick={() => {
+                  console.log("Submit comment report:", { commentId: showCommentReportPopup, text: commentReportText });
+                  setShowCommentReportPopup(null);
+                  setCommentReportText("");
+                }}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comment / Reply Media Lightbox */}
+      {commentLightbox && (() => {
+        const imageList = commentLightbox.media.filter(m => m.mediaType === "image");
+        const total = imageList.length;
+        const cur = commentLightbox.index;
+        return (
+          <div
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-70 flex items-center justify-center p-4"
+            onClick={() => setCommentLightbox(null)}
+          >
+            {/* Close */}
+            <button onClick={() => setCommentLightbox(null)} className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/40 text-white transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+            </button>
+            {/* Counter */}
+            {total > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/50 text-white text-sm font-medium">{cur + 1} / {total}</div>
+            )}
+            {/* Prev */}
+            {cur > 0 && (
+              <button onClick={e => { e.stopPropagation(); setCommentLightbox(prev => prev && ({ ...prev, index: prev.index - 1 })); }} className="absolute left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/40 text-white transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" /></svg>
+              </button>
+            )}
+            {/* Next */}
+            {cur < total - 1 && (
+              <button onClick={e => { e.stopPropagation(); setCommentLightbox(prev => prev && ({ ...prev, index: prev.index + 1 })); }} className="absolute right-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/40 text-white transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" /></svg>
+              </button>
+            )}
+            {/* Image */}
+            <div className="flex items-center justify-center" onClick={e => e.stopPropagation()}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={apiService.getImageUrl(imageList[cur]?.mediaUrl) || ""} alt={`media ${cur + 1}`} className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none" draggable={false} />
+            </div>
+            {/* Thumbnails */}
+            {total > 1 && (
+              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2" onClick={e => e.stopPropagation()}>
+                {imageList.map((m, i) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img key={m.id} src={apiService.getImageUrl(m.mediaUrl) || ""} alt={`thumb ${i + 1}`} onClick={() => setCommentLightbox(prev => prev && ({ ...prev, index: i }))} className={`w-12 h-12 object-cover rounded-md cursor-pointer transition-all ${i === cur ? "ring-2 ring-white opacity-100" : "opacity-50 hover:opacity-75"}`} draggable={false} />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Image Lightbox Popup */}
       {showImageLightbox && post.media && (() => {

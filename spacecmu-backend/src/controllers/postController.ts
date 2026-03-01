@@ -663,7 +663,7 @@ export const likePost = async (req: Request, res: Response) => {
 export const addComment = async (req: Request, res: Response) => {
     try {
         const userId = req.session?.activeUserId;
-        const { postId, content } = req.body;
+        const { postId, content, parentCommentId } = req.body;
 
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
@@ -677,7 +677,12 @@ export const addComment = async (req: Request, res: Response) => {
         // Create the comment
         const newComment = await dbClient
             .insert(commentsTable)
-            .values({ userId, postId: String(postId), content: content || '' })
+            .values({
+                userId,
+                postId: String(postId),
+                content: content || '',
+                parentCommentId: parentCommentId ? String(parentCommentId) : null,
+            })
             .returning();
 
         const commentId = newComment[0].id;
@@ -700,7 +705,7 @@ export const addComment = async (req: Request, res: Response) => {
             await dbClient.insert(commentMediaTable).values(mediaValues);
         }
 
-        // Increment comment count in postsTable
+        // Increment comment count in postsTable (both top-level and replies)
         await dbClient
             .update(postsTable)
             .set({ commentCount: sql`${postsTable.commentCount} + 1` })
@@ -718,6 +723,32 @@ export const addComment = async (req: Request, res: Response) => {
     }
 };
 
+export const editComment = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        const { commentId } = req.params;
+        const { content } = req.body;
+
+        if (!userId) return res.status(401).json({ message: "Unauthorized" });
+        if (!content?.trim()) return res.status(400).json({ message: "Content is required" });
+
+        // Check ownership
+        const existing = await dbClient.select().from(commentsTable).where(eq(commentsTable.id, commentId)).limit(1);
+        if (!existing.length) return res.status(404).json({ message: "Comment not found" });
+        if (existing[0].userId !== userId) return res.status(403).json({ message: "Forbidden" });
+
+        await dbClient
+            .update(commentsTable)
+            .set({ content: content.trim() })
+            .where(eq(commentsTable.id, commentId));
+
+        res.json({ message: "Comment updated", content: content.trim() });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error editing comment" });
+    }
+};
+
 export const deleteComment = async (req: Request, res: Response) => {
     try {
         const { commentId } = req.params;
@@ -732,20 +763,34 @@ export const deleteComment = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Comment not found" });
         }
 
-        const postId = commentToDelete[0].postId;
+        const commentData = commentToDelete[0];
+        const postId = commentData.postId;
+        const isTopLevel = !commentData.parentCommentId;
+
+        // Count how many comments will be deleted total (this comment + its replies, recursively)
+        // For top-level: count itself + all direct replies (FK cascade deletes them)
+        // For reply: just count itself
+        let deleteCount = 1;
+        if (isTopLevel) {
+            const replyCount = await dbClient
+                .select({ count: sql<number>`count(*)::int` })
+                .from(commentsTable)
+                .where(eq(commentsTable.parentCommentId, commentId));
+            deleteCount += replyCount[0]?.count ?? 0;
+        }
 
         // Delete associated media first
         await dbClient
             .delete(commentMediaTable)
             .where(eq(commentMediaTable.commentId, commentId));
 
-        // Delete the comment
+        // Delete the comment (replies cascade via FK)
         await dbClient.delete(commentsTable).where(eq(commentsTable.id, commentId));
 
-        // Decrement comment count
+        // Decrement comment count by total deleted (comment + its replies)
         await dbClient
             .update(postsTable)
-            .set({ commentCount: sql`${postsTable.commentCount} - 1` })
+            .set({ commentCount: sql`GREATEST(${postsTable.commentCount} - ${deleteCount}, 0)` })
             .where(eq(postsTable.id, postId));
 
         res.json({ message: "Comment deleted" });
@@ -758,11 +803,30 @@ export const deleteComment = async (req: Request, res: Response) => {
 export const getCommentsByPostId = async (req: Request, res: Response) => {
     try {
         const { postId } = req.params;
+        const { cursor, limit: limitParam, parentId } = req.query;
+
+        // Pagination: default 20 top-level comments per page, max 50
+        const limit = Math.min(parseInt(limitParam as string) || 20, 50);
+        const cursorDate = cursor ? new Date(cursor as string) : null;
+
+        // Build where conditions
+        const whereConditions = parentId
+            // Replies to a specific comment
+            ? cursorDate
+                ? and(eq(commentsTable.postId, postId), eq(commentsTable.parentCommentId, String(parentId)), lt(commentsTable.createdAt, cursorDate))
+                : and(eq(commentsTable.postId, postId), eq(commentsTable.parentCommentId, String(parentId)))
+            // Top-level comments only (no parent)
+            : cursorDate
+                ? and(eq(commentsTable.postId, postId), sql`${commentsTable.parentCommentId} IS NULL`, lt(commentsTable.createdAt, cursorDate))
+                : and(eq(commentsTable.postId, postId), sql`${commentsTable.parentCommentId} IS NULL`);
+
         const comments = await dbClient
             .select({
                 id: commentsTable.id,
                 content: commentsTable.content,
                 createdAt: commentsTable.createdAt,
+                updatedAt: commentsTable.updatedAt,
+                parentCommentId: commentsTable.parentCommentId,
                 user: {
                     id: usersTable.id,
                     firstName: usersTable.firstName,
@@ -773,26 +837,38 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
             })
             .from(commentsTable)
             .innerJoin(usersTable, eq(commentsTable.userId, usersTable.id))
-            .where(eq(commentsTable.postId, postId))
-            .orderBy(desc(commentsTable.createdAt));
+            .where(whereConditions)
+            .orderBy(desc(commentsTable.createdAt))
+            .limit(limit + 1); // Fetch one extra to determine if there are more
 
-        // Fetch media for each comment
-        const commentsWithMedia = await Promise.all(
-            comments.map(async (comment) => {
-                const media = await dbClient
-                    .select()
-                    .from(commentMediaTable)
-                    .where(eq(commentMediaTable.commentId, comment.id))
-                    .orderBy(commentMediaTable.order);
+        const hasMore = comments.length > limit;
+        const pageComments = hasMore ? comments.slice(0, limit) : comments;
+        const nextCursor = hasMore ? pageComments[pageComments.length - 1].createdAt?.toISOString() : null;
+
+        // Fetch media + reply count for each comment
+        const commentsWithMeta = await Promise.all(
+            pageComments.map(async (comment) => {
+                const [media, replyCountResult] = await Promise.all([
+                    dbClient
+                        .select()
+                        .from(commentMediaTable)
+                        .where(eq(commentMediaTable.commentId, comment.id))
+                        .orderBy(commentMediaTable.order),
+                    dbClient
+                        .select({ count: sql<number>`count(*)::int` })
+                        .from(commentsTable)
+                        .where(eq(commentsTable.parentCommentId, comment.id)),
+                ]);
 
                 return {
                     ...comment,
                     media: media.length > 0 ? media : undefined,
+                    replyCount: replyCountResult[0]?.count ?? 0,
                 };
             })
         );
 
-        res.json(commentsWithMedia);
+        res.json({ comments: commentsWithMeta, nextCursor, hasMore });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching comments" });
