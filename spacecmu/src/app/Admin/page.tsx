@@ -239,49 +239,58 @@ function AccountDetailView({
     <div className="space-y-0">
       {/* ── Back button + header ── */}
       <div className="mb-6">
-        <button
-          onClick={onBack}
-          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors mb-5 group"
-        >
-          <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-            <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          Back to Official Accounts
-        </button>
-
-        {/* Account header card */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex items-center gap-5">
-          <div className="w-14 h-14 rounded-full overflow-hidden shrink-0 bg-slate-100">
-            <img // eslint-disable-line @next/next/no-img-element
-              src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
-              alt={account.name}
-              className="w-full h-full object-cover"
-            />
+        {/* Account header card — Profile-style */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+          {/* Cover / Banner */}
+          <div className="h-36 w-full relative">
+            {account.bannerUrl ? (
+              <img // eslint-disable-line @next/next/no-img-element
+                src={apiService.getImageUrl(account.bannerUrl) ?? ""}
+                alt="banner"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="h-full w-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
+            )}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h2 className="text-xl font-bold text-slate-900">{account.name}</h2>
+
+          {/* Avatar overlapping banner */}
+          <div className="absolute left-4 sm:left-8 top-[88px]">
+            <div className="rounded-full border-4 border-white bg-white shadow-md">
+              <img // eslint-disable-line @next/next/no-img-element
+                src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+                alt={account.name}
+                className="w-16 h-16 sm:w-[82px] sm:h-[82px] rounded-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* Name + badge + username + stats */}
+          <div className="pt-12 sm:pt-14 px-4 sm:px-8 pb-5">
+            {/* Stats — inline with avatar, profile-style */}
+            <div className="flex items-center ml-[76px] sm:ml-[106px] -mt-10 sm:-mt-12 mb-3 relative" >
+              <div className="flex items-center gap-1 sm:gap-0 flex-wrap">
+                <span className="text-base sm:text-xl font-semibold text-slate-900">{account.admins.length}</span>
+                <span className="text-gray-500 text-sm sm:text-base ml-1">Admins</span>
+                <span className="text-gray-400 ml-2 sm:ml-4 hidden sm:inline">|</span>
+                <span className="text-slate-800 font-semibold text-sm sm:text-base ml-2 sm:ml-4 hidden sm:inline">{account.faculty}</span>
+              </div>
+            </div>
+
+            {/* Faculty on small screens */}
+            <div className="ml-4 sm:hidden mt-14 mb-1">
+              <span className="text-gray-500 text-xs">{account.faculty}</span>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap mt-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{account.name}</h2>
               {account.isOwner && (
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-200">
                   👑 Owner
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-400 mt-0.5">@{account.username} · {account.faculty}</p>
-          </div>
-
-          {/* Quick stats */}
-          <div className="hidden sm:flex items-center gap-6 shrink-0">
-            <div className="text-center">
-              <p className="text-lg font-bold text-slate-900">{account.admins.length}</p>
-              <p className="text-xs text-slate-400">Admins</p>
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-slate-700">
-                {new Date(account.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
-              </p>
-              <p className="text-xs text-slate-400">Since</p>
-            </div>
+            <p className="text-sm text-slate-400 mt-0.5">@{account.username}</p>
           </div>
         </div>
       </div>
@@ -746,7 +755,7 @@ export default function AdminPage() {
           </div>
 
           {/* Top-level tabs — hide when in account detail view */}
-          {!selectedAccount && (
+          {!selectedAccount ? (
             <div className="flex gap-8 border-b border-slate-200">
               {tabs.map((tab) => (
                 <button
@@ -762,12 +771,24 @@ export default function AdminPage() {
                 </button>
               ))}
             </div>
+          ) : (
+            <div className="border-b border-slate-200 pb-3">
+              <button
+                onClick={() => setSelectedAccount(null)}
+                className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 transition-colors group"
+              >
+                <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Back to Official Accounts
+              </button>
+            </div>
           )}
         </div>
 
         {/* Scrollable content */}
         <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
-          <div className="max-w-3xl pt-8">
+          <div className="max-w-3xl pt-6">
 
             {/* ── Account Detail View (replaces list) ── */}
             {selectedAccount ? (

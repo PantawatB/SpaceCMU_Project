@@ -48,6 +48,29 @@ export default function GodPage() {
   const [offUsername, setOffUsername] = useState("");
   const [offFaculty, setOffFaculty] = useState("");
   const [offCreating, setOffCreating] = useState(false);
+
+  // Validation helpers — defined as constants (regex outside render is fine)
+  const NAME_INVALID_RE = /[<>/\\|"';:{}]/;
+  const USERNAME_VALID_RE = /^[a-z0-9_-]*$/;
+  const FACULTY_INVALID_RE = /[<>/\\|";]/;
+
+  const nameError = offFirstName && NAME_INVALID_RE.test(offFirstName)
+    ? 'ห้ามใช้อักขระ: < > / \\ | " \' ; : { }'
+    : offFirstName.trim().length > 80
+    ? "ชื่อยาวเกินไป (สูงสุด 80 ตัวอักษร)"
+    : null;
+
+  const usernameError = offUsername && !USERNAME_VALID_RE.test(offUsername)
+    ? "ใช้ได้เฉพาะ a–z, 0–9, _ และ - เท่านั้น"
+    : offUsername.length > 40
+    ? "Username ยาวเกินไป (สูงสุด 40 ตัวอักษร)"
+    : null;
+
+  const facultyError = offFaculty && FACULTY_INVALID_RE.test(offFaculty)
+    ? 'ห้ามใช้อักขระ: < > / \\ | " ;'
+    : offFaculty.trim().length > 100
+    ? "ชื่อ Faculty ยาวเกินไป (สูงสุด 100 ตัวอักษร)"
+    : null;
   const [offSearch, setOffSearch] = useState("");
   const [offSearchResults, setOffSearchResults] = useState<GodUser[]>([]);
   const [offSearchLoading, setOffSearchLoading] = useState(false);
@@ -851,8 +874,18 @@ export default function GodPage() {
                         placeholder="e.g. Engineering Faculty"
                         value={offFirstName}
                         onChange={(e) => setOffFirstName(e.target.value)}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                        className={`w-full border rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:border-transparent focus:outline-none transition ${
+                          nameError ? "border-red-300 focus:ring-red-300 bg-red-50" : "border-slate-200 focus:ring-slate-900"
+                        }`}
                       />
+                      {nameError && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <span>⚠</span> {nameError}
+                        </p>
+                      )}
+                      {!nameError && (
+                        <p className="text-[11px] text-slate-400">ตัวอักษร, ตัวเลข, ช่องว่าง, ( ) , . - ได้ · ห้าม {"< > / \\ | \" ' ; : { }"}</p>
+                      )}
                     </div>
 
                     {/* Username */}
@@ -867,9 +900,19 @@ export default function GodPage() {
                           placeholder="engineering_cmu"
                           value={offUsername}
                           onChange={(e) => setOffUsername(e.target.value.replace(/\s/g, "").toLowerCase())}
-                          className="w-full border border-slate-200 rounded-xl pl-8 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                          className={`w-full border rounded-xl pl-8 pr-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:border-transparent focus:outline-none transition ${
+                            usernameError ? "border-red-300 focus:ring-red-300 bg-red-50" : "border-slate-200 focus:ring-slate-900"
+                          }`}
                         />
                       </div>
+                      {usernameError && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <span>⚠</span> {usernameError}
+                        </p>
+                      )}
+                      {!usernameError && (
+                        <p className="text-[11px] text-slate-400">ใช้ได้เฉพาะ a–z, 0–9, _ และ - · ห้ามมีช่องว่างหรืออักขระพิเศษอื่น</p>
+                      )}
                     </div>
 
                     {/* Faculty — free text */}
@@ -882,8 +925,18 @@ export default function GodPage() {
                         placeholder="e.g. Engineering, Business"
                         value={offFaculty}
                         onChange={(e) => setOffFaculty(e.target.value)}
-                        className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-slate-900 focus:border-transparent focus:outline-none transition"
+                        className={`w-full border rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:border-transparent focus:outline-none transition ${
+                          facultyError ? "border-red-300 focus:ring-red-300 bg-red-50" : "border-slate-200 focus:ring-slate-900"
+                        }`}
                       />
+                      {facultyError && (
+                        <p className="text-xs text-red-500 flex items-center gap-1">
+                          <span>⚠</span> {facultyError}
+                        </p>
+                      )}
+                      {!facultyError && (
+                        <p className="text-[11px] text-slate-400">ตัวอักษรและตัวเลขทั่วไปได้ · ห้าม {"< > / \\ | \" ;"}</p>
+                      )}
                     </div>
 
                     <p className="text-[11px] text-slate-400 pt-1">
@@ -923,7 +976,7 @@ export default function GodPage() {
                       </div>
                       <button
                         onClick={handleCreateOfficialAccount}
-                        disabled={offCreating || !offFirstName.trim() || !offUsername.trim() || !offFaculty.trim() || !offSelectedUser}
+                        disabled={offCreating || !offFirstName.trim() || !offUsername.trim() || !offFaculty.trim() || !offSelectedUser || !!nameError || !!usernameError || !!facultyError}
                         className="flex items-center gap-2 px-5 py-3 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 disabled:opacity-35 disabled:cursor-not-allowed transition-colors shrink-0"
                       >
                         {offCreating ? (

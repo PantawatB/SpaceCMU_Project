@@ -967,13 +967,13 @@ const Chatbox = () => {
                 <p className="text-xs text-gray-500">โหลดไม่สำเร็จ</p>
                 <button onClick={fetchRooms} className="text-xs text-slate-600 px-3 py-1 rounded-full border border-slate-200 hover:bg-slate-50">ลองใหม่</button>
               </div>
-            ) : rooms.filter((r) => r.displayName.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+            ) : rooms.filter((r) => (r.displayName ?? "").toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-400">
                 <p className="text-xs">ยังไม่มีแชท</p>
                 <button onClick={() => setIsNewChatOpen(true)} className="text-xs text-slate-600 px-3 py-1 rounded-full border border-slate-200 hover:bg-slate-50">+ เริ่มใหม่</button>
               </div>
             ) : (
-              rooms.filter((r) => r.displayName.toLowerCase().includes(searchQuery.toLowerCase())).map((room) => {
+              rooms.filter((r) => (r.displayName ?? "").toLowerCase().includes(searchQuery.toLowerCase())).map((room) => {
                 const av = room.displayAvatar ? apiService.getImageUrl(room.displayAvatar) : null;
                 let lastText = "ยังไม่มีข้อความ";
                 if (room.lastMessage) {
@@ -1436,8 +1436,8 @@ const Chatbox = () => {
                 </div>
               ) : suggestions.filter((s) =>
                   newChatSearch === "" ||
-                  s.displayName.toLowerCase().includes(newChatSearch.toLowerCase()) ||
-                  s.username.toLowerCase().includes(newChatSearch.toLowerCase())
+                  (s.displayName ?? "").toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                  (s.username ?? "").toLowerCase().includes(newChatSearch.toLowerCase())
                 ).length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
                   <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-4.35-4.35M17 11A6 6 0 115 11a6 6 0 0112 0z" /></svg>
@@ -1447,8 +1447,8 @@ const Chatbox = () => {
                 suggestions
                   .filter((s) =>
                     newChatSearch === "" ||
-                    s.displayName.toLowerCase().includes(newChatSearch.toLowerCase()) ||
-                    s.username.toLowerCase().includes(newChatSearch.toLowerCase())
+                    (s.displayName ?? "").toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                    (s.username ?? "").toLowerCase().includes(newChatSearch.toLowerCase())
                   )
                   .map((s) => {
                     const isSel = selectedSuggestions.includes(s.id);
