@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable } from "../../db/schema.js";
+import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable, notificationsTable } from "../../db/schema.js";
 import { eq, desc, asc, and, sql, lt, ne, inArray } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -648,6 +648,23 @@ export const likePost = async (req: Request, res: Response) => {
                 logActivity(userId, "Liked post", `Liked post ID: ${postId}`, req);
             });
 
+            // Create notification for post owner (don't notify yourself)
+            const post = await dbClient
+                .select({ userId: postsTable.userId })
+                .from(postsTable)
+                .where(eq(postsTable.id, postId))
+                .limit(1);
+            const postOwnerId = post[0]?.userId;
+            if (postOwnerId && postOwnerId !== userId) {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: postOwnerId,
+                    senderId: userId,
+                    type: "like",
+                    referenceId: postId,
+                    message: null,
+                });
+            }
+
             return res.status(201).json({
                 message: "Liked",
                 likeCount: updatedPost[0]?.likeCount || 0
@@ -717,6 +734,43 @@ export const addComment = async (req: Request, res: Response) => {
         await import("../utils/activityLogger.js").then(({ logActivity }) => {
             logActivity(userId, "Added comment", `Commented on post ${postId}: ${content?.substring(0, 50)}...`, req);
         });
+
+        // Create notification for post owner (comment) or parent comment owner (reply)
+        if (parentCommentId) {
+            // This is a reply — notify the parent comment owner
+            const parentComment = await dbClient
+                .select({ userId: commentsTable.userId })
+                .from(commentsTable)
+                .where(eq(commentsTable.id, String(parentCommentId)))
+                .limit(1);
+            const parentOwnerId = parentComment[0]?.userId;
+            if (parentOwnerId && parentOwnerId !== userId) {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: parentOwnerId,
+                    senderId: userId,
+                    type: "reply",
+                    referenceId: String(postId),
+                    message: content ? content.substring(0, 100) : null,
+                });
+            }
+        } else {
+            // This is a top-level comment — notify the post owner
+            const postRecord = await dbClient
+                .select({ userId: postsTable.userId })
+                .from(postsTable)
+                .where(eq(postsTable.id, String(postId)))
+                .limit(1);
+            const postOwnerId = postRecord[0]?.userId;
+            if (postOwnerId && postOwnerId !== userId) {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: postOwnerId,
+                    senderId: userId,
+                    type: "comment",
+                    referenceId: String(postId),
+                    message: content ? content.substring(0, 100) : null,
+                });
+            }
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error adding comment" });
@@ -1059,6 +1113,23 @@ export const repostPost = async (req: Request, res: Response) => {
             await import("../utils/activityLogger.js").then(({ logActivity }) => {
                 logActivity(userId, "Reposted post", `Reposted post ID: ${postId}`, req);
             });
+
+            // Create notification for post owner (don't notify yourself)
+            const postRecord = await dbClient
+                .select({ userId: postsTable.userId })
+                .from(postsTable)
+                .where(eq(postsTable.id, postId))
+                .limit(1);
+            const postOwnerId = postRecord[0]?.userId;
+            if (postOwnerId && postOwnerId !== userId) {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: postOwnerId,
+                    senderId: userId,
+                    type: "repost",
+                    referenceId: postId,
+                    message: null,
+                });
+            }
 
             return res.status(200).json({
                 message: "Post reposted",
@@ -1713,7 +1784,20 @@ export const likeComment = async (req: Request, res: Response) => {
                 .set({ likeCount: sql`${commentsTable.likeCount} + 1` })
                 .where(eq(commentsTable.id, String(commentId)));
 
-            const updated = await dbClient.select({ likeCount: commentsTable.likeCount }).from(commentsTable).where(eq(commentsTable.id, String(commentId))).limit(1);
+            const updated = await dbClient.select({ likeCount: commentsTable.likeCount, userId: commentsTable.userId, content: commentsTable.content }).from(commentsTable).where(eq(commentsTable.id, String(commentId))).limit(1);
+
+            // Notify comment owner (don't notify yourself)
+            const commentOwnerId = updated[0]?.userId;
+            if (commentOwnerId && commentOwnerId !== userId) {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: commentOwnerId,
+                    senderId: userId,
+                    type: "comment_like",
+                    referenceId: String(commentId),
+                    message: updated[0]?.content ? updated[0].content.substring(0, 100) : null,
+                });
+            }
+
             return res.json({ message: "Liked", liked: true, likeCount: updated[0]?.likeCount ?? 0 });
         }
     } catch (error) {

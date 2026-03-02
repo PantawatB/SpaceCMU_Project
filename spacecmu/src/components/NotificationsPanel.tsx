@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
 import { API_CONFIG } from "@/lib/config";
+import { apiService } from "@/lib/api";
 
 interface Notification {
   id: string;
   recipientId: string;
   senderId: string | null;
-  type: "like" | "comment" | "friend_request" | "other";
+  type: "like" | "comment" | "friend_request" | "other" | "repost" | "reply" | "comment_like" | "friend_accept";
   referenceId: string | null;
   message: string | null;
   isRead: boolean;
@@ -36,7 +36,11 @@ function timeAgo(dateStr: string): string {
 }
 
 function isAdminNotification(notif: Notification): boolean {
-  return notif.sender?.role === "god" || notif.sender?.role === "admin";
+  // Only treat as admin notification if it's the "other" type sent by admin/god
+  // User-generated types (like, comment, reply, repost, comment_like) always show sender's real profile
+  const userGeneratedTypes: Notification["type"][] = ["like", "comment", "reply", "repost", "comment_like", "friend_request", "friend_accept"];
+  if (userGeneratedTypes.includes(notif.type)) return false;
+  return notif.sender?.role === "god" || notif.sender?.role === "admin" || notif.senderId === null;
 }
 
 function NotifIcon({ type, isAdmin }: { type: Notification["type"]; isAdmin: boolean }) {
@@ -67,11 +71,47 @@ function NotifIcon({ type, isAdmin }: { type: Notification["type"]; isAdmin: boo
       </span>
     );
   }
+  if (type === "reply") {
+    return (
+      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-500">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+        </svg>
+      </span>
+    );
+  }
+  if (type === "repost") {
+    return (
+      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-500">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+      </span>
+    );
+  }
+  if (type === "comment_like") {
+    return (
+      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-pink-100 text-pink-500">
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+        </svg>
+      </span>
+    );
+  }
   if (type === "friend_request") {
     return (
       <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-500">
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+        </svg>
+      </span>
+    );
+  }
+  if (type === "friend_accept") {
+    return (
+      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-teal-100 text-teal-600">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       </span>
     );
@@ -89,7 +129,11 @@ function typeLabel(type: Notification["type"], senderName: string): string {
   switch (type) {
     case "like": return `${senderName} liked your post`;
     case "comment": return `${senderName} commented on your post`;
+    case "reply": return `${senderName} replied to your comment`;
+    case "repost": return `${senderName} reposted your post`;
+    case "comment_like": return `${senderName} liked your comment`;
     case "friend_request": return `${senderName} sent you a friend request`;
+    case "friend_accept": return `${senderName} accepted your friend request`;
     default: return `Message from ${senderName}`;
   }
 }
@@ -135,8 +179,9 @@ function NotifDetailModal({
                 </svg>
               </div>
             ) : avatarUrl ? (
-              <Image
-                src={avatarUrl.startsWith("http") ? avatarUrl : `${API_CONFIG.BASE_URL}${avatarUrl}`}
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={apiService.getImageUrl(avatarUrl) || "/default-avatar.svg"}
                 alt={senderName}
                 width={40}
                 height={40}
@@ -439,8 +484,9 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
                         </svg>
                       </div>
                     ) : avatarUrl ? (
-                      <Image
-                        src={avatarUrl.startsWith("http") ? avatarUrl : `${API_CONFIG.BASE_URL}${avatarUrl}`}
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={apiService.getImageUrl(avatarUrl) || "/default-avatar.svg"}
                         alt={senderName}
                         width={36}
                         height={36}

@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { friendshipsTable, usersTable } from "../../db/schema.js";
+import { friendshipsTable, usersTable, notificationsTable } from "../../db/schema.js";
 import { eq, or, and, sql } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 
@@ -15,6 +15,20 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
             .insert(friendshipsTable)
             .values({ userId1, userId2, status: "pending" })
             .returning();
+
+        // Notify the recipient about the friend request (before sending response so errors are caught)
+        try {
+            await dbClient.insert(notificationsTable).values({
+                recipientId: userId2,
+                senderId: userId1,
+                type: "friend_request",
+                referenceId: request[0].id,
+                message: null,
+            });
+        } catch (notifError) {
+            console.error("Failed to create friend_request notification:", notifError);
+        }
+
         res.status(201).json(request[0]);
 
         // Log Activity
@@ -85,6 +99,22 @@ export const respondToRequest = async (req: Request, res: Response) => {
                 if (key.startsWith(userId1 + ":") || key.startsWith(userId2 + ":")) {
                     suggestionsCache.delete(key);
                 }
+            }
+        }
+
+        if (status === "accepted") {
+            const friendship = updated[0];
+            // Notify the original sender that their request was accepted
+            try {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: friendship.userId1,
+                    senderId: friendship.userId2,
+                    type: "friend_accept",
+                    referenceId: friendship.id,
+                    message: null,
+                });
+            } catch (notifError) {
+                console.error("Failed to create friend_accept notification:", notifError);
             }
         }
 
@@ -165,6 +195,19 @@ export const respondToRequestByUserId = async (req: Request, res: Response) => {
                 .update(usersTable)
                 .set({ friendsCount: sql`COALESCE(${usersTable.friendsCount}, 0) + 1` })
                 .where(eq(usersTable.id, friendship.userId2));
+
+            // Notify the original sender (userId1) that their request was accepted
+            try {
+                await dbClient.insert(notificationsTable).values({
+                    recipientId: friendship.userId1,
+                    senderId: currentUserId,
+                    type: "friend_accept",
+                    referenceId: friendship.id,
+                    message: null,
+                });
+            } catch (notifError) {
+                console.error("Failed to create friend_accept notification:", notifError);
+            }
 
             // Log Activity
             await import("../utils/activityLogger.js").then(({ logActivity }) => {
