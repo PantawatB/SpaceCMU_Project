@@ -1,8 +1,9 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable, notificationsTable } from "../../db/schema.js";
-import { eq, desc, asc, and, sql, lt, ne, inArray } from "drizzle-orm";
+import { eq, desc, asc, and, sql, lt, ne, inArray, gt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
+import { createNotificationIfNotDuplicate } from "../utils/notificationUtils.js";
 
 // --- Post Management ---
 
@@ -656,7 +657,7 @@ export const likePost = async (req: Request, res: Response) => {
                 .limit(1);
             const postOwnerId = post[0]?.userId;
             if (postOwnerId && postOwnerId !== userId) {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: postOwnerId,
                     senderId: userId,
                     type: "like",
@@ -745,7 +746,7 @@ export const addComment = async (req: Request, res: Response) => {
                 .limit(1);
             const parentOwnerId = parentComment[0]?.userId;
             if (parentOwnerId && parentOwnerId !== userId) {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: parentOwnerId,
                     senderId: userId,
                     type: "reply",
@@ -762,7 +763,7 @@ export const addComment = async (req: Request, res: Response) => {
                 .limit(1);
             const postOwnerId = postRecord[0]?.userId;
             if (postOwnerId && postOwnerId !== userId) {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: postOwnerId,
                     senderId: userId,
                     type: "comment",
@@ -1122,7 +1123,7 @@ export const repostPost = async (req: Request, res: Response) => {
                 .limit(1);
             const postOwnerId = postRecord[0]?.userId;
             if (postOwnerId && postOwnerId !== userId) {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: postOwnerId,
                     senderId: userId,
                     type: "repost",
@@ -1435,6 +1436,133 @@ export const getSavedPosts = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching saved posts" });
+    }
+};
+
+export const getPostByCommentId = async (req: Request, res: Response) => {
+    try {
+        const { commentId } = req.params;
+        if (!commentId) {
+            return res.status(400).json({ message: "commentId is required" });
+        }
+
+        // Find the comment to get its postId
+        const comments = await dbClient
+            .select({ postId: commentsTable.postId })
+            .from(commentsTable)
+            .where(eq(commentsTable.id, commentId))
+            .limit(1);
+
+        if (comments.length === 0) {
+            return res.status(404).json({ message: "Comment not found" });
+        }
+
+        const postId = comments[0].postId;
+
+        // Fetch the post
+        const posts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                createdAt: postsTable.createdAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+            })
+            .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(eq(postsTable.id, postId))
+            .limit(1);
+
+        if (posts.length === 0) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        const post = posts[0];
+        return res.json({
+            postId: post.id,
+            id: post.id,
+            content: post.content,
+            author: {
+                firstName: post.authorFirstName,
+                lastName: post.authorLastName,
+                avatarUrl: post.authorAvatarUrl,
+            },
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching post from comment" });
+    }
+};
+
+export const getPostById = async (req: Request, res: Response) => {
+    try {
+        const { postId } = req.params;
+        if (!postId) {
+            return res.status(400).json({ message: "postId is required" });
+        }
+
+        const posts = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                status: postsTable.status,
+                createdAt: postsTable.createdAt,
+                updatedAt: postsTable.updatedAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
+            })
+            .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(eq(postsTable.id, postId))
+            .limit(1);
+
+        if (posts.length === 0) {
+            // คืน 200 + { deleted: true } แทน 404 เพื่อให้ frontend จัดการได้โดยไม่มี browser error log
+            return res.status(200).json({ deleted: true });
+        }
+
+        const post = posts[0];
+
+        const media = await dbClient
+            .select()
+            .from(postMediaTable)
+            .where(eq(postMediaTable.postId, post.id));
+
+        return res.json({
+            id: post.id,
+            userId: post.userId,
+            content: post.content,
+            category: post.category,
+            likeCount: post.likeCount,
+            commentCount: post.commentCount,
+            repostCount: post.repostCount,
+            status: post.status,
+            createdAt: post.createdAt,
+            updatedAt: post.updatedAt,
+            author: {
+                firstName: post.authorFirstName,
+                lastName: post.authorLastName,
+                avatarUrl: post.authorAvatarUrl,
+                role: post.authorRole,
+            },
+            media: media.sort((a, b) => a.order - b.order),
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching post" });
     }
 };
 
@@ -1789,7 +1917,7 @@ export const likeComment = async (req: Request, res: Response) => {
             // Notify comment owner (don't notify yourself)
             const commentOwnerId = updated[0]?.userId;
             if (commentOwnerId && commentOwnerId !== userId) {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: commentOwnerId,
                     senderId: userId,
                     type: "comment_like",

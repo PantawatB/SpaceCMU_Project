@@ -1,0 +1,336 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+import { apiService } from "@/lib/api";
+
+interface PostMedia {
+  id: number;
+  postId: number;
+  mediaUrl: string;
+  mediaType: "image" | "video";
+  order: number;
+  fileSize: number | null;
+}
+
+interface Post {
+  id: string;
+  userId?: string;
+  content: string;
+  category?: string;
+  likeCount?: number;
+  commentCount?: number;
+  repostCount?: number;
+  createdAt: string;
+  author?: {
+    firstName: string | null;
+    lastName: string | null;
+    avatarUrl: string | null;
+  };
+  media?: PostMedia[];
+}
+
+interface PostCardReadOnlyProps {
+  post: Post;
+}
+
+function getTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return `${Math.floor(days / 7)}w ago`;
+}
+
+/**
+ * A read-only view of a post — shows author, content, and media,
+ * but NO action buttons (like / comment / repost / save).
+ */
+export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showLeftArrow, setShowLeftArrow] = useState(false);
+  const [showRightArrow, setShowRightArrow] = useState(
+    (post.media?.length ?? 0) > 1,
+  );
+
+  // Lightbox
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const handleMediaScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowLeftArrow(el.scrollLeft > 0);
+    setShowRightArrow(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  };
+
+  // Initialise arrow state after mount
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowRightArrow(el.scrollWidth > el.clientWidth + 4);
+  }, [post.media]);
+
+  // Close lightbox on Escape / Arrow keys
+  useEffect(() => {
+    if (lightboxIndex === null) return;
+    const images = (post.media ?? []).filter((m) => m.mediaType === "image");
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightboxIndex(null);
+      if (e.key === "ArrowLeft" && lightboxIndex > 0)
+        setLightboxIndex((i) => (i ?? 0) - 1);
+      if (e.key === "ArrowRight" && lightboxIndex < images.length - 1)
+        setLightboxIndex((i) => (i ?? 0) + 1);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [lightboxIndex, post.media]);
+
+  const authorName =
+    post.author?.firstName || post.author?.lastName
+      ? `${post.author.firstName ?? ""} ${post.author.lastName ?? ""}`.trim()
+      : "Anonymous";
+
+  const imageOnlyMedia = (post.media ?? []).filter(
+    (m) => m.mediaType === "image",
+  );
+
+  return (
+    <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+      {/* ── Header ── */}
+      <div className="flex items-center gap-3 mb-3">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={
+            apiService.getImageUrl(post.author?.avatarUrl) ||
+            "/default-avatar.svg"
+          }
+          alt={authorName}
+          className="w-9 h-9 rounded-full object-cover shrink-0"
+        />
+        <div className="min-w-0">
+          <div className="font-semibold text-sm text-gray-800 truncate">
+            {authorName}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            {post.category && (
+              <>
+                <span>{post.category}</span>
+                <span>·</span>
+              </>
+            )}
+            <span>{getTimeAgo(post.createdAt)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      {post.content && (
+        <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word mb-3">
+          {post.content}
+        </p>
+      )}
+
+      {/* ── Media ── */}
+      {post.media && post.media.length > 0 && (
+        <div className="relative group/media">
+          {/* Left scroll arrow */}
+          {post.media.length > 1 && showLeftArrow && (
+            <div className="absolute left-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-60 group-hover/media:opacity-100 transition-opacity">
+              <div className="bg-white/90 rounded-full p-1.5 shadow">
+                <svg
+                  className="w-4 h-4 text-gray-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M15 19l-7-7 7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
+          {/* Right scroll arrow */}
+          {post.media.length > 1 && showRightArrow && (
+            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-60 group-hover/media:opacity-100 transition-opacity">
+              <div className="bg-white/90 rounded-full p-1.5 shadow">
+                <svg
+                  className="w-4 h-4 text-gray-700"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2.5}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
+
+          <div
+            ref={scrollRef}
+            className="overflow-x-auto overflow-y-hidden scrollbar-hide"
+            onScroll={handleMediaScroll}
+          >
+            <div
+              className={`flex items-center gap-2 ${
+                post.media.length === 1 ? "w-full justify-center" : "w-max"
+              }`}
+            >
+              {post.media.map((media, index) => {
+                const isSingle = post.media!.length === 1;
+                const imageIndex = post
+                  .media!.slice(0, index + 1)
+                  .filter((m) => m.mediaType === "image").length - 1;
+
+                return (
+                  <div
+                    key={media.id}
+                    className={`relative rounded-xl overflow-hidden shrink-0 ${
+                      media.mediaType === "image" ? "cursor-pointer" : ""
+                    }`}
+                    style={{ width: isSingle ? "100%" : "auto" }}
+                    onClick={() => {
+                      if (media.mediaType === "image") {
+                        setLightboxIndex(imageIndex);
+                      }
+                    }}
+                  >
+                    {media.mediaType === "image" ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={apiService.getImageUrl(media.mediaUrl) || ""}
+                        alt={`Media ${index + 1}`}
+                        className="rounded-xl"
+                        style={{
+                          width: isSingle ? "100%" : "auto",
+                          height: isSingle ? "auto" : "260px",
+                          maxHeight: isSingle ? "480px" : "260px",
+                          objectFit: "contain",
+                        }}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <video
+                        src={apiService.getImageUrl(media.mediaUrl) || ""}
+                        controls
+                        preload="metadata"
+                        className="rounded-xl"
+                        style={{
+                          width: isSingle ? "100%" : "auto",
+                          height: isSingle ? "auto" : "260px",
+                          maxHeight: isSingle ? "480px" : "260px",
+                          objectFit: "contain",
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats row (read-only counts, no buttons) */}
+      {(post.likeCount !== undefined ||
+        post.commentCount !== undefined ||
+        post.repostCount !== undefined) && (
+        <div className="flex items-center gap-4 mt-3 text-xs text-gray-400">
+          {post.likeCount !== undefined && post.likeCount > 0 && (
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              {post.likeCount}
+            </span>
+          )}
+          {post.commentCount !== undefined && post.commentCount > 0 && (
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              {post.commentCount}
+            </span>
+          )}
+          {post.repostCount !== undefined && post.repostCount > 0 && (
+            <span className="flex items-center gap-1">
+              <svg className="w-3.5 h-3.5 text-green-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {post.repostCount}
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* ── Image Lightbox ── */}
+      {lightboxIndex !== null && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-200 flex items-center justify-center p-4"
+          onClick={() => setLightboxIndex(null)}
+        >
+          {/* Close */}
+          <button
+            onClick={() => setLightboxIndex(null)}
+            className="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          {/* Counter */}
+          {imageOnlyMedia.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-black/40 text-white text-sm">
+              {lightboxIndex + 1} / {imageOnlyMedia.length}
+            </div>
+          )}
+          {/* Prev */}
+          {lightboxIndex > 0 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i ?? 1) - 1); }}
+              className="absolute left-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          {/* Next */}
+          {lightboxIndex < imageOnlyMedia.length - 1 && (
+            <button
+              onClick={(e) => { e.stopPropagation(); setLightboxIndex((i) => (i ?? 0) + 1); }}
+              className="absolute right-4 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/40 hover:bg-black/60 text-white"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+          {/* Image */}
+          <div onClick={(e) => e.stopPropagation()}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={apiService.getImageUrl(imageOnlyMedia[lightboxIndex]?.mediaUrl) || ""}
+              alt={`Full ${lightboxIndex + 1}`}
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl select-none"
+              draggable={false}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

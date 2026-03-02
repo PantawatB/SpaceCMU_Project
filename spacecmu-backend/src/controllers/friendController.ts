@@ -3,6 +3,7 @@ import { dbClient } from "../../db/client.js";
 import { friendshipsTable, usersTable, notificationsTable } from "../../db/schema.js";
 import { eq, or, and, sql } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
+import { createNotificationIfNotDuplicate } from "../utils/notificationUtils.js";
 
 export const sendFriendRequest = async (req: Request, res: Response) => {
     try {
@@ -18,7 +19,7 @@ export const sendFriendRequest = async (req: Request, res: Response) => {
 
         // Notify the recipient about the friend request (before sending response so errors are caught)
         try {
-            await dbClient.insert(notificationsTable).values({
+            await createNotificationIfNotDuplicate({
                 recipientId: userId2,
                 senderId: userId1,
                 type: "friend_request",
@@ -106,7 +107,7 @@ export const respondToRequest = async (req: Request, res: Response) => {
             const friendship = updated[0];
             // Notify the original sender that their request was accepted
             try {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: friendship.userId1,
                     senderId: friendship.userId2,
                     type: "friend_accept",
@@ -198,7 +199,7 @@ export const respondToRequestByUserId = async (req: Request, res: Response) => {
 
             // Notify the original sender (userId1) that their request was accepted
             try {
-                await dbClient.insert(notificationsTable).values({
+                await createNotificationIfNotDuplicate({
                     recipientId: friendship.userId1,
                     senderId: currentUserId,
                     type: "friend_accept",
