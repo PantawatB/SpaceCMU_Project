@@ -55,6 +55,7 @@ export interface MyOfficialAccount extends OfficialAccount {
   isOwner: boolean;
   ownerId: string;
   avatarUrl?: string | null;
+  bannerUrl?: string | null;
   admins: (OfficialAccountAdmin & { avatarUrl?: string | null })[];
   owner: {
     id: string;

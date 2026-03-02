@@ -195,6 +195,7 @@ export const getMyOfficialAccounts = async (req: Request, res: Response) => {
                 userId: officialAccountsTable.userId,
                 ownerId: officialAccountsTable.ownerId,
                 avatarUrl: usersTable.avatarUrl,
+                bannerUrl: usersTable.bannerUrl,
             })
             .from(officialAccountsTable)
             .leftJoin(usersTable, eq(officialAccountsTable.userId, usersTable.id))
