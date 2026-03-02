@@ -170,7 +170,7 @@ export const createOfficialAccount = async (req: Request, res: Response) => {
         .where(eq(usersTable.id, ownerUserId));
 
     if (!ownerUser) return res.status(404).json({ message: "Owner user not found" });
-    if (ownerUser.role === "god") return res.status(400).json({ message: "Cannot assign god as owner" });
+    if (ownerUser.role === "official_account") return res.status(400).json({ message: "Cannot assign official_account as owner" });
 
     try {
         // 1. สร้าง user record สำหรับ official account (ไม่มี password — login ไม่ได้โดยตรง)
@@ -336,9 +336,9 @@ export const addOfficialAccountAdmin = async (req: Request, res: Response) => {
             .from(usersTable)
             .where(eq(usersTable.id, adminUserId));
         if (!targetUser) return res.status(404).json({ message: "User not found" });
-        if (targetUser.role === "god") return res.status(400).json({ message: "Cannot assign god as admin" });
+        if (targetUser.role === "official_account") return res.status(400).json({ message: "Cannot assign official_account as admin" });
 
-        // Upgrade role → admin ถ้ายังเป็น user
+        // Upgrade role → admin ถ้ายังเป็น user (god ไม่ต้อง upgrade)
         if (targetUser.role === "user") {
             await dbClient
                 .update(usersTable)
@@ -362,7 +362,7 @@ export const addOfficialAccountAdmin = async (req: Request, res: Response) => {
 /**
  * GET /api/god/users/search?query=...
  * ค้นหา users สำหรับเลือกเป็น owner/admin ของ official account
- * — ยกเว้น users ที่มี role "official_account" (และ "god")
+ * — ยกเว้น users ที่มี role "official_account"
  */
 export const searchUsersForOfficialAccount = async (req: Request, res: Response) => {
     const { query } = req.query;

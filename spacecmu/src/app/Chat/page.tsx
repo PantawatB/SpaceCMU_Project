@@ -1621,8 +1621,8 @@ export default function ChatPage() {
               ) : suggestions
                 .filter((s) =>
                   newChatSearch === "" ||
-                  s.displayName.toLowerCase().includes(newChatSearch.toLowerCase()) ||
-                  s.username.toLowerCase().includes(newChatSearch.toLowerCase())
+                  (s.displayName ?? "").toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                  (s.username ?? "").toLowerCase().includes(newChatSearch.toLowerCase())
                 )
                 .length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-300 gap-3">
@@ -1635,8 +1635,8 @@ export default function ChatPage() {
                 suggestions
                   .filter((s) =>
                     newChatSearch === "" ||
-                    s.displayName.toLowerCase().includes(newChatSearch.toLowerCase()) ||
-                    s.username.toLowerCase().includes(newChatSearch.toLowerCase())
+                    (s.displayName ?? "").toLowerCase().includes(newChatSearch.toLowerCase()) ||
+                    (s.username ?? "").toLowerCase().includes(newChatSearch.toLowerCase())
                   )
                   .map((s) => {
                     const isSelected = selectedSuggestions.includes(s.id);
@@ -2718,7 +2718,7 @@ export default function ChatPage() {
                 </button>
               </div>
             ) : realRooms.filter((r) =>
-                r.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+                (r.displayName ?? "").toLowerCase().includes(searchQuery.toLowerCase())
               ).length === 0 ? (
               <div className="flex flex-col items-center justify-center h-40 text-gray-400 gap-2 px-6">
                 <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2735,7 +2735,7 @@ export default function ChatPage() {
             ) : (
               realRooms
                 .filter((r) =>
-                  r.displayName.toLowerCase().includes(searchQuery.toLowerCase())
+                  (r.displayName ?? "").toLowerCase().includes(searchQuery.toLowerCase())
                 )
                 .map((room) => {
                   const isActive = selectedRoomId === room.id;

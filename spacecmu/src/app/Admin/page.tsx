@@ -250,7 +250,7 @@ function AccountDetailView({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="h-full w-full bg-linear-to-r from-indigo-200 via-purple-200 to-pink-200" />
+              <div className="h-full w-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
             )}
           </div>
 
