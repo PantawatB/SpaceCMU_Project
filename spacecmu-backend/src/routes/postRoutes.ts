@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
     getAllPosts,
+    getPostById,
+    getPostByCommentId,
     createPost,
     createPostWithMedia,
     deletePost,
@@ -50,5 +52,7 @@ router.get("/user/:userId/reposts", sessionMiddleware, getRepostsByUserId); // G
 router.get("/user/:userId/liked", sessionMiddleware, getLikedPostsByUserId); // Get liked posts by user ID
 router.post("/:postId/accept-event", sessionMiddleware, acceptEventFromPost); // Accept event from post
 router.get("/:postId/comments", optionalSessionMiddleware, getCommentsByPostId);
+router.get("/comment/:commentId/post", optionalSessionMiddleware, getPostByCommentId); // Get post by commentId (for comment_like notifications)
+router.get("/:postId", optionalSessionMiddleware, getPostById); // Get single post by ID
 
 export default router;

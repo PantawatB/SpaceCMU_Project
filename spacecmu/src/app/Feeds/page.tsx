@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
@@ -40,6 +41,8 @@ interface Post {
 export default function FeedsMainPage() {
   const { activeUser } = useUser();
   const { showSuccess, showError } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
   const [selectedFilter, setSelectedFilter] = useState(() => {
     if (typeof window !== "undefined") {
@@ -66,6 +69,12 @@ export default function FeedsMainPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showTokenErrorPopup, setShowTokenErrorPopup] = useState(false);
 
+  // Spotlight post (from notification ?postId=)
+  const [spotlightPost, setSpotlightPost] = useState<Post | null>(null);
+  const [spotlightLoading, setSpotlightLoading] = useState(false);
+  const [spotlightDeleted, setSpotlightDeleted] = useState(false);
+  const spotlightRef = useRef<HTMLDivElement>(null);
+
   // Infinite scroll state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -78,6 +87,60 @@ export default function FeedsMainPage() {
   useEffect(() => {
     localStorage.setItem("feedFilter", selectedFilter);
   }, [selectedFilter]);
+
+  // Handle ?postId= from notification "View Post" link
+  useEffect(() => {
+    const postId = searchParams.get("postId");
+    if (!postId || !activeUser) return;
+
+    const fetchSpotlightPost = async () => {
+      setSpotlightLoading(true);
+      setSpotlightDeleted(false);
+      try {
+        const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          setSpotlightDeleted(true);
+          setTimeout(() => {
+            spotlightRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+          return;
+        }
+        const data = await res.json();
+        if (data.deleted) {
+          setSpotlightDeleted(true);
+          setTimeout(() => {
+            spotlightRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }, 150);
+          return;
+        }
+        setSpotlightPost(data);
+        // Scroll to it after render
+        setTimeout(() => {
+          spotlightRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 150);
+      } catch { /* silent */ }
+      finally { setSpotlightLoading(false); }
+    };
+
+    fetchSpotlightPost();
+  }, [searchParams, activeUser]);
+
+  // Clear spotlight when user switches account (activeUser id changes)
+  const prevUserIdRef = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    const prevId = prevUserIdRef.current;
+    const currId = activeUser?.id;
+    // Only clear if there was a previous user and it actually changed
+    if (prevId !== undefined && prevId !== currId) {
+      setSpotlightPost(null);
+      setSpotlightDeleted(false);
+      setSpotlightLoading(false);
+      router.replace("/Feeds");
+    }
+    prevUserIdRef.current = currId;
+  }, [activeUser?.id, router]);
 
   // Global token error listener
   useEffect(() => {
@@ -628,6 +691,75 @@ export default function FeedsMainPage() {
         </div>
         {/* Feeds Section: scrollable only for posts */}
         <section ref={feedScrollRef} className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
+
+          {/* ── Spotlight post (from notification ?postId=) ── */}
+          {(spotlightLoading || spotlightPost || spotlightDeleted) && (
+            <div ref={spotlightRef} className="flex flex-col gap-2">
+              {/* Banner */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  Post from notification
+                </div>
+                <button
+                  onClick={() => {
+                    setSpotlightPost(null);
+                    setSpotlightDeleted(false);
+                    router.replace("/Feeds");
+                  }}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Dismiss
+                </button>
+              </div>
+
+              {spotlightLoading ? (
+                <div className="flex items-center justify-center py-10 text-gray-400 text-sm gap-2">
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  Loading post...
+                </div>
+              ) : spotlightDeleted ? (
+                <div className="flex items-center gap-3 rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-5 py-6 text-gray-400">
+                  <svg className="w-6 h-6 shrink-0 text-gray-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">โพสต์นี้ถูกลบไปแล้ว</p>
+                    <p className="text-xs text-gray-400 mt-0.5">เนื้อหาของโพสต์นี้ไม่สามารถแสดงได้อีกต่อไป</p>
+                  </div>
+                </div>
+              ) : spotlightPost ? (
+                <PostCard
+                  key={spotlightPost.id}
+                  post={spotlightPost}
+                  onLikeUpdate={handleLikeUpdate}
+                  onRepostUpdate={handleRepostUpdate}
+                  onSaveUpdate={handleSaveUpdate}
+                  onPostDelete={() => {
+                    setSpotlightPost(null);
+                    setSpotlightDeleted(false);
+                    router.replace("/Feeds");
+                  }}
+                />
+              ) : null}
+
+              {/* Divider */}
+              <div className="flex items-center gap-3 mt-1">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-xs text-gray-400">Feed</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
+            </div>
+          )}
+
           {/* Loading State */}
           {loading && (
             <div className="flex justify-center items-center py-12">
