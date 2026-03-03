@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { useUser } from "@/contexts/UserContext";
+import { createPortal } from "react-dom";import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
 export interface SidebarMenuItem {
@@ -781,65 +781,56 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </button>
       </div>
 
-      {/* Tutorial Popup */}
-      {showTutorial && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4 relative shadow-xl border border-gray-200">
-            <button
-              onClick={() => {
-                setShowTutorial(false);
-                setTutorialStep(0);
-              }}
-              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
+    </aside>
 
+    {/* Tutorial Popup - rendered via Portal directly into document.body */}
+    {showTutorial && createPortal(
+      <div className="fixed inset-0 bg-black/10 backdrop-blur-md flex items-center justify-center p-4" style={{ zIndex: 99999 }}>
+        <div className="bg-white rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto relative shadow-2xl border border-gray-200 flex flex-col">
+          <button
+            onClick={() => {
+              setShowTutorial(false);
+              setTutorialStep(0);
+            }}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors z-10"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          <div className="p-8">
             {tutorialStep < tutorialSteps.length - 1 ? (
               // Tutorial Steps
               <div>
                 <div className="text-center mb-6">
-                  <div className="text-lg font-bold text-gray-800 mb-2">
+                  <div className="text-xl font-bold text-gray-800 mb-3">
                     {tutorialSteps[tutorialStep].title}
                   </div>
-
                   <p className="text-gray-600 leading-relaxed">
                     {tutorialSteps[tutorialStep].content}
                   </p>
-                  {/* ที่สำหรับตั้งค่ารูปภาพในแต่ละหัวข้อ tutorialStep */}
                   {tutorialSteps[tutorialStep].image && (
-                    <div className="mb-4 mt-3 flex justify-center">
+                    <div className="mb-4 mt-4 flex justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tutorialSteps[tutorialStep].image}
                         alt={tutorialSteps[tutorialStep].title}
-                        width={300}
+                        width={400}
                         height={300}
-                        className="rounded-lg object-cover shadow-md"
+                        className="rounded-xl object-cover shadow-md max-w-full"
                       />
                     </div>
                   )}
                 </div>
 
-                <div className="flex justify-center mb-4">
+                <div className="flex justify-center mb-6">
                   <div className="flex space-x-2">
                     {tutorialSteps.slice(0, -1).map((_, index) => (
                       <div
                         key={index}
-                        className={`w-2 h-2 rounded-full ${
-                          index === tutorialStep ? "bg-gray-800" : "bg-gray-300"
+                        className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                          index === tutorialStep ? "bg-gray-800 scale-125" : "bg-gray-300"
                         }`}
                       />
                     ))}
@@ -848,11 +839,9 @@ export default function Sidebar({ menuItems }: SidebarProps) {
 
                 <div className="flex justify-between">
                   <button
-                    onClick={() =>
-                      setTutorialStep(Math.max(0, tutorialStep - 1))
-                    }
+                    onClick={() => setTutorialStep(Math.max(0, tutorialStep - 1))}
                     disabled={tutorialStep === 0}
-                    className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                    className={`px-5 py-2.5 rounded-xl font-semibold transition-colors ${
                       tutorialStep === 0
                         ? "text-gray-400 cursor-not-allowed"
                         : "text-gray-800 hover:text-gray-900 hover:bg-gray-300 bg-gray-200"
@@ -862,7 +851,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                   </button>
                   <button
                     onClick={() => setTutorialStep(tutorialStep + 1)}
-                    className="px-4 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors"
+                    className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
                   >
                     ถัดไป
                   </button>
@@ -872,7 +861,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
               // Report Form
               <div>
                 <div className="text-center mb-6">
-                  <div className="text-lg font-bold text-gray-800 mb-2">
+                  <div className="text-xl font-bold text-gray-800 mb-2">
                     แจ้งปัญหาหรือแนะนำ
                   </div>
                   <p className="text-gray-600">
@@ -888,10 +877,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     <input
                       type="text"
                       value={reportForm.name}
-                      onChange={(e) =>
-                        setReportForm({ ...reportForm, name: e.target.value })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors"
+                      onChange={(e) => setReportForm({ ...reportForm, name: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors"
                       placeholder="ชื่อของคุณ"
                     />
                   </div>
@@ -902,12 +889,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     </label>
                     <textarea
                       value={reportForm.issue}
-                      onChange={(e) =>
-                        setReportForm({ ...reportForm, issue: e.target.value })
-                      }
+                      onChange={(e) => setReportForm({ ...reportForm, issue: e.target.value })}
                       required
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors resize-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors resize-none"
                       placeholder="อธิบายปัญหาหรือข้อเสนอแนะ..."
                     />
                   </div>
@@ -918,144 +903,68 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     </label>
 
                     {reportForm.attachedFile ? (
-                      // Show preview when file is selected
                       <div className="space-y-3">
-                        <div className="border-2 border-gray-300 rounded-lg p-3 bg-gray-50">
+                        <div className="border-2 border-gray-300 rounded-xl p-3 bg-gray-50">
                           <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-gray-700">
-                              รูปภาพที่เลือก:
-                            </span>
+                            <span className="text-sm font-medium text-gray-700">รูปภาพที่เลือก:</span>
                             <button
                               type="button"
-                              onClick={() =>
-                                setReportForm({
-                                  ...reportForm,
-                                  attachedFile: null,
-                                })
-                              }
+                              onClick={() => setReportForm({ ...reportForm, attachedFile: null })}
                               className="text-red-500 hover:text-red-700 transition-colors"
                               title="ลบรูปภาพ"
                             >
-                              <svg
-                                className="w-5 h-5"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
                           </div>
-
                           <div className="flex flex-col items-center space-y-2">
                             <div className="relative">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
-                                src={URL.createObjectURL(
-                                  reportForm.attachedFile
-                                )}
+                                src={URL.createObjectURL(reportForm.attachedFile)}
                                 alt="Preview"
                                 className="w-32 h-32 object-cover rounded-lg shadow-sm"
                               />
                             </div>
                             <div className="text-center">
-                              <p className="text-sm font-medium text-gray-700">
-                                {reportForm.attachedFile.name}
-                              </p>
-                              <p className="text-xs text-gray-500">
-                                {(
-                                  reportForm.attachedFile.size /
-                                  1024 /
-                                  1024
-                                ).toFixed(2)}{" "}
-                                MB
-                              </p>
+                              <p className="text-sm font-medium text-gray-700">{reportForm.attachedFile.name}</p>
+                              <p className="text-xs text-gray-500">{(reportForm.attachedFile.size / 1024 / 1024).toFixed(2)} MB</p>
                             </div>
                           </div>
                         </div>
-
-                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-3 text-center hover:border-gray-400 transition-colors">
+                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-3 text-center hover:border-gray-400 transition-colors">
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0] || null;
-                              setReportForm({
-                                ...reportForm,
-                                attachedFile: file,
-                              });
-                            }}
+                            onChange={(e) => { const file = e.target.files?.[0] || null; setReportForm({ ...reportForm, attachedFile: file }); }}
                             className="hidden"
                             id="file-upload-replace"
                           />
-                          <label
-                            htmlFor="file-upload-replace"
-                            className="cursor-pointer flex flex-col items-center space-y-1"
-                          >
-                            <svg
-                              className="w-6 h-6 text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                              />
+                          <label htmlFor="file-upload-replace" className="cursor-pointer flex flex-col items-center space-y-1">
+                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
                             </svg>
-                            <span className="text-sm font-medium text-gray-600">
-                              เปลี่ยนรูปภาพ
-                            </span>
+                            <span className="text-sm font-medium text-gray-600">เปลี่ยนรูปภาพ</span>
                           </label>
                         </div>
                       </div>
                     ) : (
-                      // Show upload area when no file selected
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors">
+                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-gray-400 transition-colors">
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0] || null;
-                            setReportForm({
-                              ...reportForm,
-                              attachedFile: file,
-                            });
-                          }}
+                          onChange={(e) => { const file = e.target.files?.[0] || null; setReportForm({ ...reportForm, attachedFile: file }); }}
                           className="hidden"
                           id="file-upload"
                         />
-                        <label
-                          htmlFor="file-upload"
-                          className="cursor-pointer flex flex-col items-center space-y-2"
-                        >
-                          <svg
-                            className="w-8 h-8 text-gray-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                            />
+                        <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center space-y-2">
+                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                           </svg>
                           <div className="text-sm text-gray-500">
-                            <span className="font-medium text-gray-600">
-                              คลิกเพื่อเลือกรูปภาพ
-                            </span>
-                            <p className="text-xs mt-1">
-                              PNG, JPG, GIF (ขนาดไม่เกิน 5MB)
-                            </p>
+                            <span className="font-medium text-gray-600">คลิกเพื่อเลือกรูปภาพ</span>
+                            <p className="text-xs mt-1">PNG, JPG, GIF (ขนาดไม่เกิน 5MB)</p>
                           </div>
                         </label>
                       </div>
@@ -1066,13 +975,13 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     <button
                       type="button"
                       onClick={() => setTutorialStep(tutorialStep - 1)}
-                      className="px-4 py-2 text-gray-800 hover:text-gray-900 hover:bg-gray-300 bg-gray-200 rounded-lg font-semibold transition-colors"
+                      className="px-5 py-2.5 text-gray-800 hover:text-gray-900 hover:bg-gray-300 bg-gray-200 rounded-xl font-semibold transition-colors"
                     >
                       ย้อนกลับ
                     </button>
                     <button
                       type="submit"
-                      className="px-4 py-2 bg-gray-800 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors"
+                      className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
                     >
                       ส่งรายงาน
                     </button>
@@ -1082,8 +991,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
             )}
           </div>
         </div>
-      )}
-    </aside>
+      </div>
+    , document.body)}
 
     {/* Error Toast */}
     {showErrorToast && (
