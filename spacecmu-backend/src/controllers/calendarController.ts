@@ -47,7 +47,7 @@ export const createEvent = async (req: Request, res: Response) => {
                 description,
                 startTime: new Date(startTime),
                 endTime: endTime ? new Date(endTime) : null,
-                type: type || "event",
+                type: type || "task",
             })
             .returning();
         res.status(201).json(newEvent[0]);

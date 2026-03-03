@@ -69,6 +69,12 @@ export default function FeedsMainPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [showTokenErrorPopup, setShowTokenErrorPopup] = useState(false);
 
+  // Event date/time for Events category posts
+  const [showEventDatePopup, setShowEventDatePopup] = useState(false);
+  const [eventDate, setEventDate] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [eventName, setEventName] = useState("");
+
   // Spotlight post (from notification ?postId=)
   const [spotlightPost, setSpotlightPost] = useState<Post | null>(null);
   const [spotlightLoading, setSpotlightLoading] = useState(false);
@@ -293,7 +299,7 @@ export default function FeedsMainPage() {
     { id: "Events", label: "Events" },
     { id: "Questions", label: "Questions" },
     { id: "Marketplace", label: "Marketplace" },
-    { id: "Shops", label: "Shops" },
+    { id: "Shops", label: "Shops / ฝากร้านขายของ" },
   ];
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -397,6 +403,17 @@ export default function FeedsMainPage() {
       formData.append("content", postText);
       formData.append("category", postMode);
 
+      // If this is an Events post, send event data as what the backend expects
+      if (postMode === "Events" && eventDate && eventTime) {
+        // Combine date + time into an ISO datetime string
+        const [h, m] = eventTime.split(":").map(Number);
+        const [y, mo, d] = eventDate.split("-").map(Number);
+        const startDateTime = new Date(y, mo - 1, d, h, m);
+        formData.append("eventTitle", eventName.trim().slice(0, 255) || postText.split("\n")[0].slice(0, 255) || "Event");
+        formData.append("eventStartTime", startDateTime.toISOString());
+        formData.append("eventType", "event");
+      }
+
       // Add all images
       selectedImages.forEach((image) => {
         formData.append("media", image);
@@ -441,6 +458,9 @@ export default function FeedsMainPage() {
       setSelectedVideos([]);
       setImagePreviews([]);
       setVideoPreviews([]);
+      setEventDate("");
+      setEventTime("");
+      setEventName("");
 
       // Refresh feed to show new post
       const refreshResponse = await fetch(
@@ -471,7 +491,9 @@ export default function FeedsMainPage() {
     postMode !== null &&
     (postText.trim() !== "" ||
       selectedImages.length > 0 ||
-      selectedVideos.length > 0);
+      selectedVideos.length > 0) &&
+    // If posting to Events category, event date AND time must be filled
+    (postMode !== "Events" || (eventDate !== "" && eventTime !== ""));
 
   const filterOptions = [
     { id: "Global", label: "Global" },
@@ -481,7 +503,7 @@ export default function FeedsMainPage() {
     { id: "Events", label: "Events" },
     { id: "Questions", label: "Questions" },
     { id: "Marketplace", label: "Marketplace" },
-    { id: "Shops", label: "Shops" },
+    { id: "Shops", label: "Shops / ฝากร้านขายของ" },
   ];
 
   const handleFilterSelect = (filterId: string) => {
@@ -1063,6 +1085,96 @@ export default function FeedsMainPage() {
           </div>
         )}
 
+        {/* Event Date/Time Popup */}
+        {showEventDatePopup && (
+          <div
+            className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setShowEventDatePopup(false)}
+          >
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 bg-orange-100 rounded-full flex items-center justify-center">
+                    <svg className="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <h2 className="text-lg font-bold text-gray-800">วันและเวลา Event</h2>
+                </div>
+                <button onClick={() => setShowEventDatePopup(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-sm text-gray-500 mb-5">กรอกวันที่และเวลาที่ Event นี้จะเกิดขึ้น (จำเป็นสำหรับโพสต์ประเภท Events)</p>
+
+              <div className="space-y-4">
+                {/* Event Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    ชื่อ Event <span className="text-gray-400 text-xs">(ไม่บังคับ — ถ้าไม่กรอกจะใช้บรรทัดแรกของโพสต์)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={eventName}
+                    onChange={(e) => setEventName(e.target.value.slice(0, 255))}
+                    placeholder="เช่น งาน Freshy Night 2026, ..."
+                    maxLength={255}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none text-sm"
+                  />
+                  <p className="text-xs text-gray-400 mt-1 text-right">{eventName.length}/255</p>
+                </div>
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">วันที่ <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none text-sm"
+                  />
+                </div>
+                {/* Time */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">เวลา <span className="text-red-500">*</span></label>
+                  <input
+                    type="time"
+                    value={eventTime}
+                    onChange={(e) => setEventTime(e.target.value)}
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-6">
+                <button
+                  onClick={() => { setEventDate(""); setEventTime(""); setEventName(""); setShowEventDatePopup(false); }}
+                  className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+                >
+                  ล้างค่า
+                </button>
+                <button
+                  onClick={() => setShowEventDatePopup(false)}
+                  disabled={!eventDate || !eventTime}
+                  className={`flex-1 px-4 py-2.5 rounded-lg text-white text-sm font-medium transition-all ${
+                    eventDate && eventTime
+                      ? "bg-slate-500 hover:bg-slate-600 shadow"
+                      : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                  }`}
+                >
+                  ยืนยัน
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Share something bar - fixed bottom with toggle */}
         <div className="fixed bottom-4 left-8 right-22 md:left-8 md:right-22 lg:left-72 lg:right-96 z-10 flex flex-col items-center">
           {/* Toggle Button */}
@@ -1201,6 +1313,29 @@ export default function FeedsMainPage() {
               {/* Row 2: Action Buttons */}
               <div className="flex items-center justify-between gap-1 sm:gap-2 pt-2 sm:pt-3 border-t border-gray-100">
                 <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                  {/* Event Date Button — shown only when Events feed is selected */}
+                  {postMode === "Events" && (
+                    <button
+                      type="button"
+                      onClick={() => setShowEventDatePopup(true)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-lg border text-xs sm:text-sm font-medium transition-all ${
+                        eventDate && eventTime
+                          ? "bg-orange-50 text-orange-600 border-orange-300 hover:bg-orange-100"
+                          : "bg-red-50 text-red-500 border-red-200 hover:bg-red-100 animate-pulse"
+                      }`}
+                      title="กรอกวันและเวลาของ Event (จำเป็น)"
+                    >
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <span className="whitespace-nowrap">
+                        {eventDate && eventTime
+                          ? `${eventName ? eventName.slice(0, 20) + (eventName.length > 20 ? "…" : "") + " · " : ""}${eventDate} ${eventTime}`
+                          : "กรอกวันที่ Event ✱"}
+                      </span>
+                    </button>
+                  )}
+
                   {/* Upload Files Button */}
                   <button
                     type="button"

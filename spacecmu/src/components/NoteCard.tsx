@@ -6,8 +6,8 @@ type Props = {
   time?: string;       // "HH:MM"
   date?: string;       // "YYYY-MM-DD"  (ถ้าไม่ส่งมาจะใช้วันนี้)
   completed?: boolean;
-  /** Override dot color: 'green' | 'red' | 'slate'. ถ้าไม่ส่งจะคำนวณจาก completed + time */
-  dotStatus?: "green" | "red" | "slate";
+  /** Override dot color: 'green' | 'red' | 'slate' | 'purple'. ถ้าไม่ส่งจะคำนวณจาก completed + time */
+  dotStatus?: "green" | "red" | "slate" | "purple";
   onDelete?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onSuccess?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -91,7 +91,9 @@ export default function NoteCard({ title, details, time, date, completed = false
         {/* Left - Status Indicator */}
         <div className="pt-1">
           <div className={`w-2 h-2 rounded-full ${
-            dotStatus === "green" || (dotStatus === undefined && completed)
+            dotStatus === "purple"
+              ? "bg-purple-500"
+              : dotStatus === "green" || (dotStatus === undefined && completed)
               ? "bg-green-500"
               : dotStatus === "slate"
               ? "bg-slate-400"

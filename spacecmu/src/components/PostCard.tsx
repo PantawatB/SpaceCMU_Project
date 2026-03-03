@@ -147,6 +147,63 @@ export default function PostCard({
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
+  // Add to Calendar (Events posts)
+  const [addingToCalendar, setAddingToCalendar] = useState(false);
+  const [addedToCalendar, setAddedToCalendar] = useState(false);
+  const [showCalendarConfirmPopup, setShowCalendarConfirmPopup] = useState(false);
+  const [calendarEventPreview, setCalendarEventPreview] = useState<{
+    eventTitle: string;
+    eventStartTime: string;
+    eventDescription?: string | null;
+    eventType?: string | null;
+  } | null>(null);
+  const [fetchingEventPreview, setFetchingEventPreview] = useState(false);
+
+  // Fetch event data then show confirm popup
+  const handleOpenCalendarConfirm = async () => {
+    if (addedToCalendar || addingToCalendar || fetchingEventPreview) return;
+    setFetchingEventPreview(true);
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${post.id}/event`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCalendarEventPreview(data);
+        setShowCalendarConfirmPopup(true);
+      } else {
+        console.error("Event data not found for this post");
+      }
+    } catch (e) {
+      console.error("Failed to fetch event preview:", e);
+    } finally {
+      setFetchingEventPreview(false);
+    }
+  };
+
+  // Actually add to calendar after user confirms
+  const handleAddToCalendar = async () => {
+    if (addedToCalendar || addingToCalendar) return;
+    setAddingToCalendar(true);
+    try {
+      const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${post.id}/accept-event`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        setAddedToCalendar(true);
+        setShowCalendarConfirmPopup(false);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        console.error("Failed to add to calendar:", err);
+      }
+    } catch (e) {
+      console.error("Failed to add to calendar:", e);
+    } finally {
+      setAddingToCalendar(false);
+    }
+  };
+
   // Check user's interaction status on mount
   useEffect(() => {
     const checkInteractionStatus = async () => {
@@ -1110,35 +1167,155 @@ export default function PostCard({
           </button>
         </div>
 
-        {/* Save Post Button */}
-        <label
-          htmlFor={`bookmark-${post.id}`}
-          className={`bookmark cursor-pointer w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaved ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-700"}`}
-          onClick={async (e) => {
-            e.preventDefault();
-            await handleSavePost();
-          }}
-        >
-          <svg
-            width={13}
-            viewBox="0 0 50 70"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
-            className="svgIcon"
+        {/* Right side: Save */}
+        <div className="flex items-center gap-2">
+          {/* Save Post Button */}
+          <label
+            htmlFor={`bookmark-${post.id}`}
+            className={`bookmark cursor-pointer w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaved ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-700"}`}
+            onClick={async (e) => {
+              e.preventDefault();
+              await handleSavePost();
+            }}
           >
-            <path
-              d="M46 62.0085L46 3.88139L3.99609 3.88139L3.99609 62.0085L24.5 45.5L46 62.0085Z"
-              stroke="white"
-              strokeWidth={7}
-              className={`transition-all duration-500 ${isSaved ? "fill-white" : "fill-transparent"}`}
-              style={{
-                strokeDasharray: "200 0",
-                strokeDashoffset: 0,
-              }}
-            />
-          </svg>
-        </label>
+            <svg
+              width={13}
+              viewBox="0 0 50 70"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="svgIcon"
+            >
+              <path
+                d="M46 62.0085L46 3.88139L3.99609 3.88139L3.99609 62.0085L24.5 45.5L46 62.0085Z"
+                stroke="white"
+                strokeWidth={7}
+                className={`transition-all duration-500 ${isSaved ? "fill-white" : "fill-transparent"}`}
+                style={{
+                  strokeDasharray: "200 0",
+                  strokeDashoffset: 0,
+                }}
+              />
+            </svg>
+          </label>
+        </div>
       </div>
+
+      {/* Add to Calendar Confirm Popup */}
+      {showCalendarConfirmPopup && calendarEventPreview && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowCalendarConfirmPopup(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <h2 className="text-base font-bold text-gray-800">เพิ่ม Event ใน Calendar</h2>
+              </div>
+              <button onClick={() => setShowCalendarConfirmPopup(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Event Info */}
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-2.5 mb-5">
+              {/* Title */}
+              <div className="flex items-start gap-2 min-w-0">
+                <span className="mt-0.5 w-2 h-2 rounded-full bg-slate-500 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-slate-500 font-medium mb-0.5">ชื่อ Event</p>
+                  <p className="text-sm font-semibold text-gray-800 break-words line-clamp-3">{calendarEventPreview.eventTitle}</p>
+                </div>
+              </div>
+              {/* Date & Time */}
+              <div className="flex items-start gap-2">
+                <svg className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-0.5">วันและเวลา</p>
+                  <p className="text-sm text-gray-700">
+                    {new Date(calendarEventPreview.eventStartTime).toLocaleDateString("th-TH", {
+                      timeZone: "Asia/Bangkok",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      weekday: "long",
+                    })}
+                  </p>
+                  <p className="text-sm font-medium text-gray-800">
+                    {new Date(calendarEventPreview.eventStartTime).toLocaleTimeString("th-TH", {
+                      timeZone: "Asia/Bangkok",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: false,
+                    })} น.
+                  </p>
+                </div>
+              </div>
+              {/* Description */}
+              {calendarEventPreview.eventDescription && (
+                <div className="flex items-start gap-2">
+                  <svg className="w-4 h-4 text-slate-400 mt-0.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <div>
+                    <p className="text-xs text-slate-500 font-medium mb-0.5">รายละเอียด</p>
+                    <p className="text-sm text-gray-600 line-clamp-2">{calendarEventPreview.eventDescription}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <p className="text-xs text-gray-400 mb-4 text-center">Event นี้จะถูกเพิ่มเข้า Calendar ของคุณ</p>
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowCalendarConfirmPopup(false)}
+                className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleAddToCalendar}
+                disabled={addingToCalendar}
+                className={`flex-1 px-4 py-2.5 rounded-xl text-white text-sm font-semibold transition-all flex items-center justify-center gap-2 ${
+                  addingToCalendar
+                    ? "bg-slate-300 cursor-not-allowed"
+                    : "bg-slate-600 hover:bg-slate-700 shadow-md hover:shadow-lg"
+                }`}
+              >
+                {addingToCalendar ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    กำลังเพิ่ม...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    เพิ่มใน Calendar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Comment Popup */}
       {showCommentPopup && (
@@ -1819,7 +1996,41 @@ export default function PostCard({
       )}
 
       {/* Three-dot Menu Button */}
-      <div className="absolute top-6 right-6">
+      <div className="absolute top-6 right-6 flex items-center gap-2">
+        {/* Add to Calendar — only for Events posts */}
+        {post.category === "Events" && (
+          <button
+            onClick={handleOpenCalendarConfirm}
+            disabled={addedToCalendar || addingToCalendar || fetchingEventPreview}
+            title={addedToCalendar ? "เพิ่มใน Calendar แล้ว" : "เพิ่ม Event นี้ใน Calendar"}
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+              addedToCalendar
+                ? "bg-green-50 text-green-600 border-green-300 cursor-default"
+                : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:border-slate-300"
+            }`}
+          >
+            {fetchingEventPreview || addingToCalendar ? (
+              <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            ) : addedToCalendar ? (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                </svg>
+                Added!
+              </>
+            ) : (
+              <>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Add to Calendar
+              </>
+            )}
+          </button>
+        )}
         <button
           onClick={() => setShowPostMenu(!showPostMenu)}
           className="text-gray-400 text-2xl hover:text-gray-600 transition-colors"

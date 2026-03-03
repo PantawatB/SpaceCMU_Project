@@ -29,6 +29,7 @@ export default function CalendarPage() {
     time: string;
     id: string;
     completed: boolean;
+    type?: string;
   }>>>({});
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -54,6 +55,7 @@ export default function CalendarPage() {
           description: string;
           startTime: string;
           status: string;
+          type?: string;
         }> = await res.json();
 
         const mapped = events.map((e) => ({
@@ -69,6 +71,7 @@ export default function CalendarPage() {
             hour12: false,
           }),
           completed: e.status === "completed",
+          type: e.type,
         }));
 
         setTasks((prev) => ({ ...prev, [key]: mapped }));
@@ -136,13 +139,19 @@ export default function CalendarPage() {
     "ธันวาคม",
   ];
 
-  /** คำนวณสีจุดของ task: green = เสร็จแล้ว, slate = เลยเวลาแต่ยังไม่เสร็จ, red = ยังไม่ถึง */
-  const getTaskDotStatus = (task: { completed: boolean; time: string }, dateStr: string): "green" | "red" | "slate" => {
+  /** คำนวณสีจุดของ task:
+   *  green  = เสร็จแล้ว (ทุก type)
+   *  slate  = เลยเวลาแล้วแต่ยังไม่เสร็จ (ทุก type)
+   *  purple = post_event ที่ยังไม่ถึงและยังไม่เสร็จ
+   *  red    = task ธรรมดาที่ยังไม่ถึงและยังไม่เสร็จ
+   */
+  const getTaskDotStatus = (task: { completed: boolean; time: string; type?: string }, dateStr: string): "green" | "red" | "slate" | "purple" => {
     if (task.completed) return "green";
     const [th, tm] = task.time.split(":").map(Number);
     const [y, m, d] = dateStr.split("-").map(Number);
     const taskDateTime = new Date(y, m - 1, d, th || 0, tm || 0);
-    return taskDateTime < new Date() ? "slate" : "red";
+    if (taskDateTime < new Date()) return "slate";
+    return task.type === "post_event" ? "purple" : "red";
   };
 
   // Get number of days in month
@@ -403,11 +412,15 @@ export default function CalendarPage() {
                               {cellTasks.length > 0 && (
                                 <div className="mt-1 flex flex-col gap-0.5 overflow-hidden">
                                   {cellTasks.slice(0, 3).map((task) => {
-                                    // Determine dot color per-task:
-                                    // Parse "HH:MM" stored in task.time to build the actual datetime of the task
+                                    // Determine dot color per-task
                                     let dotColor: string;
+                                    let pillBg: string;
+                                    let pillText: string;
+
                                     if (task.completed) {
                                       dotColor = "bg-green-500";
+                                      pillBg = "bg-green-50";
+                                      pillText = "text-green-800";
                                     } else {
                                       // Build the task's full datetime to compare with now
                                       const [th, tm] = task.time.split(":").map(Number);
@@ -417,25 +430,37 @@ export default function CalendarPage() {
                                       const isTaskPast = taskDateTime
                                         ? taskDateTime < new Date()
                                         : isPastDay;
-                                      dotColor = isTaskPast ? "bg-slate-400" : "bg-red-500";
+                                      if (isTaskPast) {
+                                        dotColor = "bg-slate-400";
+                                        pillBg = "bg-slate-100";
+                                        pillText = "text-slate-600";
+                                      } else if (task.type === "post_event") {
+                                        dotColor = "bg-purple-500";
+                                        pillBg = "bg-purple-100";
+                                        pillText = "text-purple-800";
+                                      } else {
+                                        dotColor = "bg-red-500";
+                                        pillBg = "bg-red-50";
+                                        pillText = "text-red-800";
+                                      }
                                     }
 
                                     return (
                                       <div
                                         key={task.id}
-                                        className="flex items-center gap-1 bg-purple-100 rounded px-1 py-0.5 min-w-0"
+                                        className={`flex items-center gap-1 ${pillBg} rounded px-1 py-0.5 min-w-0`}
                                       >
                                         <span
                                           className={`shrink-0 w-1.5 h-1.5 rounded-full ${dotColor}`}
                                         />
-                                        <span className="text-purple-800 text-[10px] leading-tight truncate">
+                                        <span className={`${pillText} text-[10px] leading-tight truncate`}>
                                           {task.title}
                                         </span>
                                       </div>
                                     );
                                   })}
                                   {cellTasks.length > 3 && (
-                                    <div className="text-[10px] text-purple-500 pl-1">
+                                    <div className="text-[10px] text-gray-400 pl-1">
                                       +{cellTasks.length - 3} more
                                     </div>
                                   )}
@@ -881,7 +906,7 @@ export default function CalendarPage() {
                             title: taskTitle,
                             description: taskDetails,
                             startTime: startDateTime.toISOString(),
-                            type: "event",
+                            type: "task",
                           }),
                         }
                       );
@@ -895,6 +920,7 @@ export default function CalendarPage() {
                           details: created.description ?? taskDetails,
                           time: taskTime,
                           completed: created.status === "completed",
+                          type: created.type ?? "task",
                         };
                         setTasks((prev) => ({
                           ...prev,
