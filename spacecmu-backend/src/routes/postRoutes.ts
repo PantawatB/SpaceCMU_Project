@@ -21,6 +21,7 @@ import {
     getPostsByUserId,
     getCommentsByPostId,
     acceptEventFromPost,
+    getEventFromPost,
     getRepostsByUserId,
     getLikedPostsByUserId,
 } from "../controllers/postController.js";
@@ -50,6 +51,7 @@ router.get("/me", sessionMiddleware, getUserPosts);
 router.get("/user/:userId", optionalSessionMiddleware, getPostsByUserId); // Get posts by user ID — optional auth (Friends posts hidden from non-friends)
 router.get("/user/:userId/reposts", sessionMiddleware, getRepostsByUserId); // Get reposts by user ID
 router.get("/user/:userId/liked", sessionMiddleware, getLikedPostsByUserId); // Get liked posts by user ID
+router.get("/:postId/event", optionalSessionMiddleware, getEventFromPost); // Get event data for a post
 router.post("/:postId/accept-event", sessionMiddleware, acceptEventFromPost); // Accept event from post
 router.get("/:postId/comments", optionalSessionMiddleware, getCommentsByPostId);
 router.get("/comment/:commentId/post", optionalSessionMiddleware, getPostByCommentId); // Get post by commentId (for comment_like notifications)

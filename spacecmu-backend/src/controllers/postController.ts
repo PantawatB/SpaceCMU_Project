@@ -1742,6 +1742,35 @@ export const getPostsByUserId = async (req: Request, res: Response) => {
     }
 };
 
+// Get event data for a post (for preview before accepting)
+export const getEventFromPost = async (req: Request, res: Response) => {
+    try {
+        const { postId } = req.params;
+
+        const eventPost = await dbClient
+            .select()
+            .from(eventPostsTable)
+            .where(eq(eventPostsTable.postId, postId))
+            .limit(1);
+
+        if (eventPost.length === 0) {
+            return res.status(404).json({ message: "Event not found for this post" });
+        }
+
+        const event = eventPost[0];
+        return res.status(200).json({
+            eventTitle: event.eventTitle,
+            eventDescription: event.eventDescription,
+            eventStartTime: event.eventStartTime,
+            eventEndTime: event.eventEndTime,
+            eventType: event.eventType,
+        });
+    } catch (error: any) {
+        console.error("getEventFromPost Error:", error);
+        res.status(500).json({ message: "Error fetching event", error: error.message });
+    }
+};
+
 // Accept event from post and add to user's calendar
 export const acceptEventFromPost = async (req: Request, res: Response) => {
     try {
@@ -1794,7 +1823,7 @@ export const acceptEventFromPost = async (req: Request, res: Response) => {
                 description: event.eventDescription,
                 startTime: event.eventStartTime,
                 endTime: event.eventEndTime,
-                type: event.eventType || "event",
+                type: "post_event",
                 status: "pending",
             })
             .returning();
