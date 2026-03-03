@@ -79,11 +79,27 @@ export default function CalendarPage() {
     [dateKey]
   );
 
-  // Load events for today on mount
+  /** Fetch all events for every day in the given month */
+  const fetchEventsForMonth = useCallback(
+    async (m: number, y: number) => {
+      const days = new Date(y, m + 1, 0).getDate();
+      await Promise.all(
+        Array.from({ length: days }, (_, i) => fetchEventsForDate(i + 1, m, y))
+      );
+    },
+    [fetchEventsForDate]
+  );
+
+  // Load events for the current month on mount
   useEffect(() => {
-    fetchEventsForDate(today.getDate(), today.getMonth(), today.getFullYear());
+    fetchEventsForMonth(today.getMonth(), today.getFullYear());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Reload all events whenever the displayed month/year changes
+  useEffect(() => {
+    fetchEventsForMonth(currentMonth, currentYear);
+  }, [currentMonth, currentYear, fetchEventsForMonth]);
 
   // Reload events whenever the selected date changes
   useEffect(() => {
@@ -119,6 +135,15 @@ export default function CalendarPage() {
     "พฤศจิกายน",
     "ธันวาคม",
   ];
+
+  /** คำนวณสีจุดของ task: green = เสร็จแล้ว, slate = เลยเวลาแต่ยังไม่เสร็จ, red = ยังไม่ถึง */
+  const getTaskDotStatus = (task: { completed: boolean; time: string }, dateStr: string): "green" | "red" | "slate" => {
+    if (task.completed) return "green";
+    const [th, tm] = task.time.split(":").map(Number);
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const taskDateTime = new Date(y, m - 1, d, th || 0, tm || 0);
+    return taskDateTime < new Date() ? "slate" : "red";
+  };
 
   // Get number of days in month
   const getDaysInMonth = (month: number, year: number) => {
@@ -315,10 +340,29 @@ export default function CalendarPage() {
                         currentMonth === selectedMonth &&
                         currentYear === selectedYear;
 
+                      // Tasks for this cell
+                      const cellKey = isCurrentMonth
+                        ? dateKey(dayNumber, currentMonth, currentYear)
+                        : null;
+                      const cellTasks = cellKey ? (tasks[cellKey] || []) : [];
+
+                      // Determine if this date is strictly in the past (before today's date)
+                      const cellDate = isCurrentMonth
+                        ? new Date(currentYear, currentMonth, dayNumber)
+                        : null;
+                      const todayMidnight = new Date(
+                        new Date().getFullYear(),
+                        new Date().getMonth(),
+                        new Date().getDate()
+                      );
+                      const isPastDay = cellDate
+                        ? cellDate < todayMidnight
+                        : false;
+
                       return (
                         <div
                           key={index}
-                          className={`flex-1 p-2 hover:bg-gray-50 transition-colors cursor-pointer ${
+                          className={`flex-1 p-2 hover:bg-gray-50 transition-colors cursor-pointer overflow-hidden ${
                             isToday
                               ? "border-2 border-gray-400 bg-gray-100"
                               : isSelected
@@ -342,17 +386,62 @@ export default function CalendarPage() {
                           }}
                         >
                           {isCurrentMonth && (
-                            <div
-                              className={`text-xs sm:text-sm italic ${
-                                isToday
-                                  ? "text-gray-800 font-bold"
-                                  : isSelected
-                                  ? "text-blue-700 font-semibold"
-                                  : "text-gray-500"
-                              }`}
-                            >
-                              {dayNumber}
-                            </div>
+                            <>
+                              <div
+                                className={`text-xs sm:text-sm italic ${
+                                  isToday
+                                    ? "text-gray-800 font-bold"
+                                    : isSelected
+                                    ? "text-blue-700 font-semibold"
+                                    : "text-gray-500"
+                                }`}
+                              >
+                                {dayNumber}
+                              </div>
+
+                              {/* Task Pills */}
+                              {cellTasks.length > 0 && (
+                                <div className="mt-1 flex flex-col gap-0.5 overflow-hidden">
+                                  {cellTasks.slice(0, 3).map((task) => {
+                                    // Determine dot color per-task:
+                                    // Parse "HH:MM" stored in task.time to build the actual datetime of the task
+                                    let dotColor: string;
+                                    if (task.completed) {
+                                      dotColor = "bg-green-500";
+                                    } else {
+                                      // Build the task's full datetime to compare with now
+                                      const [th, tm] = task.time.split(":").map(Number);
+                                      const taskDateTime = cellDate
+                                        ? new Date(currentYear, currentMonth, dayNumber, th || 0, tm || 0)
+                                        : null;
+                                      const isTaskPast = taskDateTime
+                                        ? taskDateTime < new Date()
+                                        : isPastDay;
+                                      dotColor = isTaskPast ? "bg-slate-400" : "bg-red-500";
+                                    }
+
+                                    return (
+                                      <div
+                                        key={task.id}
+                                        className="flex items-center gap-1 bg-purple-100 rounded px-1 py-0.5 min-w-0"
+                                      >
+                                        <span
+                                          className={`shrink-0 w-1.5 h-1.5 rounded-full ${dotColor}`}
+                                        />
+                                        <span className="text-purple-800 text-[10px] leading-tight truncate">
+                                          {task.title}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                  {cellTasks.length > 3 && (
+                                    <div className="text-[10px] text-purple-500 pl-1">
+                                      +{cellTasks.length - 3} more
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
                       );
@@ -447,6 +536,7 @@ export default function CalendarPage() {
                               time={task.time}
                               date={key}
                               completed={task.completed}
+                              dotStatus={getTaskDotStatus(task, key)}
                               onSuccess={async () => {
                                 await fetch(
                                   `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
@@ -488,6 +578,7 @@ export default function CalendarPage() {
                               time={task.time}
                               date={key}
                               completed={task.completed}
+                              dotStatus={getTaskDotStatus(task, key)}
                               onSuccess={async () => {
                                 await fetch(
                                   `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
@@ -627,6 +718,7 @@ export default function CalendarPage() {
                         time={task.time}
                         date={key}
                         completed={task.completed}
+                        dotStatus={getTaskDotStatus(task, key)}
                         onSuccess={async () => {
                           await fetch(
                             `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
@@ -668,6 +760,7 @@ export default function CalendarPage() {
                         time={task.time}
                         date={key}
                         completed={task.completed}
+                        dotStatus={getTaskDotStatus(task, key)}
                         onSuccess={async () => {
                           await fetch(
                             `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,

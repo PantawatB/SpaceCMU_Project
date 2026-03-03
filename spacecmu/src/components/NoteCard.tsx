@@ -6,6 +6,8 @@ type Props = {
   time?: string;       // "HH:MM"
   date?: string;       // "YYYY-MM-DD"  (ถ้าไม่ส่งมาจะใช้วันนี้)
   completed?: boolean;
+  /** Override dot color: 'green' | 'red' | 'slate'. ถ้าไม่ส่งจะคำนวณจาก completed + time */
+  dotStatus?: "green" | "red" | "slate";
   onDelete?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   onSuccess?: (e: React.MouseEvent<HTMLButtonElement>) => void;
   className?: string;
@@ -59,7 +61,7 @@ function getRelativeTime(time?: string, date?: string): string {
   return "เพิ่งผ่านไป";
 }
 
-export default function NoteCard({ title, details, time, date, completed = false, onDelete, onSuccess, className = "" }: Props) {
+export default function NoteCard({ title, details, time, date, completed = false, dotStatus, onDelete, onSuccess, className = "" }: Props) {
   const [relativeTime, setRelativeTime] = useState(() => getRelativeTime(time, date));
 
   // Re-compute ทันทีเมื่อ time หรือ date เปลี่ยน
@@ -88,7 +90,13 @@ export default function NoteCard({ title, details, time, date, completed = false
       <div className="p-3 flex flex-row gap-2">
         {/* Left - Status Indicator */}
         <div className="pt-1">
-          <div className={`w-2 h-2 rounded-full ${completed ? 'bg-green-500' : 'bg-red-500'}`} />
+          <div className={`w-2 h-2 rounded-full ${
+            dotStatus === "green" || (dotStatus === undefined && completed)
+              ? "bg-green-500"
+              : dotStatus === "slate"
+              ? "bg-slate-400"
+              : "bg-red-500"
+          }`} />
         </div>
 
         {/* Right - Content */}
