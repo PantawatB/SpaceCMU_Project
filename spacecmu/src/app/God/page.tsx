@@ -298,12 +298,32 @@ export default function GodPage() {
     }
   };
 
-  const filteredUsers = users.filter(
-    (u) =>
-      `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (u.username ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      u.email.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = (() => {
+    const query = searchQuery.toLowerCase();
+    const matched = users.filter(
+      (u) =>
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(query) ||
+        (u.username ?? "").toLowerCase().includes(query) ||
+        u.email.toLowerCase().includes(query)
+    );
+
+    // Sort: public users first (isAnonymous=false), then group each anonymous
+    // account directly after its parent public user
+    const publicUsers = matched.filter((u) => !u.isAnonymous);
+    const anonUsers = matched.filter((u) => u.isAnonymous);
+
+    const ordered: typeof users = [];
+    for (const pub of publicUsers) {
+      ordered.push(pub);
+      const anon = anonUsers.find((a) => a.parentUserId === pub.id);
+      if (anon) ordered.push(anon);
+    }
+    // Append any anonymous accounts whose parent wasn't matched / wasn't found
+    for (const anon of anonUsers) {
+      if (!ordered.includes(anon)) ordered.push(anon);
+    }
+    return ordered;
+  })();
 
   const tabs: { id: TabId; name: string }[] = [
     { id: "dashboard",     name: "Dashboard" },
@@ -468,8 +488,8 @@ export default function GodPage() {
                 ) : (
                   <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     {/* Table header */}
-                    <div className="grid grid-cols-[2fr_2fr_1fr_1fr_1.5fr] gap-4 px-5 py-3 border-b border-slate-100 bg-slate-50">
-                      {["User", "Email", "Role", "Status", "Actions"].map((h) => (
+                    <div className="grid grid-cols-[2fr_2fr_1fr_2fr] gap-4 px-5 py-3 border-b border-slate-100 bg-slate-50">
+                      {["User", "Email", "Role", "Actions"].map((h) => (
                         <p key={h} className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{h}</p>
                       ))}
                     </div>
@@ -484,17 +504,32 @@ export default function GodPage() {
                         {filteredUsers.map((u) => (
                           <li
                             key={u.id}
-                            className="grid grid-cols-[2fr_2fr_1fr_1fr_1.5fr] gap-4 items-center px-5 py-3.5 hover:bg-slate-50 transition-colors"
+                            className={`grid grid-cols-[2fr_2fr_1fr_2fr] gap-4 items-center px-5 py-3.5 hover:bg-slate-50 transition-colors ${
+                              u.isAnonymous ? "bg-slate-50/60" : ""
+                            }`}
                           >
                             {/* Name */}
                             <div className="flex items-center gap-3 min-w-0">
-                              <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 shrink-0">
-                                {u.firstName?.[0] ?? "?"}
+                              {/* Indent anonymous accounts */}
+                              {u.isAnonymous && (
+                                <span className="text-slate-300 shrink-0">↳</span>
+                              )}
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                                u.isAnonymous ? "bg-gray-300 text-gray-600" : "bg-slate-200 text-slate-600"
+                              }`}>
+                                {u.isAnonymous ? "?" : (u.firstName?.[0] ?? "?")}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-semibold text-slate-900 truncate">
-                                  {u.firstName} {u.lastName}
-                                </p>
+                                <div className="flex items-center gap-1.5">
+                                  <p className="text-sm font-semibold text-slate-900 truncate">
+                                    {u.firstName} {u.lastName}
+                                  </p>
+                                  {u.isAnonymous && (
+                                    <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 font-medium">
+                                      Anon
+                                    </span>
+                                  )}
+                                </div>
                                 {u.username && (
                                   <p className="text-xs text-slate-400 truncate">@{u.username}</p>
                                 )}
@@ -507,44 +542,57 @@ export default function GodPage() {
                             {/* Role */}
                             <div><RoleBadge role={u.role} /></div>
 
-                            {/* Status */}
-                            <div><StatusBadge status={u.status} /></div>
-
-                            {/* Actions */}
-                            <div className="flex items-center gap-1.5">
+                            {/* Actions — Status dropdown + Role buttons */}
+                            <div className="flex items-center gap-2 flex-wrap">
                               {u.role === "god" ? (
                                 <span className="text-xs text-slate-300 italic">Protected</span>
                               ) : (
                                 <>
-                                  {u.role === "user" ? (
-                                    <ActionBtn
-                                      loading={actionLoading === `role-${u.id}`}
-                                      onClick={() => handleSetRole(u.id, "admin")}
-                                      variant="purple"
-                                      label="Make Admin"
-                                    />
-                                  ) : (
-                                    <ActionBtn
-                                      loading={actionLoading === `role-${u.id}`}
-                                      onClick={() => handleSetRole(u.id, "user")}
-                                      variant="gray"
-                                      label="Make User"
-                                    />
-                                  )}
-                                  {u.status === "active" ? (
-                                    <ActionBtn
-                                      loading={actionLoading === `status-${u.id}`}
-                                      onClick={() => handleSetStatus(u.id, "banned")}
-                                      variant="red"
-                                      label="Ban"
-                                    />
-                                  ) : (
-                                    <ActionBtn
-                                      loading={actionLoading === `status-${u.id}`}
-                                      onClick={() => handleSetStatus(u.id, "active")}
-                                      variant="green"
-                                      label="Unban"
-                                    />
+                                  {/* Status dropdown */}
+                                  <div className="relative">
+                                    {actionLoading === `status-${u.id}` ? (
+                                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-slate-50 border-slate-200 text-slate-400">
+                                        <span className="w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
+                                        Updating…
+                                      </span>
+                                    ) : (
+                                      <select
+                                        value={u.status}
+                                        onChange={(e) => handleSetStatus(u.id, e.target.value as "active" | "banned")}
+                                        className={`appearance-none pl-3 pr-7 py-1.5 rounded-lg text-xs font-semibold border cursor-pointer focus:outline-none focus:ring-2 transition ${
+                                          u.status === "active"
+                                            ? "bg-green-50 text-green-700 border-green-200 focus:ring-green-300"
+                                            : "bg-red-50 text-red-700 border-red-200 focus:ring-red-300"
+                                        }`}
+                                      >
+                                        <option value="active">✓ active</option>
+                                        <option value="banned">✕ banned</option>
+                                      </select>
+                                    )}
+                                    {actionLoading !== `status-${u.id}` && (
+                                      <svg className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-current opacity-50" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                                      </svg>
+                                    )}
+                                  </div>
+
+                                  {/* Role toggle (non-anonymous only) */}
+                                  {!u.isAnonymous && u.role !== "official_account" && (
+                                    u.role === "user" ? (
+                                      <ActionBtn
+                                        loading={actionLoading === `role-${u.id}`}
+                                        onClick={() => handleSetRole(u.id, "admin")}
+                                        variant="purple"
+                                        label="Make Admin"
+                                      />
+                                    ) : (
+                                      <ActionBtn
+                                        loading={actionLoading === `role-${u.id}`}
+                                        onClick={() => handleSetRole(u.id, "user")}
+                                        variant="gray"
+                                        label="Make User"
+                                      />
+                                    )
                                   )}
                                 </>
                               )}
@@ -1204,17 +1252,6 @@ function RoleBadge({ role }: { role: GodUser["role"] | string }) {
   );
 }
 
-function StatusBadge({ status }: { status: GodUser["status"] }) {
-  return status === "active" ? (
-    <span className="px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-semibold">
-      ✓ Active
-    </span>
-  ) : (
-    <span className="px-3 py-1 rounded-full bg-red-50 text-red-700 text-xs font-semibold">
-      ✕ Banned
-    </span>
-  );
-}
 
 type ActionVariant = "purple" | "gray" | "red" | "green";
 

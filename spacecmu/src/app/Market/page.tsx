@@ -30,7 +30,7 @@ interface MarketItemAPI {
 }
 
 export default function MarketMainPage() {
-  const { activeMode, refreshUser, activeUser } = useUser();
+  const { activeMode, refreshUser, activeUser, user } = useUser();
   const { showSuccess, showError, showWarning } = useToast();
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
   const [showProductDetailPopup, setShowProductDetailPopup] = React.useState(false);
@@ -56,6 +56,17 @@ export default function MarketMainPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModeWarning, setShowModeWarning] = useState(false);
 
+  // ── Ban detection state ──────────────────────────────────────────────────
+  const isPublicBanned = user?.status === 'banned';
+  const [showMarketBanPopup, setShowMarketBanPopup] = useState(false);
+
+  // Show ban popup as soon as we know the public user is banned
+  useEffect(() => {
+    if (isPublicBanned) {
+      setShowMarketBanPopup(true);
+    }
+  }, [isPublicBanned]);
+
   // ── Infinite scroll state ────────────────────────────────────────────────
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -65,9 +76,10 @@ export default function MarketMainPage() {
   const isLoadingMoreRef = useRef(false);
 
   // Force switch to PUBLIC mode when entering Market page
+  // (but NOT if the public account is banned — ban overlay handles that case)
   useEffect(() => {
     const switchToPublicMode = async () => {
-      if (activeMode === "ANONYMOUS") {
+      if (activeMode === "ANONYMOUS" && !isPublicBanned) {
         try {
           // Show warning toast
           setShowModeWarning(true);
@@ -80,14 +92,15 @@ export default function MarketMainPage() {
           // Switch to PUBLIC mode
           await apiService.switchMode("PUBLIC");
           await refreshUser(true); // Silent refresh
-        } catch (err) {
-          console.error('Failed to switch to PUBLIC mode:', err);
+        } catch {
+          // Switch failed silently — ban overlay handles the state
         }
       }
     };
 
     switchToPublicMode();
-  }, [activeMode, refreshUser]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMode]);
 
   // Fetch initial market items from API
   useEffect(() => {
@@ -352,7 +365,37 @@ export default function MarketMainPage() {
       </div>
 
       {/* Main Content: fixed container with internal scroll */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 relative">
+
+        {/* ── Public-ban overlay ── */}
+        {isPublicBanned && (
+          <div className="absolute inset-0 z-40 backdrop-blur-md bg-white/60 flex items-center justify-center">
+            {showMarketBanPopup && (
+              <div className="bg-white rounded-2xl shadow-2xl border border-red-100 max-w-sm w-full p-8 mx-4 flex flex-col items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="15" y1="9" x2="9" y2="15" />
+                    <line x1="9" y1="9" x2="15" y2="15" />
+                  </svg>
+                </div>
+                <div className="text-center space-y-2">
+                  <h2 className="text-lg font-bold text-slate-900">คุณถูกแบนจาก Market</h2>
+                  <p className="text-sm text-slate-500 leading-relaxed">
+                    บัญชี Public ของคุณถูกระงับการใช้งาน Market
+                    กรุณาติดต่อผู้ดูแลระบบหากคิดว่าเกิดข้อผิดพลาด
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowMarketBanPopup(false)}
+                  className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition-colors"
+                >
+                  รับทราบ
+                </button>
+              </div>
+            )}
+          </div>
+        )}
         {/* Fixed header area (Search + Title) */}
         <div className="flex-none pt-8 px-8 pb-4 bg-white z-10">
           {/* Search bar */}

@@ -42,7 +42,7 @@ export const getPlatformStats = async (req: Request, res: Response) => {
     }
 };
 
-/** GET /api/god/users — all users with role info */
+/** GET /api/god/users — all users with role info (including anonymous accounts) */
 export const getAllUsers = async (req: Request, res: Response) => {
     try {
         const users = await dbClient
@@ -55,11 +55,11 @@ export const getAllUsers = async (req: Request, res: Response) => {
                 role: usersTable.role,
                 status: usersTable.status,
                 isAnonymous: usersTable.isAnonymous,
+                parentUserId: usersTable.parentUserId,
                 createdAt: usersTable.createdAt,
                 lastActiveAt: usersTable.lastActiveAt,
             })
             .from(usersTable)
-            .where(eq(usersTable.isAnonymous, false))
             .orderBy(desc(usersTable.createdAt));
 
         res.json(users);
