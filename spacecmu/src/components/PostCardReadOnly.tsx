@@ -3,6 +3,47 @@
 import { useState, useEffect, useRef } from "react";
 import { apiService } from "@/lib/api";
 
+// ── Link preview helpers ──────────────────────────────────────────────────────
+interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+  favicon: string | null;
+}
+
+const URL_REGEX = /https?:\/\/(?:[-\w]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
+
+function extractFirstUrl(text: string): string | null {
+  return text.match(URL_REGEX)?.[0] ?? null;
+}
+
+function renderTextWithLinks(text: string): React.ReactNode {
+  const parts = text.split(URL_REGEX);
+  const urls = text.match(URL_REGEX) ?? [];
+  const result: React.ReactNode[] = [];
+  parts.forEach((part, i) => {
+    if (part) result.push(<span key={`t-${i}`}>{part}</span>);
+    if (urls[i]) {
+      result.push(
+        <a
+          key={`u-${i}`}
+          href={urls[i]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-700 underline break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {urls[i]}
+        </a>
+      );
+    }
+  });
+  return <>{result}</>;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface PostMedia {
   id: number;
   postId: number;
@@ -61,6 +102,30 @@ export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
 
   // Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  // Link preview
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [loadingLinkPreview, setLoadingLinkPreview] = useState(false);
+  const linkPreviewFetchedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    const url = extractFirstUrl(post.content ?? "");
+    if (!url || url === linkPreviewFetchedFor.current) return;
+    linkPreviewFetchedFor.current = url;
+    const fetchPreview = async () => {
+      setLoadingLinkPreview(true);
+      try {
+        const r = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { cache: "no-store" });
+        const data: LinkPreview | null = r.ok ? await r.json() : null;
+        setLinkPreview(data && !data.title?.match(/^error$/i) ? data : null);
+      } catch {
+        setLinkPreview(null);
+      } finally {
+        setLoadingLinkPreview(false);
+      }
+    };
+    fetchPreview();
+  }, [post.content]);
 
   const handleMediaScroll = () => {
     const el = scrollRef.current;
@@ -147,8 +212,73 @@ export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
       {/* ── Content ── */}
       {post.content && (
         <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word mb-3">
-          {post.content}
+          {renderTextWithLinks(post.content)}
         </p>
+      )}
+
+      {/* ── Link Preview Card ── */}
+      {(linkPreview || loadingLinkPreview) && !(post.media?.length) && (
+        <div className="mb-3">
+          {loadingLinkPreview ? (
+            <div className="animate-pulse border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+              <div className="h-24 bg-gray-200 w-full" />
+              <div className="px-3 py-2.5 flex items-start gap-2">
+                <div className="w-4 h-4 bg-gray-200 rounded shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-2 bg-gray-200 rounded w-1/4" />
+                  <div className="h-3 bg-gray-200 rounded w-3/5" />
+                  <div className="h-2 bg-gray-200 rounded w-full" />
+                </div>
+              </div>
+            </div>
+          ) : linkPreview ? (
+            <a
+              href={linkPreview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 hover:shadow-sm transition-all group no-underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {linkPreview.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={linkPreview.image}
+                  alt=""
+                  className="w-full max-h-40 object-cover bg-gray-100"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+              <div className="px-3 py-2.5 flex items-start gap-2.5 bg-white">
+                {linkPreview.favicon && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={linkPreview.favicon}
+                    alt=""
+                    className="w-4 h-4 rounded shrink-0 mt-0.5"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  {linkPreview.siteName && (
+                    <p className="text-[11px] text-gray-400 mb-0.5 truncate uppercase tracking-wide font-medium">
+                      {linkPreview.siteName}
+                    </p>
+                  )}
+                  {linkPreview.title && (
+                    <p className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
+                      {linkPreview.title}
+                    </p>
+                  )}
+                  {linkPreview.description && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                      {linkPreview.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </a>
+          ) : null}
+        </div>
       )}
 
       {/* ── Media ── */}
