@@ -37,7 +37,7 @@ const profiles = [
 export default function Sidebar({ menuItems }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, activeUser, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext, officialMode, exitOfficialMode, isSwitchingToOfficial } = useUser();
+  const { user, activeUser, activeMode, anonymousAccount, logout: logoutFromContext, officialMode, exitOfficialMode, isSwitchingToOfficial } = useUser();
   
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -432,30 +432,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
   };
 
   // Handle menu item click (especially for Market page)
-  const handleMenuItemClick = async (item: SidebarMenuItem) => {
+  const handleMenuItemClick = () => {
     // Close sidebar on mobile
     setIsSidebarOpen(false);
-
-    // If navigating to Market and in ANONYMOUS mode, switch to PUBLIC
-    // — but only if the public account is NOT banned (ban is handled by Market page itself)
-    if (item.name === "Market" && activeMode === "ANONYMOUS") {
-      const publicBanned = user?.status === 'banned';
-      if (publicBanned) {
-        // Public is banned — don't attempt switch, Market page will show ban overlay
-        return;
-      }
-
-      try {
-        setErrorMessage('ไม่สามารถใช้งาน Market ในโหมด Anonymous ระบบจะเปลี่ยนเป็นโหมด Public');
-        setShowErrorToast(true);
-        setTimeout(() => setShowErrorToast(false), 4000);
-
-        await apiService.switchMode("PUBLIC");
-        await refreshUser(true);
-      } catch {
-        // Switch failed silently — Market page will handle the state
-      }
-    }
+    // Market page handles mode switch + yellow toast + ban overlay itself
   };
 
   return (
@@ -684,7 +664,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 // Render as button instead of Link to prevent navigation
                 <button
                   key={item.name}
-                  onClick={() => handleMenuItemClick(item)}
+                  onClick={() => handleMenuItemClick()}
                   className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
                     pathname === item.link
                       ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
@@ -704,7 +684,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 <Link
                   href={item.link}
                   key={item.name}
-                  onClick={() => handleMenuItemClick(item)}
+                  onClick={() => handleMenuItemClick()}
                   className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
                     pathname === item.link
                       ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
