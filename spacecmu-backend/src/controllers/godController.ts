@@ -3,6 +3,32 @@ import { dbClient } from "../../db/client.js";
 import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable, notificationsTable } from "../../db/schema.js";
 import { eq, count, sql, desc, and, ilike, or } from "drizzle-orm";
 
+/**
+ * Helper: ถ้า user (role === "admin") ไม่มี official account ที่ตัวเองเป็น admin อีกแล้ว
+ * ให้ downgrade role กลับเป็น "user" อัตโนมัติ
+ * (ไม่แตะ god)
+ */
+async function downgradeIfNoOfficialAccounts(userId: string): Promise<void> {
+    const [user] = await dbClient
+        .select({ role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+
+    if (!user || user.role !== "admin") return;
+
+    const [remaining] = await dbClient
+        .select({ count: count() })
+        .from(officialAccountAdminsTable)
+        .where(eq(officialAccountAdminsTable.adminUserId, userId));
+
+    if (Number(remaining?.count ?? 0) === 0) {
+        await dbClient
+            .update(usersTable)
+            .set({ role: "user" })
+            .where(eq(usersTable.id, userId));
+    }
+}
+
 /** GET /api/god/stats — platform-wide overview */
 export const getPlatformStats = async (req: Request, res: Response) => {
     try {
@@ -80,6 +106,20 @@ export const setUserRole = async (req: Request, res: Response) => {
     }
 
     try {
+        // ถ้าจะ demote เป็น "user" ให้ตรวจก่อนว่ายังมี official account ที่ manage อยู่ไหม
+        if (role === "user") {
+            const [remaining] = await dbClient
+                .select({ count: count() })
+                .from(officialAccountAdminsTable)
+                .where(eq(officialAccountAdminsTable.adminUserId, userId));
+
+            if (Number(remaining?.count ?? 0) > 0) {
+                return res.status(400).json({
+                    message: "Cannot demote to user: this user still manages official account(s). Remove them from all official accounts first.",
+                });
+            }
+        }
+
         const [updated] = await dbClient
             .update(usersTable)
             .set({ role })
@@ -412,7 +452,7 @@ export const searchUsersForOfficialAccount = async (req: Request, res: Response)
 
 /**
  * DELETE /api/god/official-accounts/:id/admins/:adminUserId
- * ถอด admin ออกจาก official account (ไม่ downgrade role อัตโนมัติ — god ตัดสินใจเอง)
+ * ถอด admin ออกจาก official account — ถ้าไม่เหลือ official account ใดให้ manage, auto-downgrade role → "user"
  */
 export const removeOfficialAccountAdmin = async (req: Request, res: Response) => {
     const { id, adminUserId } = req.params;
@@ -436,6 +476,9 @@ export const removeOfficialAccountAdmin = async (req: Request, res: Response) =>
                     eq(officialAccountAdminsTable.adminUserId, adminUserId)
                 )
             );
+
+        // Auto-downgrade: ถ้า user ไม่มี official account ที่ตัวเองเป็น admin อีกแล้ว → role กลับเป็น "user"
+        await downgradeIfNoOfficialAccounts(adminUserId);
 
         res.json({ message: "Admin removed successfully" });
     } catch (error) {
