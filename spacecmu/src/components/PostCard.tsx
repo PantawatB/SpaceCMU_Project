@@ -160,7 +160,7 @@ export default function PostCard({
     linkPreviewFetchedFor.current = url;
     setLinkPreview(null);
     setLoadingLinkPreview(true);
-    fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+    fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { cache: "no-store" })
       .then(r => r.ok ? r.json() : null)
       .then((data: LinkPreview | null) => {
         if (data && !data.title?.match(/^error$/i)) setLinkPreview(data);
@@ -1110,12 +1110,16 @@ export default function PostCard({
       {(linkPreview || loadingLinkPreview) && !localPostMedia?.length && (
         <div className="mb-3">
           {loadingLinkPreview ? (
-            <div className="animate-pulse border border-gray-200 rounded-xl overflow-hidden bg-gray-50 flex gap-3 p-3">
-              <div className="w-20 h-16 bg-gray-200 rounded-lg shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-gray-200 rounded w-1/3" />
-                <div className="h-4 bg-gray-200 rounded w-3/4" />
-                <div className="h-3 bg-gray-200 rounded w-full" />
+            /* Skeleton */
+            <div className="animate-pulse border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+              <div className="h-32 bg-gray-200 w-full" />
+              <div className="px-4 py-3 flex items-start gap-2.5">
+                <div className="w-4 h-4 bg-gray-200 rounded shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-2.5 bg-gray-200 rounded w-1/4" />
+                  <div className="h-3.5 bg-gray-200 rounded w-3/5" />
+                  <div className="h-2.5 bg-gray-200 rounded w-full" />
+                </div>
               </div>
             </div>
           ) : linkPreview ? (
@@ -1123,37 +1127,46 @@ export default function PostCard({
               href={linkPreview.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="block border border-gray-200 rounded-xl overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group no-underline"
+              className="block border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 hover:shadow-sm transition-all group no-underline"
               onClick={(e) => e.stopPropagation()}
             >
+              {/* Banner image */}
               {linkPreview.image && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={linkPreview.image}
-                  alt={linkPreview.title ?? ""}
-                  className="w-full max-h-48 object-cover"
+                  alt=""
+                  className="w-full max-h-52 object-cover bg-gray-100"
                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                 />
               )}
-              <div className="px-4 py-3 flex items-start gap-3">
+              {/* Info row */}
+              <div className="px-4 py-3 flex items-start gap-2.5 bg-white">
+                {/* Favicon */}
                 {linkPreview.favicon && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={linkPreview.favicon}
                     alt=""
-                    className="w-5 h-5 rounded shrink-0 mt-0.5"
+                    className="w-4 h-4 rounded shrink-0 mt-[3px]"
                     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                   />
                 )}
                 <div className="min-w-0 flex-1">
                   {linkPreview.siteName && (
-                    <p className="text-xs text-gray-400 mb-0.5 truncate">{linkPreview.siteName}</p>
+                    <p className="text-[11px] text-gray-400 mb-0.5 truncate uppercase tracking-wide font-medium">
+                      {linkPreview.siteName}
+                    </p>
                   )}
                   {linkPreview.title && (
-                    <p className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">{linkPreview.title}</p>
+                    <p className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
+                      {linkPreview.title}
+                    </p>
                   )}
                   {linkPreview.description && (
-                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{linkPreview.description}</p>
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                      {linkPreview.description}
+                    </p>
                   )}
                 </div>
               </div>
