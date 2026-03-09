@@ -1220,19 +1220,28 @@ export default function FeedsMainPage() {
                   alt="avatar"
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />
-                <textarea
-                  value={postText}
-                  onChange={(e) => setPostText(e.target.value)}
-                  placeholder="What's on your mind?"
-                  rows={1}
-                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
-                  style={{ minHeight: '40px', maxHeight: '120px' }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = 'auto';
-                    target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-                  }}
-                />
+                <div className="flex-1 relative">
+                  <textarea
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value.slice(0, 2000))}
+                    placeholder="What's on your mind?"
+                    rows={1}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
+                    style={{ minHeight: '40px', maxHeight: '120px' }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                    }}
+                  />
+                  {postText.length > 1700 && (
+                    <div className={`absolute bottom-1.5 right-3 text-xs pointer-events-none select-none ${
+                      postText.length >= 2000 ? "text-red-500 font-semibold" : "text-amber-500"
+                    }`}>
+                      {postText.length}/2000
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Media Preview - Show when files selected */}

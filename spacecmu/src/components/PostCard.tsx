@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -67,6 +67,49 @@ interface PostCardProps {
   onPostDelete?: (postId: string) => void;
 }
 
+interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+  favicon: string | null;
+}
+
+const POST_CONTENT_MAX_LENGTH = 2000;
+
+// Regex to detect URLs in text
+const URL_REGEX = /https?:\/\/(?:[-\w]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
+
+function extractFirstUrl(text: string): string | null {
+  const match = text.match(URL_REGEX);
+  return match?.[0] ?? null;
+}
+
+function renderTextWithLinks(text: string): React.ReactNode {
+  const parts = text.split(URL_REGEX);
+  const urls = text.match(URL_REGEX) ?? [];
+  const result: React.ReactNode[] = [];
+  parts.forEach((part, i) => {
+    if (part) result.push(<span key={`t-${i}`}>{part}</span>);
+    if (urls[i]) {
+      result.push(
+        <a
+          key={`u-${i}`}
+          href={urls[i]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-700 underline break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {urls[i]}
+        </a>
+      );
+    }
+  });
+  return <>{result}</>;
+}
+
 export default function PostCard({
   post,
   onLikeUpdate,
@@ -100,10 +143,31 @@ export default function PostCard({
   const [localPostMedia, setLocalPostMedia] = useState<PostMedia[]>(post.media ?? []);
   const [isDraggingEdit, setIsDraggingEdit] = useState(false);
 
+  // Link preview state
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [loadingLinkPreview, setLoadingLinkPreview] = useState(false);
+  const linkPreviewFetchedFor = useRef<string | null>(null);
+
   // Live comment count (includes replies), initialized from prop
   const [localCommentCount, setLocalCommentCount] = useState(post.commentCount);
   // Keep in sync when prop changes (e.g. after feed refresh)
   useEffect(() => { setLocalCommentCount(post.commentCount); }, [post.commentCount]);
+
+  // Fetch link preview for the first URL in the post content
+  useEffect(() => {
+    const url = extractFirstUrl(localPostContent ?? "");
+    if (!url || url === linkPreviewFetchedFor.current) return;
+    linkPreviewFetchedFor.current = url;
+    setLinkPreview(null);
+    setLoadingLinkPreview(true);
+    fetch(`/api/link-preview?url=${encodeURIComponent(url)}`)
+      .then(r => r.ok ? r.json() : null)
+      .then((data: LinkPreview | null) => {
+        if (data && !data.title?.match(/^error$/i)) setLinkPreview(data);
+      })
+      .catch(() => null)
+      .finally(() => setLoadingLinkPreview(false));
+  }, [localPostContent]);
 
   // Comment pagination
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -1038,7 +1102,63 @@ export default function PostCard({
       {/* Post Content */}
       {localPostContent && (
         <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
-          {localPostContent}
+          {renderTextWithLinks(localPostContent)}
+        </div>
+      )}
+
+      {/* Link Preview Card */}
+      {(linkPreview || loadingLinkPreview) && !localPostMedia?.length && (
+        <div className="mb-3">
+          {loadingLinkPreview ? (
+            <div className="animate-pulse border border-gray-200 rounded-xl overflow-hidden bg-gray-50 flex gap-3 p-3">
+              <div className="w-20 h-16 bg-gray-200 rounded-lg shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 bg-gray-200 rounded w-1/3" />
+                <div className="h-4 bg-gray-200 rounded w-3/4" />
+                <div className="h-3 bg-gray-200 rounded w-full" />
+              </div>
+            </div>
+          ) : linkPreview ? (
+            <a
+              href={linkPreview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block border border-gray-200 rounded-xl overflow-hidden bg-gray-50 hover:bg-gray-100 transition-colors group no-underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {linkPreview.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={linkPreview.image}
+                  alt={linkPreview.title ?? ""}
+                  className="w-full max-h-48 object-cover"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+              <div className="px-4 py-3 flex items-start gap-3">
+                {linkPreview.favicon && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={linkPreview.favicon}
+                    alt=""
+                    className="w-5 h-5 rounded shrink-0 mt-0.5"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  {linkPreview.siteName && (
+                    <p className="text-xs text-gray-400 mb-0.5 truncate">{linkPreview.siteName}</p>
+                  )}
+                  {linkPreview.title && (
+                    <p className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors">{linkPreview.title}</p>
+                  )}
+                  {linkPreview.description && (
+                    <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{linkPreview.description}</p>
+                  )}
+                </div>
+              </div>
+            </a>
+          ) : null}
         </div>
       )}
 
@@ -1339,7 +1459,7 @@ export default function PostCard({
                 <span className="mt-0.5 w-2 h-2 rounded-full bg-slate-500 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-slate-500 font-medium mb-0.5">ชื่อ Event</p>
-                  <p className="text-sm font-semibold text-gray-800 break-words line-clamp-3">{calendarEventPreview.eventTitle}</p>
+                  <p className="text-sm font-semibold text-gray-800 wrap-break-word line-clamp-3">{calendarEventPreview.eventTitle}</p>
                 </div>
               </div>
               {/* Date & Time */}
@@ -2268,13 +2388,24 @@ export default function PostCard({
             {/* Body */}
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
               {/* Text area */}
-              <textarea
-                value={editPostContent}
-                onChange={(e) => setEditPostContent(e.target.value)}
-                placeholder="What's on your mind?"
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-800 resize-none text-sm"
-              />
+              <div className="relative">
+                <textarea
+                  value={editPostContent}
+                  onChange={(e) => setEditPostContent(e.target.value.slice(0, POST_CONTENT_MAX_LENGTH))}
+                  placeholder="What's on your mind?"
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-800 resize-none text-sm"
+                />
+                <div className={`absolute bottom-2 right-3 text-xs select-none pointer-events-none ${
+                  editPostContent.length >= POST_CONTENT_MAX_LENGTH
+                    ? "text-red-500 font-semibold"
+                    : editPostContent.length >= POST_CONTENT_MAX_LENGTH * 0.85
+                    ? "text-amber-500"
+                    : "text-gray-400"
+                }`}>
+                  {editPostContent.length}/{POST_CONTENT_MAX_LENGTH}
+                </div>
+              </div>
 
               {/* Existing media with remove option */}
               {localPostMedia.filter(m => !editPostRemoveMediaIds.includes(String(m.id))).length > 0 && (
