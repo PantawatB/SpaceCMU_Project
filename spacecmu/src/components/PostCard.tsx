@@ -28,6 +28,7 @@ interface Post {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    role?: string | null;
   };
   media?: PostMedia[];
 }
@@ -55,6 +56,7 @@ interface Comment {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    role?: string | null;
   };
   media?: CommentMedia[];
 }
@@ -108,6 +110,25 @@ function renderTextWithLinks(text: string): React.ReactNode {
     }
   });
   return <>{result}</>;
+}
+
+/** Blue verified checkmark — shown only for official_account role */
+function VerifiedBadge({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={`${className} text-blue-500 shrink-0`}
+      aria-label="Verified official account"
+    >
+      <path
+        fillRule="evenodd"
+        d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
 }
 
 export default function PostCard({
@@ -592,6 +613,7 @@ export default function PostCard({
             firstName: user.firstName as string | null,
             lastName: user.lastName as string | null,
             avatarUrl: user.avatarUrl as string | null,
+            role: user.role as string | null,
           } : undefined,
           media: comment.media as CommentMedia[] | undefined,
         };
@@ -651,6 +673,7 @@ export default function PostCard({
             firstName: user.firstName as string | null,
             lastName: user.lastName as string | null,
             avatarUrl: user.avatarUrl as string | null,
+            role: user.role as string | null,
           } : undefined,
           media: comment.media as CommentMedia[] | undefined,
         };
@@ -1087,10 +1110,11 @@ export default function PostCard({
           className="w-10 h-10 rounded-full object-cover"
         />
         <div>
-          <div className="font-bold">
+          <div className="font-bold flex items-center gap-1">
             {post.author?.firstName || post.author?.lastName
               ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
               : "Anonymous"}
+            {post.author?.role === 'official_account' && <VerifiedBadge />}
           </div>
           <div className="text-xs text-gray-400">{post.category}</div>
           <div className="text-xs text-gray-400">
@@ -1651,8 +1675,9 @@ export default function PostCard({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="bg-gray-50 rounded-2xl px-4 py-3 relative">
-                          <p className="text-sm font-semibold text-gray-800 pr-7">
-                            {comment.author?.firstName} {comment.author?.lastName}
+                          <p className="text-sm font-semibold text-gray-800 pr-7 flex items-center gap-1 flex-wrap">
+                            <span>{comment.author?.firstName} {comment.author?.lastName}</span>
+                            {comment.author?.role === 'official_account' && <VerifiedBadge className="w-3.5 h-3.5" />}
                             {comment.updatedAt && (new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 5000) && (
                               <span className="ml-1.5 text-xs font-normal text-gray-400">(edited)</span>
                             )}
@@ -1881,8 +1906,9 @@ export default function PostCard({
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="bg-gray-50 rounded-xl px-3 py-2 relative">
-                                    <p className="text-xs font-semibold text-gray-800 pr-6">
-                                      {reply.author?.firstName} {reply.author?.lastName}
+                                    <p className="text-xs font-semibold text-gray-800 pr-6 flex items-center gap-1 flex-wrap">
+                                      <span>{reply.author?.firstName} {reply.author?.lastName}</span>
+                                      {reply.author?.role === 'official_account' && <VerifiedBadge className="w-3 h-3" />}
                                       {reply.updatedAt && (new Date(reply.updatedAt).getTime() - new Date(reply.createdAt).getTime() > 5000) && (
                                         <span className="ml-1 text-[10px] font-normal text-gray-400">(edited)</span>
                                       )}

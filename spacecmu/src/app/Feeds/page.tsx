@@ -34,6 +34,7 @@ interface Post {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    role?: string | null;
   };
   media?: PostMedia[];
 }

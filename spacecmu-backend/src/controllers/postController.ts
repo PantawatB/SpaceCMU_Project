@@ -996,6 +996,7 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
                 lastName: string;
                 avatarUrl: string | null;
                 username: string | null;
+                role: string | null;
             };
         }>;
 
@@ -1025,7 +1026,8 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
                         firstName: usersTable.firstName,
                         lastName: usersTable.lastName,
                         avatarUrl: usersTable.avatarUrl,
-                        username: usersTable.username
+                        username: usersTable.username,
+                        role: usersTable.role,
                     }
                 })
                 .from(commentsTable)
@@ -1051,7 +1053,8 @@ export const getCommentsByPostId = async (req: Request, res: Response) => {
                         firstName: usersTable.firstName,
                         lastName: usersTable.lastName,
                         avatarUrl: usersTable.avatarUrl,
-                        username: usersTable.username
+                        username: usersTable.username,
+                        role: usersTable.role,
                     }
                 })
                 .from(commentsTable)
