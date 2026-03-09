@@ -9,7 +9,7 @@ interface AuthWrapperProps {
 }
 
 // หน้าที่ไม่ต้องการ authentication
-const PUBLIC_ROUTES = ['/'];
+const PUBLIC_ROUTES = ['/', '/Banned'];
 
 export const AuthWrapper = ({ children }: AuthWrapperProps) => {
   const { user, isLoading } = useUser();

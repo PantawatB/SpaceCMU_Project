@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
@@ -45,6 +45,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
   const [isSwitchingMode, setIsSwitchingMode] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showBanPopup, setShowBanPopup] = useState(false);
+  const [bannedAccountLabel, setBannedAccountLabel] = useState('');
   const [reportForm, setReportForm] = useState({
     name: "",
     issue: "",
@@ -375,27 +377,54 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     
     try {
       await apiService.switchMode(newMode);
-      // Reload the page so all page-level state (chat rooms, messages, etc.) refreshes
       window.location.reload();
     } catch (err) {
-      console.error('Failed to switch mode:', err);
-      
-      // Show error toast
-      const message = err instanceof Error ? err.message : 'ไม่สามารถเปลี่ยนโหมดได้ กรุณาลองใหม่อีกครั้ง';
-      setErrorMessage(message);
-      setShowErrorToast(true);
-      
-      // Auto hide toast after 3 seconds
-      setTimeout(() => {
-        setShowErrorToast(false);
-      }, 3000);
-      
-      // UI will automatically revert because refreshUser() was not successful
-      // The activeMode state remains unchanged
+      const errMsg = err instanceof Error ? err.message : '';
+
+      if (errMsg === 'ACCOUNT_BANNED') {
+        // Expected — account is banned, show popup, stay on current mode
+        const label = newMode === 'PUBLIC' ? 'Public' : 'Anonymous';
+        setBannedAccountLabel(label);
+        setShowBanPopup(true);
+      } else {
+        // Unexpected error — log and show toast
+        console.error('Failed to switch mode:', err);
+        setErrorMessage(errMsg || 'ไม่สามารถเปลี่ยนโหมดได้ กรุณาลองใหม่อีกครั้ง');
+        setShowErrorToast(true);
+        setTimeout(() => setShowErrorToast(false), 3000);
+      }
     } finally {
       setIsSwitchingMode(false);
     }
   };
+
+  // Auto-detect if current active account is banned and force-switch to the other one
+  useEffect(() => {
+    if (!activeMode || isSwitchingMode) return;
+
+    const publicBanned = user?.status === 'banned';
+    const anonBanned = anonymousAccount?.status === 'banned';
+
+    if (activeMode === 'PUBLIC' && publicBanned) {
+      setBannedAccountLabel('Public');
+      setShowBanPopup(true);
+      // Silently switch to Anonymous (switchMode already uses silent fetch)
+      if (!anonBanned) {
+        apiService.switchMode('ANONYMOUS')
+          .then(() => window.location.reload())
+          .catch(() => { /* anonymous also banned — stay put */ });
+      }
+    } else if (activeMode === 'ANONYMOUS' && anonBanned) {
+      setBannedAccountLabel('Anonymous');
+      setShowBanPopup(true);
+      if (!publicBanned) {
+        apiService.switchMode('PUBLIC')
+          .then(() => window.location.reload())
+          .catch(() => { /* public also banned — stay put */ });
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeMode, user?.status, anonymousAccount?.status]);
 
   // Logout handler
   const handleLogout = async () => {
@@ -407,23 +436,24 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     // Close sidebar on mobile
     setIsSidebarOpen(false);
 
-    // If navigating to Market and in ANONYMOUS mode, show warning and switch
+    // If navigating to Market and in ANONYMOUS mode, switch to PUBLIC
+    // — but only if the public account is NOT banned (ban is handled by Market page itself)
     if (item.name === "Market" && activeMode === "ANONYMOUS") {
+      const publicBanned = user?.status === 'banned';
+      if (publicBanned) {
+        // Public is banned — don't attempt switch, Market page will show ban overlay
+        return;
+      }
+
       try {
-        // Show warning toast
         setErrorMessage('ไม่สามารถใช้งาน Market ในโหมด Anonymous ระบบจะเปลี่ยนเป็นโหมด Public');
         setShowErrorToast(true);
-        
-        // Auto hide toast after 4 seconds
-        setTimeout(() => {
-          setShowErrorToast(false);
-        }, 4000);
+        setTimeout(() => setShowErrorToast(false), 4000);
 
-        // Switch to PUBLIC mode
         await apiService.switchMode("PUBLIC");
-        await refreshUser(true); // Silent refresh
-      } catch (err) {
-        console.error('Failed to switch to PUBLIC mode:', err);
+        await refreshUser(true);
+      } catch {
+        // Switch failed silently — Market page will handle the state
       }
     }
   };
@@ -993,6 +1023,35 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         </div>
       </div>
     , document.body)}
+
+    {/* Ban Popup Modal */}
+    {showBanPopup && createPortal(
+      <div className="fixed inset-0 z-99998 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl border border-red-100 max-w-sm w-full p-7 flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-14 h-14 rounded-full bg-red-50 flex items-center justify-center">
+            <svg className="w-7 h-7 text-red-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="15" y1="9" x2="9" y2="15" />
+              <line x1="9" y1="9" x2="15" y2="15" />
+            </svg>
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="text-base font-bold text-slate-900">ไม่สามารถใช้งานได้</h3>
+            <p className="text-sm text-slate-600 leading-relaxed">
+              ขออภัย account <span className="font-semibold text-red-600">{bannedAccountLabel}</span> ของท่านถูก Ban จากระบบ
+              ซึ่งไม่สามารถใช้งานตัวตนดังกล่าวได้
+            </p>
+          </div>
+          <button
+            onClick={() => setShowBanPopup(false)}
+            className="mt-1 w-full py-2.5 bg-slate-900 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition-colors"
+          >
+            รับทราบ
+          </button>
+        </div>
+      </div>,
+      document.body
+    )}
 
     {/* Error Toast */}
     {showErrorToast && (

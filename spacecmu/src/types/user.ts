@@ -25,7 +25,7 @@ export interface User {
   bannerUrl: string | null;
   friendsCount: number;
   role: 'user' | 'admin' | 'god';
-  status: 'active' | 'inactive' | 'suspended';
+  status: 'active' | 'inactive' | 'suspended' | 'banned';
   lastActiveAt: string | null;
   notificationSettings: NotificationSettings;
   privacySettings: PrivacySettings;
@@ -46,6 +46,7 @@ export interface AnonymousAccount {
   username: string;
   firstName: string;
   avatarUrl: string;
+  status?: 'active' | 'banned';
 }
 
 export interface OfficialAccountInfo {
@@ -55,6 +56,7 @@ export interface OfficialAccountInfo {
   faculty: string;
   userId: string;
   avatarUrl: string | null;
+  status?: 'active' | 'banned' | null;
 }
 
 export interface UserMeResponse {

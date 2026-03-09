@@ -3,6 +3,33 @@ import { dbClient } from "../../db/client.js";
 import { usersTable, postsTable, sessionsTable, announcementsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable } from "../../db/schema.js";
 import { eq, count, sql, desc, or, and } from "drizzle-orm";
 
+/**
+ * Helper: ถ้า user (role === "admin") ไม่มี official account ที่ตัวเองเป็น admin อีกแล้ว
+ * ให้ downgrade role กลับเป็น "user" อัตโนมัติ
+ * (ไม่แตะ god)
+ */
+async function downgradeIfNoOfficialAccounts(userId: string): Promise<void> {
+    const [user] = await dbClient
+        .select({ role: usersTable.role })
+        .from(usersTable)
+        .where(eq(usersTable.id, userId));
+
+    // downgrade เฉพาะ admin เท่านั้น (ไม่แตะ god หรือ official_account)
+    if (!user || user.role !== "admin") return;
+
+    const [remaining] = await dbClient
+        .select({ count: count() })
+        .from(officialAccountAdminsTable)
+        .where(eq(officialAccountAdminsTable.adminUserId, userId));
+
+    if (Number(remaining?.count ?? 0) === 0) {
+        await dbClient
+            .update(usersTable)
+            .set({ role: "user" })
+            .where(eq(usersTable.id, userId));
+    }
+}
+
 export const getDashboardStats = async (req: Request, res: Response) => {
     try {
         // 1. Total Users (excluding anonymous)
@@ -196,6 +223,7 @@ export const getMyOfficialAccounts = async (req: Request, res: Response) => {
                 ownerId: officialAccountsTable.ownerId,
                 avatarUrl: usersTable.avatarUrl,
                 bannerUrl: usersTable.bannerUrl,
+                status: usersTable.status,  // ← status ของ official account user
             })
             .from(officialAccountsTable)
             .leftJoin(usersTable, eq(officialAccountsTable.userId, usersTable.id))
@@ -327,6 +355,9 @@ export const removeAdminFromMyAccount = async (req: Request, res: Response) => {
                 )
             );
 
+        // Auto-downgrade: ถ้า user ไม่มี official account ที่ตัวเองเป็น admin อีกแล้ว → role กลับเป็น "user"
+        await downgradeIfNoOfficialAccounts(adminUserId);
+
         res.json({ message: "Admin removed successfully" });
     } catch (error) {
         console.error("removeAdminFromMyAccount error:", error);
@@ -374,6 +405,9 @@ export const leaveOfficialAccount = async (req: Request, res: Response) => {
                     eq(officialAccountAdminsTable.adminUserId, callerId)
                 )
             );
+
+        // Auto-downgrade: ถ้า user ไม่มี official account ที่ตัวเองเป็น admin อีกแล้ว → role กลับเป็น "user"
+        await downgradeIfNoOfficialAccounts(callerId);
 
         res.json({ message: "You have left the official account" });
     } catch (error) {

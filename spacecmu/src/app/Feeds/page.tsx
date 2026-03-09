@@ -44,6 +44,8 @@ export default function FeedsMainPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
+  const feedFilterButtonRef = useRef<HTMLButtonElement>(null);
+  const [feedFilterPos, setFeedFilterPos] = useState({ top: 0, right: 0 });
   const [selectedFilter, setSelectedFilter] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("feedFilter") || "Global";
@@ -649,7 +651,14 @@ export default function FeedsMainPage() {
           {/* Filter Dropdown Button - 3 lines icon */}
           <div className="relative">
             <button
-              onClick={() => setShowFeedFilter(!showFeedFilter)}
+              ref={feedFilterButtonRef}
+              onClick={() => {
+                if (!showFeedFilter && feedFilterButtonRef.current) {
+                  const rect = feedFilterButtonRef.current.getBoundingClientRect();
+                  setFeedFilterPos({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+                }
+                setShowFeedFilter(!showFeedFilter);
+              }}
               className="flex items-center justify-center p-2 hover:bg-gray-100 rounded-lg transition-all duration-200"
             >
               <svg
@@ -668,46 +677,56 @@ export default function FeedsMainPage() {
               </svg>
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu — fixed so it renders above all post cards */}
             {showFeedFilter && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-20">
-                <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                  Select Feed Type
+              <>
+                <div
+                  className="fixed inset-0 z-9998"
+                  style={{ zIndex: 9998 }}
+                  onClick={() => setShowFeedFilter(false)}
+                />
+                <div
+                  className="fixed w-56 bg-white rounded-xl shadow-2xl border border-gray-200 py-2 z-9999"
+                  style={{ top: feedFilterPos.top, right: feedFilterPos.right, zIndex: 9999 }}
+                >
+                  <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Select Feed Type
+                  </div>
+                  <div className="py-1">
+                    {filterOptions.map((option) => (
+                      <button
+                        key={option.id}
+                        onClick={() => handleFilterSelect(option.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition text-left ${
+                          selectedFilter === option.id
+                            ? "bg-blue-50 text-blue-700"
+                            : "text-gray-700"
+                        }`}
+                      >
+                        <span className="text-sm font-medium">
+                          {option.label}
+                        </span>
+                        {selectedFilter === option.id && (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth={2.5}
+                            stroke="currentColor"
+                            className="w-4 h-4 ml-auto text-blue-600"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M4.5 12.75l6 6 9-13.5"
+                            />
+                          </svg>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div className="py-1">
-                  {filterOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      onClick={() => handleFilterSelect(option.id)}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition text-left ${
-                        selectedFilter === option.id
-                          ? "bg-blue-50 text-blue-700"
-                          : "text-gray-700"
-                      }`}
-                    >
-                      <span className="text-sm font-medium">
-                        {option.label}
-                      </span>
-                      {selectedFilter === option.id && (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth={2.5}
-                          stroke="currentColor"
-                          className="w-4 h-4 ml-auto text-blue-600"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M4.5 12.75l6 6 9-13.5"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -1220,19 +1239,28 @@ export default function FeedsMainPage() {
                   alt="avatar"
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />
-                <textarea
-                  value={postText}
-                  onChange={(e) => setPostText(e.target.value)}
-                  placeholder="What's on your mind?"
-                  rows={1}
-                  className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
-                  style={{ minHeight: '40px', maxHeight: '120px' }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = 'auto';
-                    target.style.height = Math.min(target.scrollHeight, 120) + 'px';
-                  }}
-                />
+                <div className="flex-1 relative">
+                  <textarea
+                    value={postText}
+                    onChange={(e) => setPostText(e.target.value.slice(0, 2000))}
+                    placeholder="What's on your mind?"
+                    rows={1}
+                    className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
+                    style={{ minHeight: '40px', maxHeight: '120px' }}
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = Math.min(target.scrollHeight, 120) + 'px';
+                    }}
+                  />
+                  {postText.length > 1700 && (
+                    <div className={`absolute bottom-1.5 right-3 text-xs pointer-events-none select-none ${
+                      postText.length >= 2000 ? "text-red-500 font-semibold" : "text-amber-500"
+                    }`}>
+                      {postText.length}/2000
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Media Preview - Show when files selected */}

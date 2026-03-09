@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -67,6 +67,49 @@ interface PostCardProps {
   onPostDelete?: (postId: string) => void;
 }
 
+interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  image: string | null;
+  siteName: string | null;
+  favicon: string | null;
+}
+
+const POST_CONTENT_MAX_LENGTH = 2000;
+
+// Regex to detect URLs in text
+const URL_REGEX = /https?:\/\/(?:[-\w]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
+
+function extractFirstUrl(text: string): string | null {
+  const match = text.match(URL_REGEX);
+  return match?.[0] ?? null;
+}
+
+function renderTextWithLinks(text: string): React.ReactNode {
+  const parts = text.split(URL_REGEX);
+  const urls = text.match(URL_REGEX) ?? [];
+  const result: React.ReactNode[] = [];
+  parts.forEach((part, i) => {
+    if (part) result.push(<span key={`t-${i}`}>{part}</span>);
+    if (urls[i]) {
+      result.push(
+        <a
+          key={`u-${i}`}
+          href={urls[i]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-500 hover:text-blue-700 underline break-all"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {urls[i]}
+        </a>
+      );
+    }
+  });
+  return <>{result}</>;
+}
+
 export default function PostCard({
   post,
   onLikeUpdate,
@@ -75,6 +118,8 @@ export default function PostCard({
   onPostDelete,
 }: PostCardProps) {
   const { activeUser } = useUser();
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [showCommentPopup, setShowCommentPopup] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [comments, setComments] = useState<Comment[]>([]);
@@ -87,10 +132,42 @@ export default function PostCard({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingPost, setDeletingPost] = useState(false);
 
+  // Edit post state
+  const [showEditPostPopup, setShowEditPostPopup] = useState(false);
+  const [editPostContent, setEditPostContent] = useState("");
+  const [editPostMediaFiles, setEditPostMediaFiles] = useState<File[]>([]);
+  const [editPostMediaPreviews, setEditPostMediaPreviews] = useState<string[]>([]);
+  const [editPostRemoveMediaIds, setEditPostRemoveMediaIds] = useState<string[]>([]);
+  const [savingEditPost, setSavingEditPost] = useState(false);
+  const [localPostContent, setLocalPostContent] = useState(post.content);
+  const [localPostMedia, setLocalPostMedia] = useState<PostMedia[]>(post.media ?? []);
+  const [isDraggingEdit, setIsDraggingEdit] = useState(false);
+
+  // Link preview state
+  const [linkPreview, setLinkPreview] = useState<LinkPreview | null>(null);
+  const [loadingLinkPreview, setLoadingLinkPreview] = useState(false);
+  const linkPreviewFetchedFor = useRef<string | null>(null);
+
   // Live comment count (includes replies), initialized from prop
   const [localCommentCount, setLocalCommentCount] = useState(post.commentCount);
   // Keep in sync when prop changes (e.g. after feed refresh)
   useEffect(() => { setLocalCommentCount(post.commentCount); }, [post.commentCount]);
+
+  // Fetch link preview for the first URL in the post content
+  useEffect(() => {
+    const url = extractFirstUrl(localPostContent ?? "");
+    if (!url || url === linkPreviewFetchedFor.current) return;
+    linkPreviewFetchedFor.current = url;
+    setLinkPreview(null);
+    setLoadingLinkPreview(true);
+    fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { cache: "no-store" })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: LinkPreview | null) => {
+        if (data && !data.title?.match(/^error$/i)) setLinkPreview(data);
+      })
+      .catch(() => null)
+      .finally(() => setLoadingLinkPreview(false));
+  }, [localPostContent]);
 
   // Comment pagination
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -282,9 +359,8 @@ export default function PostCard({
         e.preventDefault();
         e.stopPropagation();
         if (
-          post.media &&
           selectedImageIndex <
-            post.media.filter((m) => m.mediaType === "image").length - 1
+            localPostMedia.filter((m) => m.mediaType === "image").length - 1
         ) {
           setSelectedImageIndex((prev) => prev + 1);
         }
@@ -296,7 +372,7 @@ export default function PostCard({
       window.removeEventListener("keydown", handleKeyPress, true);
       document.body.style.overflow = 'unset';
     };
-  }, [showImageLightbox, selectedImageIndex, post.media]);
+  }, [showImageLightbox, selectedImageIndex, localPostMedia]);
 
   // Keyboard navigation for comment/reply media lightbox
   useEffect(() => {
@@ -894,6 +970,99 @@ export default function PostCard({
     }
   };
 
+  // --- Edit Post Handlers ---
+  const closeEditPostPopup = () => {
+    setShowEditPostPopup(false);
+    setEditPostMediaFiles([]);
+    setEditPostMediaPreviews([]);
+    setEditPostRemoveMediaIds([]);
+  };
+
+  const handleEditPostMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    const newFiles = Array.from(files);
+    const imageMaxSize = 10 * 1024 * 1024;
+    const videoMaxSize = 100 * 1024 * 1024;
+    const totalExisting = localPostMedia.filter(m => !editPostRemoveMediaIds.includes(String(m.id))).length;
+    const totalNew = editPostMediaFiles.length;
+    if (totalExisting + totalNew + newFiles.length > 20) {
+      alert("จำนวนไฟล์สูงสุดคือ 20 ไฟล์ต่อโพสต์");
+      e.target.value = "";
+      return;
+    }
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+    newFiles.forEach((file) => {
+      const isVideo = file.type.startsWith("video/");
+      if (file.size <= (isVideo ? videoMaxSize : imageMaxSize)) {
+        validFiles.push(file);
+      } else {
+        errors.push(`${file.name} (ขนาดเกิน ${isVideo ? "100MB" : "10MB"})`);
+      }
+    });
+    if (errors.length > 0) alert("ไม่สามารถอัปโหลดไฟล์เหล่านี้:\n" + errors.join("\n"));
+    if (validFiles.length > 0) {
+      // Generate all previews first, then set state once to keep files/previews in sync
+      const previews = await Promise.all(
+        validFiles.map(file => {
+          if (file.type.startsWith("video/")) {
+            return Promise.resolve(URL.createObjectURL(file));
+          }
+          return new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+        })
+      );
+      setEditPostMediaFiles(prev => [...prev, ...validFiles]);
+      setEditPostMediaPreviews(prev => [...prev, ...previews]);
+    }
+    e.target.value = "";
+  };
+
+  const handleEditPostDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDraggingEdit(false);
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+    const fakeEvent = { target: { files: e.dataTransfer.files, value: "" } } as unknown as React.ChangeEvent<HTMLInputElement>;
+    handleEditPostMediaUpload(fakeEvent);
+  };
+
+  const handleSaveEditPost = async () => {
+    if (!activeUser) return;
+    setSavingEditPost(true);
+    try {
+      const formData = new FormData();
+      formData.append("content", editPostContent.trim());
+      editPostRemoveMediaIds.forEach(id => formData.append("removeMediaIds", id));
+      editPostMediaFiles.forEach(file => formData.append("media", file));
+
+      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${post.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error((err as { message?: string }).message || "Failed to edit post");
+      }
+
+      const updated = await response.json();
+      setLocalPostContent(updated.content ?? "");
+      setLocalPostMedia(updated.media ?? []);
+      setShowEditPostPopup(false);
+    } catch (error) {
+      console.error("Error editing post:", error);
+      alert("ไม่สามารถแก้ไขโพสต์ได้ กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setSavingEditPost(false);
+    }
+  };
+
   // Handle scroll position for media arrows
   const handleMediaScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.currentTarget;
@@ -931,17 +1100,86 @@ export default function PostCard({
       </div>
 
       {/* Post Content */}
-      {post.content && (
+      {localPostContent && (
         <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
-          {post.content}
+          {renderTextWithLinks(localPostContent)}
+        </div>
+      )}
+
+      {/* Link Preview Card */}
+      {(linkPreview || loadingLinkPreview) && !localPostMedia?.length && (
+        <div className="mb-3">
+          {loadingLinkPreview ? (
+            /* Skeleton */
+            <div className="animate-pulse border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
+              <div className="h-32 bg-gray-200 w-full" />
+              <div className="px-4 py-3 flex items-start gap-2.5">
+                <div className="w-4 h-4 bg-gray-200 rounded shrink-0 mt-0.5" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-2.5 bg-gray-200 rounded w-1/4" />
+                  <div className="h-3.5 bg-gray-200 rounded w-3/5" />
+                  <div className="h-2.5 bg-gray-200 rounded w-full" />
+                </div>
+              </div>
+            </div>
+          ) : linkPreview ? (
+            <a
+              href={linkPreview.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block border border-gray-200 rounded-xl overflow-hidden hover:border-gray-300 hover:shadow-sm transition-all group no-underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Banner image */}
+              {linkPreview.image && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={linkPreview.image}
+                  alt=""
+                  className="w-full max-h-52 object-cover bg-gray-100"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+              {/* Info row */}
+              <div className="px-4 py-3 flex items-start gap-2.5 bg-white">
+                {/* Favicon */}
+                {linkPreview.favicon && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={linkPreview.favicon}
+                    alt=""
+                    className="w-4 h-4 rounded shrink-0 mt-[3px]"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  {linkPreview.siteName && (
+                    <p className="text-[11px] text-gray-400 mb-0.5 truncate uppercase tracking-wide font-medium">
+                      {linkPreview.siteName}
+                    </p>
+                  )}
+                  {linkPreview.title && (
+                    <p className="text-sm font-semibold text-gray-800 line-clamp-2 group-hover:text-blue-600 transition-colors leading-snug">
+                      {linkPreview.title}
+                    </p>
+                  )}
+                  {linkPreview.description && (
+                    <p className="text-xs text-gray-500 mt-1 line-clamp-2 leading-relaxed">
+                      {linkPreview.description}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </a>
+          ) : null}
         </div>
       )}
 
       {/* Post Media - Threads-style Horizontal Layout */}
-      {post.media && post.media.length > 0 && (
-        <div className={`mb-3 ${post.media.length <= 2 ? "" : "-mx-6"} relative group/media max-w-full`}>
+      {localPostMedia && localPostMedia.length > 0 && (
+        <div className={`mb-3 ${localPostMedia.length <= 2 ? "" : "-mx-6"} relative group/media max-w-full`}>
           {/* Left Arrow Indicator - Show only when scrolled right and has multiple images */}
-          {post.media.length > 1 && showLeftArrow && (
+          {localPostMedia.length > 1 && showLeftArrow && (
             <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-30 group-hover/media:opacity-100 transition-opacity duration-300">
               <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
                 <svg 
@@ -962,7 +1200,7 @@ export default function PostCard({
           )}
 
           {/* Right Arrow Indicator - Show only when can scroll right and has multiple images */}
-          {post.media.length > 1 && showRightArrow && (
+          {localPostMedia.length > 1 && showRightArrow && (
             <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-30 group-hover/media:opacity-100 transition-opacity duration-300">
               <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg">
                 <svg 
@@ -983,17 +1221,17 @@ export default function PostCard({
           )}
 
           <div
-            className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${post.media.length <= 2 ? "" : "px-6"}`}
+            className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${localPostMedia.length <= 2 ? "" : "px-6"}`}
             onScroll={handleMediaScroll}
           >
-            <div className={`flex items-center gap-2 ${post.media.length === 1 ? "w-full" : "w-max min-w-full"} justify-center`}>
-              {post.media.map((media, index) => {
-                const isSingleMedia = post.media!.length === 1;
+            <div className={`flex items-center gap-2 ${localPostMedia.length === 1 ? "w-full" : "w-max min-w-full"} justify-center`}>
+              {localPostMedia.map((media, index) => {
+                const isSingleMedia = localPostMedia.length === 1;
                 const isSingleImage =
                   isSingleMedia && media.mediaType === "image";
 
                 // Compute index within image-only list (for lightbox)
-                const imageOnlyIndex = post.media!.slice(0, index + 1).filter(m => m.mediaType === "image").length - 1;
+                const imageOnlyIndex = localPostMedia.slice(0, index + 1).filter(m => m.mediaType === "image").length - 1;
 
                 const getMediaWidth = () => {
                   if (isSingleImage) return "100%";
@@ -1234,7 +1472,7 @@ export default function PostCard({
                 <span className="mt-0.5 w-2 h-2 rounded-full bg-slate-500 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-slate-500 font-medium mb-0.5">ชื่อ Event</p>
-                  <p className="text-sm font-semibold text-gray-800 break-words line-clamp-3">{calendarEventPreview.eventTitle}</p>
+                  <p className="text-sm font-semibold text-gray-800 wrap-break-word line-clamp-3">{calendarEventPreview.eventTitle}</p>
                 </div>
               </div>
               {/* Date & Time */}
@@ -1996,7 +2234,7 @@ export default function PostCard({
       )}
 
       {/* Three-dot Menu Button */}
-      <div className="absolute top-6 right-6 flex items-center gap-2">
+      <div className="absolute top-6 right-6 flex items-center gap-2" style={{ zIndex: 30 }}>
         {/* Add to Calendar — only for Events posts */}
         {post.category === "Events" && (
           <button
@@ -2032,7 +2270,14 @@ export default function PostCard({
           </button>
         )}
         <button
-          onClick={() => setShowPostMenu(!showPostMenu)}
+          ref={menuButtonRef}
+          onClick={() => {
+            if (!showPostMenu && menuButtonRef.current) {
+              const rect = menuButtonRef.current.getBoundingClientRect();
+              setMenuPosition({ top: rect.bottom + 8, right: window.innerWidth - rect.right });
+            }
+            setShowPostMenu(!showPostMenu);
+          }}
           className="text-gray-400 text-2xl hover:text-gray-600 transition-colors"
         >
           ⋮
@@ -2045,7 +2290,39 @@ export default function PostCard({
               className="fixed inset-0 z-40"
               onClick={() => setShowPostMenu(false)}
             />
-            <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50">
+            <div
+              className="fixed w-48 bg-white rounded-xl shadow-xl border border-gray-200 py-2 z-50"
+              style={{ top: menuPosition.top, right: menuPosition.right }}
+            >
+              {/* Delete Post — only visible to the post owner */}
+              {activeUser && activeUser.id === post.userId && (
+                <button
+                  onClick={() => {
+                    setShowEditPostPopup(true);
+                    setEditPostContent(localPostContent ?? "");
+                    setEditPostMediaFiles([]);
+                    setEditPostMediaPreviews([]);
+                    setEditPostRemoveMediaIds([]);
+                    setShowPostMenu(false);
+                  }}
+                  className="w-full px-4 py-2 text-left hover:bg-blue-50 text-blue-600 flex items-center gap-2"
+                >
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit Post
+                </button>
+              )}
               {/* Delete Post — only visible to the post owner */}
               {activeUser && activeUser.id === post.userId && (
                 <button
@@ -2097,6 +2374,186 @@ export default function PostCard({
           </>
         )}
       </div>
+
+      {/* Edit Post Popup */}
+      {showEditPostPopup && (
+        <div
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={closeEditPostPopup}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 shrink-0">
+              <h2 className="text-lg font-bold text-gray-800">แก้ไขโพสต์</h2>
+              <button
+                onClick={closeEditPostPopup}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
+              {/* Text area */}
+              <div className="relative">
+                <textarea
+                  value={editPostContent}
+                  onChange={(e) => setEditPostContent(e.target.value.slice(0, POST_CONTENT_MAX_LENGTH))}
+                  placeholder="What's on your mind?"
+                  rows={4}
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-800 resize-none text-sm"
+                />
+                <div className={`absolute bottom-2 right-3 text-xs select-none pointer-events-none ${
+                  editPostContent.length >= POST_CONTENT_MAX_LENGTH
+                    ? "text-red-500 font-semibold"
+                    : editPostContent.length >= POST_CONTENT_MAX_LENGTH * 0.85
+                    ? "text-amber-500"
+                    : "text-gray-400"
+                }`}>
+                  {editPostContent.length}/{POST_CONTENT_MAX_LENGTH}
+                </div>
+              </div>
+
+              {/* Existing media with remove option */}
+              {localPostMedia.filter(m => !editPostRemoveMediaIds.includes(String(m.id))).length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-2">รูปภาพ/วิดีโอปัจจุบัน</p>
+                  <div className="flex flex-wrap gap-4 pt-2 pl-2">
+                    {localPostMedia
+                      .filter(m => !editPostRemoveMediaIds.includes(String(m.id)))
+                      .map((m) => (
+                        <div key={m.id} className="relative group/thumb">
+                          <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
+                          {m.mediaType === "image" ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={apiService.getImageUrl(m.mediaUrl) || ""}
+                              alt="existing media"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <video
+                              src={apiService.getImageUrl(m.mediaUrl) || ""}
+                              className="w-full h-full object-cover"
+                              preload="metadata"
+                            />
+                          )}
+                          </div>
+                          <button
+                            onClick={() => setEditPostRemoveMediaIds(prev => [...prev, String(m.id)])}
+                            className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors z-10 shadow"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* New media previews */}
+              {editPostMediaPreviews.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 mb-2">ไฟล์ใหม่ที่จะเพิ่ม</p>
+                  <div className="flex flex-wrap gap-4 pt-2 pl-2">
+                    {editPostMediaPreviews.map((preview, idx) => (
+                      <div key={idx} className="relative group/newthumb">
+                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100">
+                        {editPostMediaFiles[idx]?.type.startsWith("video/") ? (
+                          <video src={preview} className="w-full h-full object-cover" preload="metadata" />
+                        ) : (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={preview} alt="new media" className="w-full h-full object-cover" />
+                        )}
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Revoke object URL for videos to free memory
+                            if (preview.startsWith("blob:")) URL.revokeObjectURL(preview);
+                            setEditPostMediaFiles(prev => prev.filter((_, i) => i !== idx));
+                            setEditPostMediaPreviews(prev => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold hover:bg-red-600 transition-colors z-10 shadow"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Upload area */}
+              <div
+                onDrop={handleEditPostDrop}
+                onDragOver={(e) => { e.preventDefault(); setIsDraggingEdit(true); }}
+                onDragLeave={() => setIsDraggingEdit(false)}
+                className={`border-2 border-dashed rounded-xl p-5 text-center transition-all ${
+                  isDraggingEdit
+                    ? "border-blue-400 bg-blue-50"
+                    : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                }`}
+              >
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-600 mb-1">ลากไฟล์มาวาง หรือ</p>
+                    <label className="cursor-pointer inline-block">
+                      <input
+                        type="file"
+                        accept="image/jpg,image/jpeg,image/png,image/gif,image/webp,image/bmp,image/svg+xml,video/mp4,video/quicktime,video/x-msvideo,video/x-matroska,video/webm,video/x-flv,video/x-ms-wmv,.mp4,.mov,.avi,.mkv,.webm,.flv,.wmv,.m4v,.3gp"
+                        multiple
+                        onChange={handleEditPostMediaUpload}
+                        className="hidden"
+                      />
+                      <span className="px-4 py-2 bg-gray-600 text-white text-sm font-semibold rounded-lg hover:bg-gray-700 transition-colors">
+                        เลือกไฟล์
+                      </span>
+                    </label>
+                  </div>
+                  <p className="text-xs text-gray-400">รูปภาพ: สูงสุด 10MB · วิดีโอ: สูงสุด 100MB</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-gray-100 flex gap-3 shrink-0">
+              <button
+                onClick={closeEditPostPopup}
+                disabled={savingEditPost}
+                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-600 font-semibold text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={handleSaveEditPost}
+                disabled={savingEditPost || (!editPostContent.trim() && localPostMedia.filter(m => !editPostRemoveMediaIds.includes(String(m.id))).length === 0 && editPostMediaFiles.length === 0)}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {savingEditPost ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    กำลังบันทึก...
+                  </>
+                ) : "บันทึก"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Delete Confirmation Popup */}
       {showDeleteConfirm && (
@@ -2415,8 +2872,8 @@ export default function PostCard({
       })()}
 
       {/* Image Lightbox Popup */}
-      {showImageLightbox && post.media && (() => {
-        const imageMediaList = post.media.filter((m) => m.mediaType === "image");
+      {showImageLightbox && localPostMedia.length > 0 && (() => {
+        const imageMediaList = localPostMedia.filter((m) => m.mediaType === "image");
         const totalImages = imageMediaList.length;
         return (
           <div

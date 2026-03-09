@@ -18,6 +18,7 @@ export interface GodUser {
   role: 'user' | 'admin' | 'god' | 'official_account';
   status: 'active' | 'banned';
   isAnonymous: boolean;
+  parentUserId: string | null;
   createdAt: string;
   lastActiveAt: string | null;
   avatarUrl?: string | null;
@@ -54,6 +55,7 @@ export interface OfficialAccount {
 export interface MyOfficialAccount extends OfficialAccount {
   isOwner: boolean;
   ownerId: string;
+  status?: 'active' | 'banned' | null;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
   admins: (OfficialAccountAdmin & { avatarUrl?: string | null })[];
@@ -126,7 +128,8 @@ class ApiService {
    */
   private async fetchWithAuth<T>(
     endpoint: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    suppressTokenError: boolean = false
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
@@ -145,8 +148,8 @@ class ApiService {
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         
-        // Handle token errors
-        if (response.status === 401) {
+        // Handle token errors — only dispatch event when NOT suppressed
+        if (response.status === 401 && !suppressTokenError) {
           if (errorData.message === "No token provided" || 
               errorData.message?.toLowerCase().includes("token") ||
               errorData.message?.toLowerCase().includes("unauthorized")) {
@@ -164,9 +167,31 @@ class ApiService {
 
       return await response.json();
     } catch (error) {
-      console.error('API Error:', error);
+      if (!suppressTokenError) console.error('API Error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Silent version of fetchWithAuth — does NOT log to console.
+   * Use for expected errors (e.g. ACCOUNT_BANNED on switch-mode).
+   */
+  private async fetchWithAuthSilent<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+    const config: RequestInit = {
+      ...options,
+      headers: { 'Content-Type': 'application/json', ...options.headers },
+      credentials: 'include',
+    };
+    const response = await fetch(url, config);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+    }
+    return response.json();
   }
 
   /**
@@ -337,12 +362,26 @@ class ApiService {
     return this.get<UserMeResponse>(API_ENDPOINTS.AUTH.ME);
   }
 
+  /**
+   * Silent version of getCurrentUser — suppresses tokenError events and console logs.
+   * Use this for background polling so a post-ban 401 doesn't trigger the
+   * "Token expired" popup or console noise.
+   */
+  async getCurrentUserSilent(): Promise<UserMeResponse> {
+    return this.fetchWithAuth<UserMeResponse>(API_ENDPOINTS.AUTH.ME, { method: 'GET' }, true);
+  }
+
   async logout(): Promise<void> {
     return this.post<void>(API_ENDPOINTS.AUTH.LOGOUT);
   }
 
   async switchMode(mode: 'PUBLIC' | 'ANONYMOUS'): Promise<void> {
-    return this.post<void>(API_ENDPOINTS.AUTH.SWITCH_MODE, { mode });
+    // Use silent fetch — ACCOUNT_BANNED (403) is an expected/handled error,
+    // not a bug, so we don't want it polluting the console.
+    return this.fetchWithAuthSilent<void>(API_ENDPOINTS.AUTH.SWITCH_MODE, {
+      method: 'POST',
+      body: JSON.stringify({ mode }),
+    });
   }
 
   async switchToOfficialAccount(officialAccountId: string): Promise<{

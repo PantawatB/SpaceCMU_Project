@@ -93,6 +93,7 @@ export const callback = async (req: Request, res: Response) => {
         // 3. Upsert User into Database
         console.log("Saving user to database...");
         let user;
+        let loginAsAnonId: string | null = null; // set if public is banned but anon is active
         try {
             const email = userData.cmuitaccount + "@cmu.ac.th"; // Construct email if not provided directly, or use cmuitaccount_name
             // Note: CMU Basic Info might vary, usually cmuitaccount_name is the email prefix or full email.
@@ -126,33 +127,24 @@ export const callback = async (req: Request, res: Response) => {
             user = upsertedUser;
             console.log("User saved:", user.id);
 
-            // 3.0 Check if user is banned
-            if (user.status === "banned") {
-                console.log("Banned user attempted to login:", user.id);
-                return res.status(403).json({ error: "Your account has been banned." });
-            }
-
-            // 3.1 Handle Anonymous Account (Backend Only)
+            // 3.0 Check ban status — decide where to land
+            // We need the anonymous account first to do the dual-ban check.
             const anonEmail = cmuAccount + "@anonymous.spacecmu.com";
 
-            // Check if anonymous account exists
-            const existingAnon = await dbClient
+            // 3.1 Handle Anonymous Account (ensure it exists)
+            const existingAnonRows = await dbClient
                 .select()
                 .from(usersTable)
                 .where(eq(usersTable.email, anonEmail))
                 .limit(1);
 
-            if (existingAnon.length === 0) {
+            if (existingAnonRows.length === 0) {
                 console.log("Creating Anonymous account for user...");
-
-                // Get current anonymous count for numbering
                 const allAnon = await dbClient
                     .select()
                     .from(usersTable)
                     .where(eq(usersTable.isAnonymous, true));
-
                 const anonNumber = allAnon.length;
-
                 await dbClient.insert(usersTable).values({
                     firstName: "Anonymous",
                     lastName: "",
@@ -160,11 +152,35 @@ export const callback = async (req: Request, res: Response) => {
                     username: `anonymous-${anonNumber}`,
                     isAnonymous: true,
                     parentUserId: user.id,
-                    avatarUrl: "/noobcat.png", // Default anonymous avatar
+                    avatarUrl: "/noobcat.png",
                     role: "user",
                     status: "active",
                 });
                 console.log(`Anonymous account created: anonymous-${anonNumber}`);
+            }
+
+            // Re-fetch anon (may have just been created)
+            const [anonUser] = await dbClient
+                .select({ id: usersTable.id, status: usersTable.status })
+                .from(usersTable)
+                .where(eq(usersTable.email, anonEmail))
+                .limit(1);
+
+            const publicBanned = user.status === "banned";
+            const anonBanned = anonUser?.status === "banned";
+
+            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+
+            if (publicBanned && anonBanned) {
+                // Both identities banned → redirect to Banned page (no session created)
+                console.log("Both identities banned for user:", user.id);
+                return res.redirect(`${frontendUrl}/Banned`);
+            }
+
+            if (publicBanned && !anonBanned && anonUser) {
+                // Public banned but anon is usable → force-login as anon
+                console.log("Public banned, forcing anon login for user:", user.id);
+                loginAsAnonId = anonUser.id;
             }
 
         } catch (dbError) {
@@ -207,14 +223,17 @@ export const callback = async (req: Request, res: Response) => {
             const ipAddress = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || req.ip;
             const userAgent = req.headers['user-agent'];
 
+            // If public account is banned, start session in anonymous mode
+            const initialActiveUserId = loginAsAnonId ?? user.id;
+
             await dbClient.insert(sessionsTable).values({
                 userId: user.id,
-                activeUserId: user.id, // Default to public mode on login
+                activeUserId: initialActiveUserId,
                 token: sessionToken,
                 ipAddress: typeof ipAddress === 'string' ? ipAddress : JSON.stringify(ipAddress),
                 userAgent: userAgent as string,
             });
-            console.log("Session recorded for user:", user.id);
+            console.log("Session recorded for user:", user.id, "activeUserId:", initialActiveUserId);
         } catch (sessionError) {
             console.error("Failed to record session:", sessionError);
             // We don't block the login if session recording fails, but we log it.
@@ -273,6 +292,7 @@ export const getMe = async (req: Request, res: Response) => {
                     faculty: officialAccountsTable.faculty,
                     userId: officialAccountsTable.userId,
                     avatarUrl: usersTable.avatarUrl,
+                    status: usersTable.status,   // ← status ของ official account user
                 })
                 .from(officialAccountsTable)
                 .leftJoin(usersTable, eq(usersTable.id, officialAccountsTable.userId))
@@ -310,6 +330,7 @@ export const getMe = async (req: Request, res: Response) => {
                 username: anonymousAccount.username,
                 firstName: anonymousAccount.firstName,
                 avatarUrl: anonymousAccount.avatarUrl,
+                status: anonymousAccount.status,
             } : null,
             officialAccount,
         });
@@ -352,9 +373,18 @@ export const switchMode = async (req: Request, res: Response) => {
                 return res.status(404).json({ message: "Anonymous account not found" });
             }
 
+            // Check if anonymous account is banned
+            if (anonymousAccount.status === "banned") {
+                return res.status(403).json({ message: "ACCOUNT_BANNED", bannedMode: "ANONYMOUS" });
+            }
+
             newActiveUserId = anonymousAccount.id;
         } else {
             // Switch to public mode
+            // Check if public account is banned
+            if (publicUser.status === "banned") {
+                return res.status(403).json({ message: "ACCOUNT_BANNED", bannedMode: "PUBLIC" });
+            }
             newActiveUserId = publicUser.id;
         }
 

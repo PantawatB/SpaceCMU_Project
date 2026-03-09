@@ -11,7 +11,7 @@ interface TokenErrorContextType {
 const TokenErrorContext = createContext<TokenErrorContextType | undefined>(undefined);
 
 // หน้าที่ไม่ต้องการ authentication (ไม่แสดง popup error)
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/auth'];
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/auth', '/Banned'];
 
 export function TokenErrorProvider({ children }: { children: ReactNode }) {
   const [isTokenErrorOpen, setIsTokenErrorOpen] = useState(false);

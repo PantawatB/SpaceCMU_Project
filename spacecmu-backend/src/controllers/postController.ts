@@ -574,6 +574,105 @@ export const deletePost = async (req: Request, res: Response) => {
     }
 };
 
+// Edit post (content + optional media replacement)
+export const editPost = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { postId } = req.params;
+        const { content, removeMediaIds } = req.body;
+        const files = req.files as Express.Multer.File[] | undefined;
+
+        // Verify post belongs to user
+        const [post] = await dbClient
+            .select()
+            .from(postsTable)
+            .where(eq(postsTable.id, postId))
+            .limit(1);
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (post.userId !== userId) {
+            return res.status(403).json({ message: "Forbidden: You can only edit your own posts" });
+        }
+
+        // Update content
+        await dbClient
+            .update(postsTable)
+            .set({ content: content ?? post.content })
+            .where(eq(postsTable.id, postId));
+
+        // Remove selected existing media
+        if (removeMediaIds) {
+            const idsToRemove: string[] = Array.isArray(removeMediaIds) ? removeMediaIds : [removeMediaIds];
+            if (idsToRemove.length > 0) {
+                await dbClient
+                    .delete(postMediaTable)
+                    .where(
+                        and(
+                            eq(postMediaTable.postId, postId),
+                            inArray(postMediaTable.id, idsToRemove)
+                        )
+                    );
+            }
+        }
+
+        // Append new media files if provided
+        if (files && files.length > 0) {
+            // Get current max order
+            const existing = await dbClient
+                .select({ order: postMediaTable.order })
+                .from(postMediaTable)
+                .where(eq(postMediaTable.postId, postId))
+                .orderBy(desc(postMediaTable.order))
+                .limit(1);
+
+            let nextOrder = existing.length > 0 ? (existing[0].order + 1) : 0;
+
+            const mediaValues = files.map((file) => {
+                const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+                return {
+                    postId,
+                    mediaUrl: `/uploads/${file.filename}`,
+                    mediaType,
+                    order: nextOrder++,
+                    fileSize: file.size,
+                };
+            });
+
+            await dbClient.insert(postMediaTable).values(mediaValues);
+        }
+
+        // Return updated post with all media
+        const [updatedPost] = await dbClient
+            .select()
+            .from(postsTable)
+            .where(eq(postsTable.id, postId))
+            .limit(1);
+
+        const media = await dbClient
+            .select()
+            .from(postMediaTable)
+            .where(eq(postMediaTable.postId, postId))
+            .orderBy(postMediaTable.order);
+
+        // Log Activity
+        await import("../utils/activityLogger.js").then(({ logActivity }) => {
+            logActivity(userId, "Edited post", `Edited post ID: ${postId}`, req);
+        });
+
+        res.json({ ...updatedPost, media });
+    } catch (error) {
+        console.error("editPost Error:", error);
+        res.status(500).json({ message: "Error editing post" });
+    }
+};
+
 // --- Interactions ---
 
 export const likePost = async (req: Request, res: Response) => {
