@@ -214,6 +214,7 @@ export const getUserRooms = async (req: Request, res: Response) => {
                         firstName: usersTable.firstName,
                         lastName: usersTable.lastName,
                         avatarUrl: usersTable.avatarUrl,
+                        userRole: usersTable.role,
                     })
                     .from(chatRoomMembersTable)
                     .innerJoin(usersTable, eq(chatRoomMembersTable.userId, usersTable.id))
@@ -379,6 +380,7 @@ export const getRoomDetails = async (req: Request, res: Response) => {
                 firstName: usersTable.firstName,
                 lastName: usersTable.lastName,
                 avatarUrl: usersTable.avatarUrl,
+                userRole: usersTable.role,
             })
             .from(chatRoomMembersTable)
             .innerJoin(usersTable, eq(chatRoomMembersTable.userId, usersTable.id))
