@@ -682,16 +682,12 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
                       </>
                     ) : (
                       <>
-                        <p className={`text-sm leading-snug line-clamp-2 ${notif.isRead ? "text-gray-600" : "text-gray-800 font-medium"}`}>
-                          {notif.sender?.role === "official_account" ? (
-                            <>
-                              <span className="inline-flex items-center gap-0.5 align-middle">
-                                <span className="font-semibold">{senderName}</span>
-                                <VerifiedBadge />
-                              </span>
-                              {typeAction(notif.type)}
-                            </>
-                          ) : typeLabel(notif.type, senderName)}
+                        <p className={`text-sm leading-snug line-clamp-2 ${notif.isRead ? "text-gray-600" : "text-gray-800"}`}>
+                          <span className="inline-flex items-center gap-0.5 align-middle">
+                            <span className="font-semibold">{senderName}</span>
+                            {notif.sender?.role === "official_account" && <VerifiedBadge />}
+                          </span>
+                          {typeAction(notif.type)}
                         </p>
                         {notif.message && (
                           <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 italic">&ldquo;{notif.message}&rdquo;</p>
