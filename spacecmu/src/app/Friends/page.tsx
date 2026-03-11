@@ -1255,6 +1255,7 @@ export default function FriendsMainPage() {
         imageUrls: allImageUrls,
         sellerName: `${marketChatItem.seller.firstName} ${marketChatItem.seller.lastName}`,
         sellerAvatarUrl: sellerAvatarAbs,
+        sellerRole: marketChatItem.seller.role ?? null,
       });
 
       await apiService.post("/api/messages", { roomId, content: cardContent });

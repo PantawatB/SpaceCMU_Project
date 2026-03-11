@@ -279,6 +279,7 @@ export default function MarketMainPage() {
         imageUrls: allImageUrls,
         sellerName: `${selectedProduct.seller.firstName} ${selectedProduct.seller.lastName}`,
         sellerAvatarUrl: sellerAvatarAbs,
+        sellerRole: selectedProduct.seller.role ?? null,
       });
 
       // ส่ง Market Card ก่อน

@@ -436,6 +436,7 @@ export const getMarketItemById = async (req: Request, res: Response) => {
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,
@@ -484,6 +485,7 @@ export const getMyMarketItems = async (req: Request, res: Response) => {
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,

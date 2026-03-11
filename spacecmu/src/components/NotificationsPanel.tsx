@@ -140,6 +140,33 @@ function typeLabel(type: Notification["type"], senderName: string): string {
   }
 }
 
+function typeAction(type: Notification["type"]): string {
+  switch (type) {
+    case "like": return " liked your post";
+    case "comment": return " commented on your post";
+    case "reply": return " replied to your comment";
+    case "repost": return " reposted your post";
+    case "comment_like": return " liked your comment";
+    case "friend_request": return " sent you a friend request";
+    case "friend_accept": return " accepted your friend request";
+    default: return "";
+  }
+}
+
+function VerifiedBadge() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className="inline-block w-3.5 h-3.5 text-blue-500 shrink-0 flex-none align-middle"
+      aria-label="Verified official account"
+    >
+      <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
 // Types that have a postId as referenceId
 const POST_REF_TYPES: Notification["type"][] = ["like", "comment", "reply", "repost"];
 // comment_like uses commentId as referenceId — need to resolve to postId
@@ -291,7 +318,10 @@ function NotifDetailModal({
             {admin ? (
               <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">From Admin</p>
             ) : (
-              <p className="text-sm font-semibold text-gray-800 truncate">{senderName}</p>
+              <p className="text-sm font-semibold text-gray-800 truncate flex items-center gap-1">
+                {senderName}
+                {notif.sender?.role === "official_account" && <VerifiedBadge />}
+              </p>
             )}
             <p className="text-xs text-gray-400 mt-0.5">{timeAgo(notif.createdAt)}</p>
           </div>
@@ -652,8 +682,16 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
                       </>
                     ) : (
                       <>
-                        <p className={`text-sm leading-snug line-clamp-1 ${notif.isRead ? "text-gray-600" : "text-gray-800 font-medium"}`}>
-                          {typeLabel(notif.type, senderName)}
+                        <p className={`text-sm leading-snug line-clamp-2 ${notif.isRead ? "text-gray-600" : "text-gray-800 font-medium"}`}>
+                          {notif.sender?.role === "official_account" ? (
+                            <>
+                              <span className="inline-flex items-center gap-0.5 align-middle">
+                                <span className="font-semibold">{senderName}</span>
+                                <VerifiedBadge />
+                              </span>
+                              {typeAction(notif.type)}
+                            </>
+                          ) : typeLabel(notif.type, senderName)}
                         </p>
                         {notif.message && (
                           <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 italic">&ldquo;{notif.message}&rdquo;</p>
