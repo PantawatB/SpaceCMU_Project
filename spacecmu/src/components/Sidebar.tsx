@@ -37,7 +37,7 @@ const profiles = [
 export default function Sidebar({ menuItems }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { user, activeUser, activeMode, anonymousAccount, refreshUser, logout: logoutFromContext, officialMode, exitOfficialMode, isSwitchingToOfficial } = useUser();
+  const { user, activeUser, activeMode, anonymousAccount, logout: logoutFromContext, officialMode, exitOfficialMode, isSwitchingToOfficial } = useUser();
   
   const [showTutorial, setShowTutorial] = useState(false);
   const [tutorialStep, setTutorialStep] = useState(0);
@@ -432,30 +432,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
   };
 
   // Handle menu item click (especially for Market page)
-  const handleMenuItemClick = async (item: SidebarMenuItem) => {
+  const handleMenuItemClick = () => {
     // Close sidebar on mobile
     setIsSidebarOpen(false);
-
-    // If navigating to Market and in ANONYMOUS mode, switch to PUBLIC
-    // — but only if the public account is NOT banned (ban is handled by Market page itself)
-    if (item.name === "Market" && activeMode === "ANONYMOUS") {
-      const publicBanned = user?.status === 'banned';
-      if (publicBanned) {
-        // Public is banned — don't attempt switch, Market page will show ban overlay
-        return;
-      }
-
-      try {
-        setErrorMessage('ไม่สามารถใช้งาน Market ในโหมด Anonymous ระบบจะเปลี่ยนเป็นโหมด Public');
-        setShowErrorToast(true);
-        setTimeout(() => setShowErrorToast(false), 4000);
-
-        await apiService.switchMode("PUBLIC");
-        await refreshUser(true);
-      } catch {
-        // Switch failed silently — Market page will handle the state
-      }
-    }
+    // Market page handles mode switch + yellow toast + ban overlay itself
   };
 
   return (
@@ -560,7 +540,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           </button>
         </div>
         {/* Profile Section */}
-        <div className="flex gap-4 items-center mb-8 relative min-h-[100px]">
+        <div className="flex gap-6 items-start justify-center mb-8 relative min-h-[100px]">
           {/* ── Official Mode: single merged avatar ── */}
           {officialMode && !isSwitchingToOfficial ? (
             <div className="flex flex-col items-center w-full">
@@ -576,8 +556,21 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 </div>
                 <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white shadow" />
               </div>
-              <div className="mt-2 text-sm font-bold text-gray-900 truncate max-w-[170px] text-center">
+              <div className="mt-2 text-sm font-bold text-gray-900 truncate max-w-[170px] text-center flex items-center gap-1 justify-center">
                 {officialMode.name}
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="w-4 h-4 text-blue-500 shrink-0"
+                  aria-label="Verified official account"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+                    clipRule="evenodd"
+                  />
+                </svg>
               </div>
               <div className="text-xs text-indigo-500 font-medium">@{officialMode.username}</div>
               <div className="mt-1 px-2 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-700 uppercase tracking-wider">
@@ -632,7 +625,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
               const isPublic = idx === 0;
               const displayData = isPublic
                 ? {
-                    name: user ? `${user.firstName} ${user.lastName}` : profile.name,
+                    name: user?.firstName || profile.name,
                     username: user?.username ? `@${user.username}` : profile.username,
                     avatar: apiService.getImageUrl(user?.avatarUrl) ?? DEFAULT_AVATAR,
                   }
@@ -663,10 +656,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                       <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white shadow"></span>
                     )}
                   </div>
-                  <div className="mt-2 text-sm font-semibold text-gray-800">
+                  <div className="mt-2 text-sm font-semibold text-gray-800 truncate max-w-[100px] text-center">
                     {displayData.name}
                   </div>
-                  <div className="text-xs text-gray-500">{displayData.username}</div>
+                  <div className="text-xs text-gray-500 truncate max-w-[100px] text-center">{displayData.username}</div>
                 </div>
               );
             })
@@ -684,7 +677,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 // Render as button instead of Link to prevent navigation
                 <button
                   key={item.name}
-                  onClick={() => handleMenuItemClick(item)}
+                  onClick={() => handleMenuItemClick()}
                   className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
                     pathname === item.link
                       ? "bg-white text-black shadow-md border border-gray-200 font-semibold"
@@ -704,7 +697,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 <Link
                   href={item.link}
                   key={item.name}
-                  onClick={() => handleMenuItemClick(item)}
+                  onClick={() => handleMenuItemClick()}
                   className={`flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left ${
                     pathname === item.link
                       ? "bg-white text-black shadow-md border border-gray-200 font-semibold"

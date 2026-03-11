@@ -329,6 +329,7 @@ export const getMe = async (req: Request, res: Response) => {
                 id: anonymousAccount.id,
                 username: anonymousAccount.username,
                 firstName: anonymousAccount.firstName,
+                lastName: anonymousAccount.lastName,
                 avatarUrl: anonymousAccount.avatarUrl,
                 status: anonymousAccount.status,
             } : null,

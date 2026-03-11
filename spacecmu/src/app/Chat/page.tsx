@@ -480,6 +480,113 @@ function MarketCardBubble({
   );
 }
 
+// ─── Helper: Post Card (shared via chat) ─────────────────────────────────────
+
+interface PostCardPayload {
+  __type: "post_card";
+  postId: string;
+  content: string;
+  category: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  imageUrl: string | null;  // first media thumbnail
+  likeCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
+function parsePostCard(content: string): PostCardPayload | null {
+  if (!content.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.__type === "post_card") return parsed as PostCardPayload;
+  } catch { /* not JSON */ }
+  return null;
+}
+
+function postTimeAgo(dateStr: string) {
+  const diff = Math.floor((new Date().getTime() - new Date(dateStr).getTime()) / 1000);
+  if (diff < 60) return "เมื่อกี้";
+  if (diff < 3600) return `${Math.floor(diff / 60)} นาทีที่แล้ว`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ชม.ที่แล้ว`;
+  return `${Math.floor(diff / 86400)} วันที่แล้ว`;
+}
+
+function PostCardBubble({ card, isMine }: { card: PostCardPayload; isMine: boolean }) {
+  const handleView = () => {
+    window.location.href = `/Feeds?postId=${card.postId}&source=chat`;
+  };
+
+  return (
+    <article
+      className={`w-64 select-none overflow-hidden rounded-xl border ${
+        isMine ? "border-slate-500 bg-slate-600" : "border-gray-200 bg-white"
+      }`}
+    >
+      {/* Header: author */}
+      <div className={`flex items-center gap-2 px-3 py-2.5 border-b ${isMine ? "border-slate-500" : "border-gray-100"}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={card.authorAvatarUrl ? (apiService.getImageUrl(card.authorAvatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+          alt={card.authorName}
+          className="w-7 h-7 rounded-full object-cover flex-none"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+        />
+        <div className="min-w-0 flex-1">
+          <p className={`text-xs font-semibold truncate ${isMine ? "text-white" : "text-gray-800"}`}>{card.authorName}</p>
+          <p className={`text-[10px] ${isMine ? "text-slate-300" : "text-gray-400"}`}>{card.category} · {postTimeAgo(card.createdAt)}</p>
+        </div>
+        {/* Post icon badge */}
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${isMine ? "bg-slate-500 text-slate-200" : "bg-gray-100 text-gray-500"}`}>POST</span>
+      </div>
+
+      {/* Thumbnail (if any) */}
+      {card.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={apiService.getImageUrl(card.imageUrl) ?? card.imageUrl}
+          alt=""
+          className="w-full h-28 object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        />
+      )}
+
+      {/* Content preview */}
+      <div className="px-3 py-2">
+        <p className={`text-xs leading-relaxed line-clamp-3 ${isMine ? "text-slate-100" : "text-gray-700"}`}>
+          {card.content || "(ไม่มีเนื้อหา)"}
+        </p>
+      </div>
+
+      {/* Stats + View button */}
+      <div className={`flex items-center justify-between px-3 py-2.5 border-t ${isMine ? "border-slate-500" : "border-gray-100"}`}>
+        <div className={`flex items-center gap-3 text-[11px] ${isMine ? "text-slate-300" : "text-gray-400"}`}>
+          <span className="flex items-center gap-1">
+            <svg className="w-3.5 h-3.5 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            {card.likeCount}
+          </span>
+          <span className="flex items-center gap-1">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {card.commentCount}
+          </span>
+        </div>
+        <button
+          onClick={handleView}
+          className={`text-[11px] font-semibold px-3 py-1.5 rounded-xl transition-colors flex-none ${
+            isMine ? "bg-white/15 hover:bg-white/25 text-white" : "bg-gray-900 hover:bg-gray-700 text-white"
+          }`}
+        >
+          ดูโพสต์
+        </button>
+      </div>
+    </article>
+  );
+}
+
 // ─── Helper: Lightbox Modal ───────────────────────────────────────────────────
 
 function Lightbox({
@@ -2222,8 +2329,8 @@ export default function ChatPage() {
                               {/* ── Edit/Delete action buttons (own messages only) ─── */}
                               {isMine && activeMessageMenu === msg.id && editingMessageId !== msg.id && (
                                 <div className="flex items-center gap-1 mb-1 self-end">
-                                  {/* ซ่อนปุ่มแก้ไขถ้าเป็น market card */}
-                                  {!parseMarketCard(msg.content) && (
+                                  {/* ซ่อนปุ่มแก้ไขถ้าเป็น market card หรือ post card */}
+                                  {!parseMarketCard(msg.content) && !parsePostCard(msg.content) && (
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleStartEdit(msg); }}
                                       className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition-colors"
@@ -2391,7 +2498,7 @@ export default function ChatPage() {
                                     </>
                                   );
                                 })()}
-                                {/* Market Card or Text content */}
+                                {/* Market Card or Post Card or Text content */}
                                 {msg.content && (() => {
                                   const card = parseMarketCard(msg.content);
                                   if (card) {
@@ -2408,6 +2515,10 @@ export default function ChatPage() {
                                         senderAvatarUrl={senderAvatar}
                                       />
                                     );
+                                  }
+                                  const postCard = parsePostCard(msg.content);
+                                  if (postCard) {
+                                    return <PostCardBubble card={postCard} isMine={isMine} />;
                                   }
                                   return (
                                     <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
@@ -2748,8 +2859,8 @@ export default function ChatPage() {
                   if (room.lastMessage) {
                     const isSentByMe = room.lastMessage.senderId === currentUserId;
                     const rawContent = room.lastMessage.content;
-                    // ถ้าเป็น market card ให้แสดง label แทน JSON
-                    const content = parseMarketCard(rawContent) ? "🛍️ สินค้า" : rawContent;
+                    // ถ้าเป็น market card หรือ post card ให้แสดง label แทน JSON
+                    const content = parseMarketCard(rawContent) ? "🛍️ สินค้า" : parsePostCard(rawContent) ? "📬 โพสต์" : rawContent;
 
                     if (room.isGroup) {
                       const prefix = isSentByMe

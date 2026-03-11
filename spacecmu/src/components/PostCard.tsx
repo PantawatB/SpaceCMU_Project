@@ -28,6 +28,7 @@ interface Post {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    role?: string | null;
   };
   media?: PostMedia[];
 }
@@ -55,6 +56,7 @@ interface Comment {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    role?: string | null;
   };
   media?: CommentMedia[];
 }
@@ -65,6 +67,8 @@ interface PostCardProps {
   onRepostUpdate?: (postId: string, newRepostCount: number) => void;
   onSaveUpdate?: (postId: string) => void;
   onPostDelete?: (postId: string) => void;
+  /** ซ่อนปุ่ม Share — ใช้ใน Friends feed เพื่อป้องกันการแชร์โพสต์ส่วนตัวออกไป */
+  disableShare?: boolean;
 }
 
 interface LinkPreview {
@@ -110,12 +114,300 @@ function renderTextWithLinks(text: string): React.ReactNode {
   return <>{result}</>;
 }
 
+/** Blue verified checkmark — shown only for official_account role */
+function VerifiedBadge({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={`${className} text-blue-500 shrink-0`}
+      aria-label="Verified official account"
+    >
+      <path
+        fillRule="evenodd"
+        d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+// ─── Share Post Modal ─────────────────────────────────────────────────────────
+
+interface ChatRoom {
+  id: string;
+  displayName: string;
+  displayAvatar: string | null;
+  isGroup: boolean;
+  memberCount: number;
+}
+
+function SharePostModal({
+  post,
+  onClose,
+}: {
+  post: Post;
+  onClose: () => void;
+}) {
+  const [rooms, setRooms] = useState<ChatRoom[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(true);
+  const [searchQ, setSearchQ] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      setLoadingRooms(true);
+      try {
+        const data = await apiService.get<ChatRoom[]>("/api/chat-rooms/me");
+        setRooms(Array.isArray(data) ? data : []);
+      } catch { /* silent */ }
+      finally { setLoadingRooms(false); }
+    };
+    fetchRooms();
+  }, []);
+
+  const filtered = rooms.filter((r) =>
+    (r.displayName ?? "").toLowerCase().includes(searchQ.toLowerCase())
+  );
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSend = async () => {
+    if (selected.size === 0) return;
+    setSending(true);
+
+    // Build post card payload
+    const authorName = post.author?.firstName || post.author?.lastName
+      ? `${post.author?.firstName ?? ""} ${post.author?.lastName ?? ""}`.trim()
+      : "ผู้ใช้";
+    const firstMedia = post.media?.[0];
+    const imageUrl = firstMedia?.mediaType === "image"
+      ? (apiService.getImageUrl(firstMedia.mediaUrl) ?? null)
+      : null;
+
+    const payload = JSON.stringify({
+      __type: "post_card",
+      postId: post.id,
+      content: post.content?.slice(0, 200) ?? "",
+      category: post.category ?? "Global",
+      authorName,
+      authorAvatarUrl: post.author?.avatarUrl ?? null,
+      imageUrl,
+      likeCount: post.likeCount ?? 0,
+      commentCount: post.commentCount ?? 0,
+      createdAt: post.createdAt,
+    });
+
+    try {
+      await Promise.all(
+        Array.from(selected).map((roomId) =>
+          apiService.post("/api/messages", { roomId, content: payload })
+        )
+      );
+      setSent(true);
+      setSendError(null);
+      setTimeout(onClose, 1200);
+    } catch (e) {
+      console.error("SharePostModal send error:", e);
+      setSendError("ส่งไม่สำเร็จ โปรดลองอีกครั้ง");
+    } finally { setSending(false); }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+      <div
+        className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        style={{ maxHeight: "85vh" }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 bg-slate-50">
+          <h2 className="font-semibold text-slate-800 text-base">ส่งโพสต์ไปที่...</h2>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {/* Post preview strip */}
+        <div className="flex items-center gap-3 px-5 py-3 bg-slate-50 border-b border-slate-100">
+          {post.media?.[0]?.mediaType === "image" ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={apiService.getImageUrl(post.media[0].mediaUrl) ?? ""}
+              alt=""
+              className="w-10 h-10 rounded-lg object-cover flex-none"
+            />
+          ) : (
+            <div className="w-10 h-10 rounded-lg bg-slate-200 flex items-center justify-center flex-none">
+              <svg className="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+          )}
+          <p className="text-xs text-slate-600 line-clamp-2 flex-1 leading-relaxed">
+            {post.content || "(ไม่มีเนื้อหา)"}
+          </p>
+        </div>
+
+        {/* Search */}
+        <div className="px-4 py-3 border-b border-slate-100">
+          <div className="flex items-center gap-2 bg-slate-100 rounded-full px-3 py-2">
+            <svg className="w-4 h-4 text-slate-400 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <circle cx="11" cy="11" r="8" strokeWidth="2" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" strokeWidth="2" />
+            </svg>
+            <input
+              type="text"
+              placeholder="ค้นหาการสนทนา..."
+              value={searchQ}
+              onChange={(e) => setSearchQ(e.target.value)}
+              className="flex-1 bg-transparent text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
+              autoFocus
+            />
+          </div>
+        </div>
+
+        {/* Room list */}
+        <div className="flex-1 overflow-y-auto">
+          {loadingRooms ? (
+            <div className="flex items-center justify-center py-10">
+              <svg className="w-5 h-5 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+              </svg>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-slate-400 gap-2">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <p className="text-sm">ไม่พบการสนทนา</p>
+            </div>
+          ) : (
+            filtered.map((room) => {
+              const isChecked = selected.has(room.id);
+              const avatarUrl = room.displayAvatar ? apiService.getImageUrl(room.displayAvatar) : null;
+              return (
+                <button
+                  key={room.id}
+                  onClick={() => toggle(room.id)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 transition-colors text-left ${isChecked ? "bg-slate-100" : "hover:bg-slate-50"}`}
+                >
+                  <div className="relative flex-none">
+                    {avatarUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={avatarUrl} alt={room.displayName} className="w-10 h-10 rounded-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src="/default-avatar.svg" alt="" className="w-10 h-10 rounded-full" />
+                    )}
+                    {room.isGroup && (
+                      <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-slate-600 rounded-full flex items-center justify-center border-2 border-white">
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium truncate ${isChecked ? "text-slate-700" : "text-slate-800"}`}>{room.displayName}</p>
+                    {room.isGroup && (
+                      <p className="text-xs text-slate-400">{room.memberCount} สมาชิก</p>
+                    )}
+                  </div>
+                  <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-none transition-all ${
+                    isChecked ? "bg-slate-600 border-slate-600" : "border-slate-300"
+                  }`}>
+                    {isChecked && (
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-4 border-t border-slate-100 flex items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            {sendError ? (
+              <p className="text-xs text-red-500 font-medium truncate">{sendError}</p>
+            ) : (
+              <span className="text-xs text-slate-500">
+                {selected.size > 0 ? `เลือก ${selected.size} การสนทนา` : "เลือกการสนทนาที่ต้องการ"}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={handleSend}
+            disabled={selected.size === 0 || sending || sent}
+            className={`flex items-center gap-2 px-5 py-2 rounded-full text-sm font-semibold transition-all ${
+              sent
+                ? "bg-green-500 text-white"
+                : selected.size > 0 && !sending
+                ? "bg-slate-700 hover:bg-slate-800 text-white shadow"
+                : "bg-slate-200 text-slate-400 cursor-not-allowed"
+            }`}
+          >
+            {sent ? (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                ส่งแล้ว!
+              </>
+            ) : sending ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                </svg>
+                กำลังส่ง...
+              </>
+            ) : (
+              <>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+                ส่ง
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PostCard({
   post,
   onLikeUpdate,
   onRepostUpdate,
   onSaveUpdate,
   onPostDelete,
+  disableShare = false,
 }: PostCardProps) {
   const { activeUser } = useUser();
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -211,6 +503,8 @@ export default function PostCard({
   // Track user's interaction status
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
+  // Share modal
+  const [showShareModal, setShowShareModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
   // Comment media upload states
@@ -592,6 +886,7 @@ export default function PostCard({
             firstName: user.firstName as string | null,
             lastName: user.lastName as string | null,
             avatarUrl: user.avatarUrl as string | null,
+            role: user.role as string | null,
           } : undefined,
           media: comment.media as CommentMedia[] | undefined,
         };
@@ -651,6 +946,7 @@ export default function PostCard({
             firstName: user.firstName as string | null,
             lastName: user.lastName as string | null,
             avatarUrl: user.avatarUrl as string | null,
+            role: user.role as string | null,
           } : undefined,
           media: comment.media as CommentMedia[] | undefined,
         };
@@ -1087,10 +1383,11 @@ export default function PostCard({
           className="w-10 h-10 rounded-full object-cover"
         />
         <div>
-          <div className="font-bold">
+          <div className="font-bold flex items-center gap-1">
             {post.author?.firstName || post.author?.lastName
               ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
               : "Anonymous"}
+            {post.author?.role === 'official_account' && <VerifiedBadge />}
           </div>
           <div className="text-xs text-gray-400">{post.category}</div>
           <div className="text-xs text-gray-400">
@@ -1403,6 +1700,25 @@ export default function PostCard({
               </span>
             )}
           </button>
+
+          {/* Share Button — hidden on Friends feed to protect private posts */}
+          {!disableShare && (
+            <button
+              onClick={() => setShowShareModal(true)}
+              className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
+            >
+              <svg
+                className="w-5 h-5 text-gray-600 group-hover:text-gray-800 transition-colors"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+              <span>Share</span>
+            </button>
+          )}
         </div>
 
         {/* Right side: Save */}
@@ -1555,6 +1871,11 @@ export default function PostCard({
         </div>
       )}
 
+      {/* Share Post Modal */}
+      {showShareModal && (
+        <SharePostModal post={post} onClose={() => setShowShareModal(false)} />
+      )}
+
       {/* Comment Popup */}
       {showCommentPopup && (
         <div
@@ -1651,8 +1972,9 @@ export default function PostCard({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="bg-gray-50 rounded-2xl px-4 py-3 relative">
-                          <p className="text-sm font-semibold text-gray-800 pr-7">
-                            {comment.author?.firstName} {comment.author?.lastName}
+                          <p className="text-sm font-semibold text-gray-800 pr-7 flex items-center gap-1 flex-wrap">
+                            <span>{comment.author?.firstName} {comment.author?.lastName}</span>
+                            {comment.author?.role === 'official_account' && <VerifiedBadge className="w-3.5 h-3.5" />}
                             {comment.updatedAt && (new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 5000) && (
                               <span className="ml-1.5 text-xs font-normal text-gray-400">(edited)</span>
                             )}
@@ -1664,7 +1986,7 @@ export default function PostCard({
                               <textarea
                                 value={editingCommentText}
                                 onChange={e => setEditingCommentText(e.target.value)}
-                                className="w-full px-3 py-2 rounded-xl bg-white border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-sm resize-none"
+                                className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 text-sm resize-none"
                                 rows={2}
                                 autoFocus
                                 onKeyDown={e => {
@@ -1674,7 +1996,7 @@ export default function PostCard({
                               />
                               <div className="flex gap-2 mt-1.5 justify-end">
                                 <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
-                                <button onClick={() => handleSaveCommentEdit(String(comment.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-blue-600 text-white px-3 py-1 rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors">{savingEdit ? "Saving…" : "Save"}</button>
+                                <button onClick={() => handleSaveCommentEdit(String(comment.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-slate-600 text-white px-3 py-1 rounded-full hover:bg-slate-700 disabled:opacity-50 transition-colors">{savingEdit ? "Saving…" : "Save"}</button>
                               </div>
                             </div>
                           ) : (
@@ -1824,14 +2146,14 @@ export default function PostCard({
                             onClick={() => handleLikeComment(String(comment.id))}
                             disabled={!activeUser}
                             className={`flex items-center gap-1 text-xs font-medium transition-colors disabled:opacity-40 ${
-                              (commentLikeState[String(comment.id)]?.isLiked)
-                                ? "text-red-500 hover:text-red-600"
-                                : "text-gray-400 hover:text-red-500"
-                            }`}
-                          >
-                            <svg
-                              className="w-3.5 h-3.5"
-                              fill={(commentLikeState[String(comment.id)]?.isLiked) ? "currentColor" : "none"}
+                        (commentLikeState[String(comment.id)]?.isLiked)
+                          ? "text-red-500 hover:text-red-600"
+                          : "text-gray-400 hover:text-red-500"
+                      }`}
+                    >
+                      <svg
+                        className="w-3.5 h-3.5"
+                        fill={(commentLikeState[String(comment.id)]?.isLiked) ? "currentColor" : "none"}
                               stroke="currentColor"
                               viewBox="0 0 24 24"
                             >
@@ -1844,7 +2166,7 @@ export default function PostCard({
                           {activeUser && (
                             <button
                               onClick={() => setReplyingTo({ id: String(comment.id), name: `${comment.author?.firstName ?? ""} ${comment.author?.lastName ?? ""}`.trim() })}
-                              className="text-xs text-blue-500 hover:text-blue-700 font-medium transition-colors"
+                              className="text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors"
                             >
                               Reply
                             </button>
@@ -1881,8 +2203,9 @@ export default function PostCard({
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="bg-gray-50 rounded-xl px-3 py-2 relative">
-                                    <p className="text-xs font-semibold text-gray-800 pr-6">
-                                      {reply.author?.firstName} {reply.author?.lastName}
+                                    <p className="text-xs font-semibold text-gray-800 pr-6 flex items-center gap-1 flex-wrap">
+                                      <span>{reply.author?.firstName} {reply.author?.lastName}</span>
+                                      {reply.author?.role === 'official_account' && <VerifiedBadge className="w-3 h-3" />}
                                       {reply.updatedAt && (new Date(reply.updatedAt).getTime() - new Date(reply.createdAt).getTime() > 5000) && (
                                         <span className="ml-1 text-[10px] font-normal text-gray-400">(edited)</span>
                                       )}
@@ -1893,7 +2216,7 @@ export default function PostCard({
                                         <textarea
                                           value={editingCommentText}
                                           onChange={e => setEditingCommentText(e.target.value)}
-                                          className="w-full px-2 py-1.5 rounded-lg bg-white border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-xs resize-none"
+                                          className="w-full px-2 py-1.5 rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 text-xs resize-none"
                                           rows={2}
                                           autoFocus
                                           onKeyDown={e => {
@@ -1903,7 +2226,7 @@ export default function PostCard({
                                         />
                                         <div className="flex gap-1.5 mt-1 justify-end">
                                           <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5">Cancel</button>
-                                          <button onClick={() => handleSaveCommentEdit(String(reply.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-blue-600 text-white px-2.5 py-0.5 rounded-full hover:bg-blue-700 disabled:opacity-50">{savingEdit ? "…" : "Save"}</button>
+                                          <button onClick={() => handleSaveCommentEdit(String(reply.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-slate-600 text-white px-2.5 py-0.5 rounded-full hover:bg-slate-700 disabled:opacity-50">{savingEdit ? "…" : "Save"}</button>
                                         </div>
                                       </div>
                                     ) : (
@@ -2074,7 +2397,7 @@ export default function PostCard({
                               <button
                                 onClick={() => fetchReplies(String(comment.id), false)}
                                 disabled={loadingReplies[String(comment.id)]}
-                                className="flex items-center gap-1.5 text-xs text-blue-500 hover:text-blue-700 ml-1 font-medium transition-colors disabled:opacity-50 mt-1"
+                                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 ml-1 font-medium transition-colors disabled:opacity-50 mt-1"
                               >
                                 {loadingReplies[String(comment.id)] ? (
                                   <svg className="animate-spin w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2121,11 +2444,11 @@ export default function PostCard({
             <div className="px-6 py-4 border-t border-gray-100 shrink-0">
               {/* Reply banner */}
               {replyingTo && (
-                <div className="flex items-center justify-between bg-blue-50 rounded-xl px-3 py-2 mb-3">
-                  <span className="text-xs text-blue-600 font-medium">Replying to <span className="font-bold">{replyingTo.name}</span></span>
+                <div className="flex items-center justify-between bg-slate-100 rounded-xl px-3 py-2 mb-3">
+                  <span className="text-xs text-slate-600 font-medium">Replying to <span className="font-bold">{replyingTo.name}</span></span>
                   <button
                     onClick={() => setReplyingTo(null)}
-                    className="text-blue-400 hover:text-blue-600 transition-colors"
+                    className="text-slate-400 hover:text-slate-600 transition-colors"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
@@ -2148,7 +2471,7 @@ export default function PostCard({
                       onChange={(e) => setCommentText(e.target.value)}
                       placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : "Write a comment…"}
                       rows={1}
-                      className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm transition-all resize-none overflow-hidden"
+                      className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white text-sm transition-all resize-none overflow-hidden"
                       style={{ minHeight: "40px", maxHeight: "120px" }}
                       onInput={(e) => {
                         const target = e.target as HTMLTextAreaElement;
@@ -2207,13 +2530,13 @@ export default function PostCard({
                       </svg>
                       <span className="text-xs font-medium">Photo/Video</span>
                       {commentMediaFiles.length > 0 && (
-                        <span className="text-xs font-bold text-blue-600">({commentMediaFiles.length}/10)</span>
+                        <span className="text-xs font-bold text-slate-600">({commentMediaFiles.length}/10)</span>
                       )}
                     </label>
                   </div>
 
                   <button
-                    className="px-6 py-2 rounded-full font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-blue-600 text-white hover:bg-blue-700 shadow-md hover:shadow-lg hover:scale-105"
+                    className="px-6 py-2 rounded-full font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-slate-600 text-white hover:bg-slate-700 shadow-md hover:shadow-lg hover:scale-105"
                     onClick={handlePostComment}
                     disabled={postingComment || (!commentText.trim() && commentMediaFiles.length === 0)}
                   >
@@ -2305,7 +2628,7 @@ export default function PostCard({
                     setEditPostRemoveMediaIds([]);
                     setShowPostMenu(false);
                   }}
-                  className="w-full px-4 py-2 text-left hover:bg-blue-50 text-blue-600 flex items-center gap-2"
+                  className="w-full px-4 py-2 text-left hover:bg-slate-50 text-slate-600 flex items-center gap-2"
                 >
                   <svg
                     className="w-4 h-4"
@@ -2407,7 +2730,7 @@ export default function PostCard({
                   onChange={(e) => setEditPostContent(e.target.value.slice(0, POST_CONTENT_MAX_LENGTH))}
                   placeholder="What's on your mind?"
                   rows={4}
-                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-200 text-gray-800 resize-none text-sm"
+                  className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-slate-300 text-gray-800 resize-none text-sm"
                 />
                 <div className={`absolute bottom-2 right-3 text-xs select-none pointer-events-none ${
                   editPostContent.length >= POST_CONTENT_MAX_LENGTH
@@ -2496,7 +2819,7 @@ export default function PostCard({
                 onDragLeave={() => setIsDraggingEdit(false)}
                 className={`border-2 border-dashed rounded-xl p-5 text-center transition-all ${
                   isDraggingEdit
-                    ? "border-blue-400 bg-blue-50"
+                    ? "border-slate-400 bg-slate-50"
                     : "border-gray-200 bg-gray-50 hover:border-gray-300"
                 }`}
               >
@@ -2538,7 +2861,7 @@ export default function PostCard({
               <button
                 onClick={handleSaveEditPost}
                 disabled={savingEditPost || (!editPostContent.trim() && localPostMedia.filter(m => !editPostRemoveMediaIds.includes(String(m.id))).length === 0 && editPostMediaFiles.length === 0)}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-xl bg-slate-600 hover:bg-slate-700 text-white font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {savingEditPost ? (
                   <>
@@ -2680,7 +3003,7 @@ export default function PostCard({
                   setReportText("");
                   setReportMood(null);
                 }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
               >
                 Submit
               </button>
@@ -2785,7 +3108,7 @@ export default function PostCard({
                   setShowCommentReportPopup(null);
                   setCommentReportText("");
                 }}
-                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                className="px-6 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 transition-colors"
               >
                 Submit
               </button>

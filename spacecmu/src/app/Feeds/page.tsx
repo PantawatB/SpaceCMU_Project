@@ -34,6 +34,7 @@ interface Post {
     firstName: string | null;
     lastName: string | null;
     avatarUrl: string | null;
+    role?: string | null;
   };
   media?: PostMedia[];
 }
@@ -81,6 +82,7 @@ export default function FeedsMainPage() {
   const [spotlightPost, setSpotlightPost] = useState<Post | null>(null);
   const [spotlightLoading, setSpotlightLoading] = useState(false);
   const [spotlightDeleted, setSpotlightDeleted] = useState(false);
+  const [spotlightHighlight, setSpotlightHighlight] = useState(false);
   const spotlightRef = useRef<HTMLDivElement>(null);
 
   // Infinite scroll state
@@ -124,9 +126,11 @@ export default function FeedsMainPage() {
           return;
         }
         setSpotlightPost(data);
-        // Scroll to it after render
+        // Scroll to it after render and flash highlight
         setTimeout(() => {
           spotlightRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          setSpotlightHighlight(true);
+          setTimeout(() => setSpotlightHighlight(false), 2000);
         }, 150);
       } catch { /* silent */ }
       finally { setSpotlightLoading(false); }
@@ -145,6 +149,7 @@ export default function FeedsMainPage() {
       setSpotlightPost(null);
       setSpotlightDeleted(false);
       setSpotlightLoading(false);
+      setSpotlightHighlight(false);
       router.replace("/Feeds");
     }
     prevUserIdRef.current = currId;
@@ -733,21 +738,33 @@ export default function FeedsMainPage() {
         {/* Feeds Section: scrollable only for posts */}
         <section ref={feedScrollRef} className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
 
-          {/* ── Spotlight post (from notification ?postId=) ── */}
+          {/* ── Spotlight post (from notification or chat ?postId=) ── */}
           {(spotlightLoading || spotlightPost || spotlightDeleted) && (
             <div ref={spotlightRef} className="flex flex-col gap-2">
               {/* Banner */}
               <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                  </svg>
-                  Post from notification
+                  {searchParams.get("source") === "chat" ? (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      โพสต์ที่ได้รับจากแชท
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                      </svg>
+                      Post from notification
+                    </>
+                  )}
                 </div>
                 <button
                   onClick={() => {
                     setSpotlightPost(null);
                     setSpotlightDeleted(false);
+                    setSpotlightHighlight(false);
                     router.replace("/Feeds");
                   }}
                   className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
@@ -778,18 +795,21 @@ export default function FeedsMainPage() {
                   </div>
                 </div>
               ) : spotlightPost ? (
-                <PostCard
-                  key={spotlightPost.id}
-                  post={spotlightPost}
-                  onLikeUpdate={handleLikeUpdate}
-                  onRepostUpdate={handleRepostUpdate}
-                  onSaveUpdate={handleSaveUpdate}
-                  onPostDelete={() => {
-                    setSpotlightPost(null);
-                    setSpotlightDeleted(false);
-                    router.replace("/Feeds");
-                  }}
-                />
+                <div className={`rounded-2xl transition-all duration-300 ${spotlightHighlight ? "ring-2 ring-blue-400 ring-offset-2 shadow-lg shadow-blue-100" : ""}`}>
+                  <PostCard
+                    key={spotlightPost.id}
+                    post={spotlightPost}
+                    onLikeUpdate={handleLikeUpdate}
+                    onRepostUpdate={handleRepostUpdate}
+                    onSaveUpdate={handleSaveUpdate}
+                    onPostDelete={() => {
+                      setSpotlightPost(null);
+                      setSpotlightDeleted(false);
+                      setSpotlightHighlight(false);
+                      router.replace("/Feeds");
+                    }}
+                  />
+                </div>
               ) : null}
 
               {/* Divider */}
@@ -842,6 +862,7 @@ export default function FeedsMainPage() {
                 onRepostUpdate={handleRepostUpdate}
                 onSaveUpdate={handleSaveUpdate}
                 onPostDelete={handlePostDelete}
+                disableShare={selectedFilter === "Friends"}
               />
             ))}
 
@@ -1195,7 +1216,7 @@ export default function FeedsMainPage() {
         )}
 
         {/* Share something bar - fixed bottom with toggle */}
-        <div className="fixed bottom-4 left-8 right-22 md:left-8 md:right-22 lg:left-72 lg:right-96 z-10 flex flex-col items-center">
+        <div className="fixed bottom-4 left-8 right-22 md:left-8 md:right-22 lg:left-72 lg:right-96 z-40 flex flex-col items-center">
           {/* Toggle Button */}
           <button
             className="mb-2 text-gray-500 bg-white/95 backdrop-blur-sm rounded-full p-2 hover:bg-gray-100 shadow-lg flex items-center justify-center transition-all duration-200"

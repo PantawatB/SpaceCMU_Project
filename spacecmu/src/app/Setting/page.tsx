@@ -6,7 +6,7 @@ import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
 export default function SettingPage() {
-  const { activeUser, refreshUser } = useUser();
+  const { activeUser, activeMode, officialMode, refreshUser } = useUser();
   const [activeTab, setActiveTab] = useState("profile");
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [showBannerModal, setShowBannerModal] = useState(false);
@@ -15,6 +15,8 @@ export default function SettingPage() {
   const [newBanner, setNewBanner] = useState<string | null>(null);
   const [newBannerFile, setNewBannerFile] = useState<File | null>(null);
   const [bio, setBio] = useState(activeUser?.bio || "");
+  const [name, setName] = useState(`${activeUser?.firstName || ""} ${activeUser?.lastName || ""}`.trim());
+  const [isSavingName, setIsSavingName] = useState(false);
   const [notifications, setNotifications] = useState({
     email: true,
     push: true,
@@ -153,6 +155,33 @@ export default function SettingPage() {
     } catch (error) {
       console.error('Error updating bio:', error);
       alert('Failed to update bio. Please try again.');
+    }
+  };
+
+  // ชื่อแก้ได้เฉพาะ Anonymous และ Official Account เท่านั้น (Public ล็อก)
+  const isNameEditable = activeMode === 'ANONYMOUS' || officialMode !== null;
+
+  const handleSaveName = async () => {
+    if (!isNameEditable) return;
+    const trimmed = name.trim();
+    if (!trimmed) {
+      alert('กรุณาใส่ชื่อ');
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      // แยก firstName / lastName ด้วย space แรก
+      const spaceIdx = trimmed.indexOf(' ');
+      const firstName = spaceIdx === -1 ? trimmed : trimmed.slice(0, spaceIdx);
+      const lastName  = spaceIdx === -1 ? ''      : trimmed.slice(spaceIdx + 1);
+      await apiService.patch('/api/settings/profile', { firstName, lastName });
+      await refreshUser();
+      alert('อัปเดตชื่อเรียบร้อยแล้ว!');
+    } catch (error) {
+      console.error('Error updating name:', error);
+      alert(error instanceof Error ? error.message : 'ไม่สามารถอัปเดตชื่อได้ กรุณาลองใหม่');
+    } finally {
+      setIsSavingName(false);
     }
   };
 
@@ -347,18 +376,60 @@ export default function SettingPage() {
 
               {/* Name Section */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
-                <h2 className="text-lg font-bold text-gray-800 mb-4">Name</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-bold text-gray-800">Name</h2>
+                  {!isNameEditable && (
+                    <span className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-100 px-3 py-1 rounded-full">
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Public — แก้ไขไม่ได้
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  defaultValue={`${activeUser?.firstName || ""} ${activeUser?.lastName || ""}`.trim()}
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors"
+                  value={name}
+                  onChange={(e) => isNameEditable && setName(e.target.value.slice(0, 50))}
+                  disabled={!isNameEditable}
+                  maxLength={50}
+                  className={`w-full px-4 py-3 border rounded-lg transition-colors ${
+                    isNameEditable
+                      ? "text-gray-900 border-gray-200 focus:outline-none focus:border-black"
+                      : "text-gray-400 bg-gray-50 border-gray-200 cursor-not-allowed"
+                  }`}
                   placeholder="Enter your name"
                 />
-                <div className="flex justify-start mt-4">
-                  <button className="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors">
-                    Save Name
-                  </button>
-                </div>
+                {isNameEditable && (
+                  <p className={`text-xs mt-1 text-right ${name.length >= 50 ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+                    {name.length}/50
+                  </p>
+                )}
+                {isNameEditable ? (
+                  <div className="flex justify-start mt-3">
+                    <button
+                      onClick={handleSaveName}
+                      disabled={isSavingName || !name.trim()}
+                      className={`px-6 py-2.5 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
+                        isSavingName || !name.trim()
+                          ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+                          : "bg-black text-white hover:bg-gray-800"
+                      }`}
+                    >
+                      {isSavingName && (
+                        <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                      )}
+                      {isSavingName ? 'กำลังบันทึก...' : 'Save Name'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-2">
+                    สามารถเปลี่ยนชื่อได้เฉพาะในโหมด Anonymous หรือ Official Account เท่านั้น
+                  </p>
+                )}
               </div>
 
               {/* Student ID Section (Read-only) */}
@@ -425,11 +496,15 @@ export default function SettingPage() {
                 <textarea
                   rows={4}
                   value={bio}
-                  onChange={(e) => setBio(e.target.value)}
+                  onChange={(e) => setBio(e.target.value.slice(0, 160))}
+                  maxLength={160}
                   className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors resize-none"
                   placeholder="Tell us about yourself"
                 />
-                <div className="flex justify-start mt-4">
+                <p className={`text-xs mt-1 text-right ${bio.length >= 160 ? "text-red-500 font-semibold" : "text-gray-400"}`}>
+                  {bio.length}/160
+                </p>
+                <div className="flex justify-start mt-3">
                   <button 
                     onClick={handleSaveBio}
                     className="px-6 py-2.5 bg-black text-white rounded-lg text-sm font-semibold hover:bg-gray-800 transition-colors"

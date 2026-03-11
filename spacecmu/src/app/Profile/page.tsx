@@ -778,13 +778,21 @@ export default function ProfileMainPage() {
               {/* Name & Verified */}
               <div className="flex items-center mt-16 sm:mt-19 ml-4 sm:ml-8 flex-wrap gap-x-2">
                 <span className="text-lg sm:text-2xl font-bold wrap-break-word">{displayName}</span>
-                <svg
-                  className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm3.93 6.36l-4.24 4.24a1 1 0 01-1.41 0l-2.12-2.12a1 1 0 111.41-1.41l1.41 1.41 3.54-3.54a1 1 0 111.41 1.41z" />
-                </svg>
+                {activeUser.role === 'official_account' && (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0"
+                    aria-label="Verified official account"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                )}
               </div>
               {/* Faculty on mobile (shown below name) */}
               <div className="ml-4 sm:hidden mt-0.5">
