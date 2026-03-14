@@ -386,7 +386,7 @@ const MentionTextarea = forwardRef<MentionTextareaHandle, MentionTextareaProps>(
         {/* Dropdown — fixed position to escape any overflow:hidden/auto parent */}
         {dropdownOpen && dropdownPos && (
           <div
-            className="fixed z-[9999] bg-white border border-gray-200 rounded-xl shadow-2xl overflow-y-auto"
+            className="fixed z-9999 bg-white border border-gray-200 rounded-xl shadow-2xl overflow-y-auto"
             style={{
               top: dropdownPos.above ? undefined : dropdownPos.top,
               bottom: dropdownPos.above ? `calc(100vh - ${dropdownPos.top}px)` : undefined,
