@@ -98,6 +98,64 @@ export interface UserSearchResult {
   friendsCount: number | null;
 }
 
+export interface AccountNotification {
+  id: string;
+  recipientId: string;
+  senderId: string | null;
+  type: 'like' | 'comment' | 'friend_request' | 'other' | 'repost' | 'reply' | 'comment_like' | 'friend_accept';
+  referenceId: string | null;
+  message: string | null;
+  isRead: boolean;
+  createdAt: string;
+  sender: {
+    firstName: string;
+    lastName: string;
+    avatarUrl: string | null;
+    role: string;
+  } | null;
+}
+
+export interface SentNotification {
+  message: string | null;
+  sentAt: string;
+  recipientCount: number;
+  recipientPreview: string | null;
+  isGlobal: boolean;
+}
+
+export interface SentNotificationPage {
+  data: SentNotification[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+export interface NotificationPage {
+  data: AccountNotification[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+export interface ActivityPage {
+  data: GodActivity[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
 class ApiService {
   private baseURL: string;
 
@@ -417,8 +475,8 @@ class ApiService {
     return this.patch<{ message: string; user: { id: string; status: string } }>(`/api/god/users/${userId}/status`, { status });
   }
 
-  async getGodActivities(): Promise<GodActivity[]> {
-    return this.get<GodActivity[]>('/api/god/activities');
+  async getGodActivities(page = 1, limit = 20): Promise<ActivityPage> {
+    return this.get<ActivityPage>(`/api/god/activities?page=${page}&limit=${limit}`);
   }
 
   async searchUsers(query: string): Promise<GodUser[]> {
@@ -501,6 +559,21 @@ class ApiService {
       '/api/god/notifications/private',
       { recipientIds, message }
     );
+  }
+
+  /** Get notifications for a specific user (by userId), paginated */
+  async getNotificationsForUser(userId: string, page = 1, limit = 10): Promise<NotificationPage> {
+    return this.get<NotificationPage>(`/api/notifications/${userId}?page=${page}&limit=${limit}`);
+  }
+
+  /** Get sent notifications history (god only), paginated */
+  async getSentNotifications(page = 1, limit = 10): Promise<SentNotificationPage> {
+    return this.get<SentNotificationPage>(`/api/god/notifications/sent?page=${page}&limit=${limit}`);
+  }
+
+  /** Search ALL users including official_account role (for private message) */
+  async searchAllUsersForMessage(query: string): Promise<GodUser[]> {
+    return this.get<GodUser[]>(`/api/god/users/search-all?query=${encodeURIComponent(query)}`);
   }
 
 }

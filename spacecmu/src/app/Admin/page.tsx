@@ -3,9 +3,9 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import { useUser } from "@/contexts/UserContext";
-import { apiService, type MyOfficialAccount, type GodUser } from "@/lib/api";
+import { apiService, type MyOfficialAccount, type GodUser, type AccountNotification } from "@/lib/api";
 
-type TabId = "official" | "posts" | "activities";
+type TabId = "official" | "activities";
 type DetailTab = "dashboard" | "admins" | "leave";
 
 /* ─────────────────────────────────────────
@@ -691,6 +691,326 @@ function AccountDetailView({
 }
 
 /* ─────────────────────────────────────────
+   Activities Tab — Notifications per Official Account
+───────────────────────────────────────── */
+
+type NotifType = AccountNotification["type"];
+
+function isAdminNotif(n: AccountNotification): boolean {
+  const userTypes: NotifType[] = ["like", "comment", "reply", "repost", "comment_like", "friend_request", "friend_accept"];
+  if (userTypes.includes(n.type)) return false;
+  return n.sender?.role === "god" || n.sender?.role === "admin" || n.senderId === null;
+}
+
+function NotifTypeIcon({ type, isAdmin }: { type: NotifType; isAdmin: boolean }) {
+  if (isAdmin) {
+    return (
+      <span className="flex items-center justify-center w-8 h-8 rounded-full bg-slate-700 shadow">
+        <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" />
+        </svg>
+      </span>
+    );
+  }
+  if (type === "like") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-red-100 text-red-500">
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+    </span>
+  );
+  if (type === "comment") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-100 text-blue-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M21 16c0 1.1-.9 2-2 2H7l-4 4V6a2 2 0 012-2h14a2 2 0 012 2v10z" /></svg>
+    </span>
+  );
+  if (type === "reply") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+    </span>
+  );
+  if (type === "repost") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+    </span>
+  );
+  if (type === "comment_like") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-pink-100 text-pink-500">
+      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" /></svg>
+    </span>
+  );
+  if (type === "friend_request") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-green-100 text-green-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" /></svg>
+    </span>
+  );
+  if (type === "friend_accept") return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-teal-100 text-teal-600">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+    </span>
+  );
+  return (
+    <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-500">
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+    </span>
+  );
+}
+
+function notifActionText(type: NotifType): string {
+  switch (type) {
+    case "like": return "liked your post";
+    case "comment": return "commented on your post";
+    case "reply": return "replied to your comment";
+    case "repost": return "reposted your post";
+    case "comment_like": return "liked your comment";
+    case "friend_request": return "sent you a friend request";
+    case "friend_accept": return "accepted your friend request";
+    default: return "";
+  }
+}
+
+function NotificationRow({ n, now }: { n: AccountNotification; now: number }) {
+  const admin = isAdminNotif(n);
+  const senderName = admin
+    ? "FROM ADMIN"
+    : n.sender
+    ? `${n.sender.firstName} ${n.sender.lastName}`.trim() || "Someone"
+    : "Someone";
+  const actionText = admin ? (n.message ?? "") : notifActionText(n.type);
+  const timeAgo = (() => {
+    const diff = now - new Date(n.createdAt).getTime();
+    const m = Math.floor(diff / 60000);
+    if (m < 1) return "just now";
+    if (m < 60) return `${m}m ago`;
+    const h = Math.floor(m / 60);
+    if (h < 24) return `${h}h ago`;
+    return `${Math.floor(h / 24)}d ago`;
+  })();
+
+  return (
+    <li className={`flex items-start gap-3 px-4 py-3.5 transition-colors ${n.isRead ? "bg-white" : "bg-blue-50/40"}`}>
+      {/* Left: avatar with type-icon badge */}
+      <div className="relative shrink-0 mt-0.5">
+        {admin ? (
+          <NotifTypeIcon type={n.type} isAdmin={true} />
+        ) : (
+          <>
+            {n.sender?.avatarUrl ? (
+              <img // eslint-disable-line @next/next/no-img-element
+                src={apiService.getImageUrl(n.sender.avatarUrl) ?? ""}
+                alt={senderName}
+                className="w-9 h-9 rounded-full object-cover"
+              />
+            ) : (
+              <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center text-white text-sm font-bold">
+                {senderName[0]?.toUpperCase() ?? "?"}
+              </div>
+            )}
+            {/* Small type badge overlaid bottom-right */}
+            <span className="absolute -bottom-1 -right-1">
+              <NotifTypeIcon type={n.type} isAdmin={false} />
+            </span>
+          </>
+        )}
+      </div>
+
+      {/* Right: text */}
+      <div className="flex-1 min-w-0">
+        {admin ? (
+          <>
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider leading-tight">
+              {senderName} · {timeAgo}
+            </p>
+            <p className="text-sm text-slate-800 mt-0.5 leading-snug">{actionText}</p>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-slate-800 leading-snug">
+              <span className="font-semibold">{senderName}</span>{" "}
+              <span className="text-slate-500">{actionText}</span>
+            </p>
+            <p className="text-xs text-slate-400 mt-0.5">{timeAgo}</p>
+          </>
+        )}
+      </div>
+
+      {!n.isRead && (
+        <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1.5" />
+      )}
+    </li>
+  );
+}
+
+function AccountNotificationsCard({ account }: { account: MyOfficialAccount }) {
+  const [notifications, setNotifications] = useState<AccountNotification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(0);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const LIMIT = 10;
+
+  const loadData = useCallback((p: number) => {
+    setLoading(true);
+    setError(null);
+    apiService.getNotificationsForUser(account.userId, p, LIMIT)
+      .then((res) => {
+        setNow(new Date().valueOf());
+        setNotifications(res.data);
+        setPage(res.pagination.page);
+        setTotalPages(res.pagination.totalPages);
+        setTotal(res.pagination.total);
+        setLoading(false);
+      })
+      .catch(() => {
+        setError("Failed to load notifications");
+        setLoading(false);
+      });
+  }, [account.userId]);
+
+  useEffect(() => { loadData(1); }, [loadData]);
+
+  const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  return (
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 py-4 border-b border-slate-100">
+        <div className="w-9 h-9 rounded-full overflow-hidden shrink-0 bg-slate-100">
+          <img // eslint-disable-line @next/next/no-img-element
+            src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+            alt={account.name}
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-slate-900 text-sm truncate">{account.name}</p>
+            {account.isOwner && (
+              <span className="px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[9px] font-bold uppercase tracking-wider border border-amber-200">
+                Owner
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">@{account.username}</p>
+        </div>
+        {unreadCount > 0 && (
+          <span className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold min-w-5">
+            {unreadCount}
+          </span>
+        )}
+      </div>
+
+      {/* Content */}
+      {loading ? (
+        <div className="py-10 flex justify-center">
+          <span className="w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-600 animate-spin block" />
+        </div>
+      ) : error ? (
+        <div className="py-8 text-center">
+          <p className="text-sm text-red-400">{error}</p>
+          <button onClick={() => loadData(page)} className="mt-2 text-xs text-slate-500 underline hover:text-slate-800">Retry</button>
+        </div>
+      ) : notifications.length === 0 ? (
+        <div className="py-10 flex flex-col items-center gap-2">
+          <span className="text-3xl opacity-20">🔔</span>
+          <p className="text-sm text-slate-400">No notifications yet</p>
+        </div>
+      ) : (
+        <>
+          <ul className="divide-y divide-slate-50">
+            {notifications.map((n) => (
+              <NotificationRow key={n.id} n={n} now={now} />
+            ))}
+          </ul>
+          {/* Pagination footer */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-slate-50/60">
+            <p className="text-xs text-slate-400">
+              {total} notification{total !== 1 ? "s" : ""} · Page {page} of {totalPages}
+            </p>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => loadData(page - 1)}
+                disabled={page <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+                </svg>
+                Prev
+              </button>
+              <button
+                onClick={() => loadData(page + 1)}
+                disabled={page >= totalPages}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Next
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ActivitiesTab({
+  accounts,
+  loadingAccounts,
+  onRefresh,
+}: {
+  accounts: MyOfficialAccount[];
+  loadingAccounts: boolean;
+  onRefresh: () => void;
+}) {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-semibold text-slate-900">Notifications</h2>
+          <p className="text-xs text-slate-400 mt-0.5">Notifications received by each official account you manage</p>
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={loadingAccounts}
+          className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-700 disabled:opacity-50 transition-colors"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+          Refresh
+        </button>
+      </div>
+
+      {loadingAccounts ? (
+        <div className="space-y-3">
+          {[1, 2].map((i) => (
+            <div key={i} className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
+          ))}
+        </div>
+      ) : accounts.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm py-20 flex flex-col items-center gap-3">
+          <span className="text-5xl opacity-20">🔔</span>
+          <p className="text-sm font-semibold text-slate-500">No official accounts</p>
+          <p className="text-xs text-slate-400 text-center max-w-xs">
+            You have no official accounts to show notifications for.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {accounts.map((acc) => (
+            <AccountNotificationsCard key={acc.id} account={acc} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────
    Main Page
 ───────────────────────────────────────── */
 export default function AdminPage() {
@@ -751,7 +1071,6 @@ export default function AdminPage() {
 
   const tabs: { id: TabId; label: string }[] = [
     { id: "official", label: "Official Accounts" },
-    { id: "posts", label: "Posts" },
     { id: "activities", label: "Activities" },
   ];
 
@@ -883,22 +1202,9 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                {/* ══ POSTS ══ */}
-                {activeTab === "posts" && (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm py-20 flex flex-col items-center gap-3">
-                    <span className="text-5xl opacity-20">📝</span>
-                    <p className="text-sm font-semibold text-slate-500">Post management</p>
-                    <p className="text-xs text-slate-400">Coming soon</p>
-                  </div>
-                )}
-
                 {/* ══ ACTIVITIES ══ */}
                 {activeTab === "activities" && (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm py-20 flex flex-col items-center gap-3">
-                    <span className="text-5xl opacity-20">⚡</span>
-                    <p className="text-sm font-semibold text-slate-500">Activity log</p>
-                    <p className="text-xs text-slate-400">Coming soon</p>
-                  </div>
+                  <ActivitiesTab accounts={myAccounts} loadingAccounts={loadingAccounts} onRefresh={fetchMyAccounts} />
                 )}
               </>
             )}

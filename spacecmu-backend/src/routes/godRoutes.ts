@@ -12,6 +12,8 @@ import {
     searchUsersForOfficialAccount,
     sendGlobalNotification,
     sendPrivateNotifications,
+    getSentNotifications,
+    searchAllUsers,
 } from "../controllers/godController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { godMiddleware } from "../middleware/godMiddleware.js";
@@ -34,6 +36,9 @@ router.patch("/users/:userId/role", setUserRole);
 router.patch("/users/:userId/status", setUserStatus);
 router.get("/activities", getFullActivityLog);
 
+// Search all users including official_account (for private message recipients)
+router.get("/users/search-all", searchAllUsers);
+
 // Official Accounts
 router.get("/official-accounts", getOfficialAccounts);
 router.post("/official-accounts", createOfficialAccount);
@@ -43,5 +48,6 @@ router.delete("/official-accounts/:id/admins/:adminUserId", removeOfficialAccoun
 // Notifications (god broadcast)
 router.post("/notifications/global", sendGlobalNotification);
 router.post("/notifications/private", sendPrivateNotifications);
+router.get("/notifications/sent", getSentNotifications);
 
 export default router;

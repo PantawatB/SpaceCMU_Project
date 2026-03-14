@@ -4,18 +4,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import { useUser } from "@/contexts/UserContext";
-import { apiService, type GodStats, type GodUser, type GodActivity, type OfficialAccount } from "@/lib/api";
+import { apiService, type GodStats, type GodUser, type GodActivity, type OfficialAccount, type SentNotification } from "@/lib/api";
 
 type TabId = "dashboard" | "users" | "announcements" | "activities" | "official";
-
-interface LocalAnnouncement {
-  id: number;
-  type: "global" | "private";
-  target?: string;
-  message: string;
-  sentAt: string;
-  count?: number;
-}
 
 
 export default function GodPage() {
@@ -26,6 +17,11 @@ export default function GodPage() {
   const [stats, setStats] = useState<GodStats | null>(null);
   const [users, setUsers] = useState<GodUser[]>([]);
   const [activities, setActivities] = useState<GodActivity[]>([]);
+  const [activitiesPage, setActivitiesPage] = useState(1);
+  const [activitiesTotalPages, setActivitiesTotalPages] = useState(1);
+  const [activitiesTotal, setActivitiesTotal] = useState(0);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const ACTIVITIES_LIMIT = 20;
   const [loadingData, setLoadingData] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -33,8 +29,14 @@ export default function GodPage() {
 
   const [annType, setAnnType] = useState<"global" | "private">("global");
   const [annMsg, setAnnMsg] = useState("");
-  const [annHistory, setAnnHistory] = useState<LocalAnnouncement[]>([]);
   const [annSending, setAnnSending] = useState(false);
+
+  // Sent history — paginated from API
+  const [sentHistory, setSentHistory] = useState<SentNotification[]>([]);
+  const [sentPage, setSentPage] = useState(1);
+  const [sentTotalPages, setSentTotalPages] = useState(0);
+  const [sentTotal, setSentTotal] = useState(0);
+  const [sentLoading, setSentLoading] = useState(false);
 
   // Private recipient search state
   const [annPrivateSearch, setAnnPrivateSearch] = useState("");
@@ -107,15 +109,18 @@ export default function GodPage() {
     }
   }, []);
 
-  const fetchActivities = useCallback(async () => {
-    setLoadingData(true);
+  const fetchActivities = useCallback(async (p: number = 1) => {
+    setActivitiesLoading(true);
     try {
-      const data = await apiService.getGodActivities();
-      setActivities(data);
+      const res = await apiService.getGodActivities(p, ACTIVITIES_LIMIT);
+      setActivities(res.data);
+      setActivitiesPage(res.pagination.page);
+      setActivitiesTotalPages(res.pagination.totalPages);
+      setActivitiesTotal(res.pagination.total);
     } catch {
       showToast("Failed to load activities", false);
     } finally {
-      setLoadingData(false);
+      setActivitiesLoading(false);
     }
   }, []);
 
@@ -131,6 +136,21 @@ export default function GodPage() {
     }
   }, []);
 
+  const fetchSentHistory = useCallback(async (page: number) => {
+    setSentLoading(true);
+    try {
+      const res = await apiService.getSentNotifications(page, 10);
+      setSentHistory(res.data);
+      setSentPage(res.pagination.page);
+      setSentTotalPages(res.pagination.totalPages);
+      setSentTotal(res.pagination.total);
+    } catch {
+      // silent — history is best-effort
+    } finally {
+      setSentLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isLoading && activeUser?.role !== "god") {
       router.replace("/Feeds");
@@ -141,9 +161,10 @@ export default function GodPage() {
     if (activeUser?.role !== "god") return;
     if (activeTab === "dashboard") fetchStats();
     else if (activeTab === "users") fetchUsers();
-    else if (activeTab === "activities") fetchActivities();
+    else if (activeTab === "activities") fetchActivities(1);
     else if (activeTab === "official") fetchOfficialAccounts();
-  }, [activeTab, activeUser, fetchStats, fetchUsers, fetchActivities, fetchOfficialAccounts]);
+    else if (activeTab === "announcements") fetchSentHistory(1);
+  }, [activeTab, activeUser, fetchStats, fetchUsers, fetchActivities, fetchOfficialAccounts, fetchSentHistory]);
 
   const handleSetRole = async (userId: string, role: "user" | "admin") => {
     setActionLoading(`role-${userId}`);
@@ -187,20 +208,6 @@ export default function GodPage() {
         );
         count = res.count;
       }
-
-      setAnnHistory((prev) => [
-        {
-          id: Date.now(),
-          type: annType,
-          target: annType === "private"
-            ? annPrivateSelected.map((u) => `${u.firstName} ${u.lastName}`.trim()).join(", ")
-            : undefined,
-          message: annMsg,
-          sentAt: new Date().toLocaleString(),
-          count,
-        },
-        ...prev,
-      ]);
       setAnnMsg("");
       setAnnPrivateSelected([]);
       setAnnPrivateSearch("");
@@ -210,6 +217,8 @@ export default function GodPage() {
           ? `Notification sent to ${count} users`
           : `Notification sent to ${count} user${count !== 1 ? "s" : ""}`
       );
+      // Refresh history from page 1
+      fetchSentHistory(1);
     } catch (e) {
       showToast(e instanceof Error ? e.message : "Failed to send notification", false);
     } finally {
@@ -228,8 +237,8 @@ export default function GodPage() {
     setAnnPrivateSearchLoading(true);
     annSearchDebounceRef.current = setTimeout(async () => {
       try {
-        // searchUsersForOfficialAccount searches all users (excl. official_account role) — reuse
-        const results = await apiService.searchUsersForOfficialAccount(q);
+        // searchAllUsersForMessage includes official_account role
+        const results = await apiService.searchAllUsersForMessage(q);
         // Filter out already-selected
         setAnnPrivateSearchResults(
           results.filter((r) => !annPrivateSelected.some((s) => s.id === r.id))
@@ -755,56 +764,102 @@ export default function GodPage() {
                 </div>
 
                 {/* ── Right: History ── */}
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between shrink-0">
                     <div>
                       <h2 className="font-semibold text-slate-900">Sent Messages</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">{annHistory.length} message{annHistory.length !== 1 ? "s" : ""} this session</p>
+                      <p className="text-xs text-slate-400 mt-0.5">
+                        {sentTotal > 0 ? `${sentTotal} message${sentTotal !== 1 ? "s" : ""} total` : "No messages yet"}
+                      </p>
                     </div>
-                    {annHistory.length > 0 && (
-                      <button
-                        onClick={() => setAnnHistory([])}
-                        className="text-xs text-slate-400 hover:text-red-500 transition-colors"
-                      >
-                        Clear all
-                      </button>
-                    )}
+                    <button
+                      onClick={() => fetchSentHistory(sentPage)}
+                      disabled={sentLoading}
+                      className="text-xs text-slate-400 hover:text-slate-700 transition-colors disabled:opacity-40"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path d="M23 4v6h-6" /><path d="M1 20v-6h6" />
+                        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                      </svg>
+                    </button>
                   </div>
 
-                  {annHistory.length === 0 ? (
+                  {sentLoading && sentHistory.length === 0 ? (
+                    <div className="py-16 flex justify-center">
+                      <span className="w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-700 animate-spin block" />
+                    </div>
+                  ) : sentHistory.length === 0 ? (
                     <div className="py-16 flex flex-col items-center gap-2">
                       <span className="text-3xl opacity-30">📭</span>
                       <p className="text-sm text-slate-400">No messages sent yet</p>
                     </div>
                   ) : (
-                    <ul className="divide-y divide-slate-100 max-h-[480px] overflow-y-auto">
-                      {annHistory.map((a) => (
-                        <li key={a.id} className="px-6 py-4 flex items-start gap-3 hover:bg-slate-50 transition-colors">
-                          <div className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-sm ${
-                            a.type === "global" ? "bg-blue-50" : "bg-purple-50"
-                          }`}>
-                            {a.type === "global" ? "🌐" : "👤"}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm text-slate-800 leading-relaxed">{a.message}</p>
-                            <div className="flex items-center gap-2 mt-1.5">
-                              {a.type === "private" && a.target && (
-                                <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium truncate max-w-[180px]">{a.target}</span>
-                              )}
-                              {a.type === "global" && (
-                                <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">Platform-wide</span>
-                              )}
-                              {a.count !== undefined && (
-                                <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-600 text-[10px] font-medium">
-                                  {a.count} sent
-                                </span>
-                              )}
-                              <span className="text-[11px] text-slate-400">{a.sentAt}</span>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <>
+                      <ul className="divide-y divide-slate-100 overflow-y-auto max-h-[420px]">
+                        {sentHistory.map((a, i) => {
+                          const isGlobal = a.isGlobal;
+                          const sentDate = new Date(a.sentAt);
+                          const formattedDate = sentDate.toLocaleString("en-GB", {
+                            day: "numeric", month: "short", year: "numeric",
+                            hour: "2-digit", minute: "2-digit",
+                          });
+                          return (
+                            <li key={i} className="px-6 py-4 flex items-start gap-3 hover:bg-slate-50 transition-colors">
+                              <div className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-sm ${
+                                isGlobal ? "bg-blue-50" : "bg-purple-50"
+                              }`}>
+                                {isGlobal ? "🌐" : "👤"}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-slate-800 leading-relaxed line-clamp-2">{a.message}</p>
+                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                  {isGlobal ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-600 text-[10px] font-medium">Platform-wide</span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-600 text-[10px] font-medium truncate max-w-[180px]" title={a.recipientPreview ?? ""}>
+                                      {a.recipientPreview ?? "Private"}
+                                    </span>
+                                  )}
+                                  <span className="px-1.5 py-0.5 rounded bg-green-50 text-green-600 text-[10px] font-medium">
+                                    {a.recipientCount} sent
+                                  </span>
+                                  <span className="text-[11px] text-slate-400">{formattedDate}</span>
+                                </div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      {/* Pagination */}
+                      {sentTotalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-3 border-t border-slate-100 shrink-0">
+                          <button
+                            onClick={() => fetchSentHistory(sentPage - 1)}
+                            disabled={sentPage <= 1 || sentLoading}
+                            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-medium"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path d="M15 18l-6-6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                            Prev
+                          </button>
+                          <span className="text-xs text-slate-400">
+                            Page {sentPage} of {sentTotalPages}
+                          </span>
+                          <button
+                            onClick={() => fetchSentHistory(sentPage + 1)}
+                            disabled={sentPage >= sentTotalPages || sentLoading}
+                            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-900 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-medium"
+                          >
+                            Next
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                              <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -823,7 +878,7 @@ export default function GodPage() {
                     <p className="text-xs text-slate-400 mt-0.5">Recent actions across the platform</p>
                   </div>
                   <button
-                    onClick={fetchActivities}
+                    onClick={() => fetchActivities(1)}
                     className="flex items-center gap-1.5 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-medium hover:bg-slate-700 transition-colors"
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -834,7 +889,7 @@ export default function GodPage() {
                   </button>
                 </div>
 
-                {loadingData ? (
+                {activitiesLoading ? (
                   <div className="space-y-2">
                     {Array.from({ length: 7 }).map((_, i) => (
                       <div key={i} className="h-14 rounded-2xl bg-slate-200 animate-pulse" />
@@ -891,6 +946,64 @@ export default function GodPage() {
                         </li>
                       ))}
                     </ul>
+
+                    {/* Pagination footer */}
+                    <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-100 bg-slate-50/60">
+                      <p className="text-xs text-slate-400">
+                        {activitiesTotal} entr{activitiesTotal !== 1 ? "ies" : "y"} · Page {activitiesPage} of {activitiesTotalPages}
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => fetchActivities(activitiesPage - 1)}
+                          disabled={activitiesPage <= 1}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+                          </svg>
+                          Prev
+                        </button>
+                        {/* Page number pills */}
+                        {Array.from({ length: activitiesTotalPages }, (_, i) => i + 1)
+                          .filter((p) =>
+                            p === 1 ||
+                            p === activitiesTotalPages ||
+                            Math.abs(p - activitiesPage) <= 1
+                          )
+                          .reduce<(number | "…")[]>((acc, p, idx, arr) => {
+                            if (idx > 0 && typeof arr[idx - 1] === "number" && (p as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                            acc.push(p);
+                            return acc;
+                          }, [])
+                          .map((p, idx) =>
+                            p === "…" ? (
+                              <span key={`ellipsis-${idx}`} className="px-1 text-xs text-slate-400">…</span>
+                            ) : (
+                              <button
+                                key={p}
+                                onClick={() => fetchActivities(p as number)}
+                                className={`w-7 h-7 rounded-lg text-xs font-semibold transition-colors ${
+                                  activitiesPage === p
+                                    ? "bg-slate-900 text-white"
+                                    : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-100"
+                                }`}
+                              >
+                                {p}
+                              </button>
+                            )
+                          )}
+                        <button
+                          onClick={() => fetchActivities(activitiesPage + 1)}
+                          disabled={activitiesPage >= activitiesTotalPages}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          Next
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 18l6-6-6-6" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
