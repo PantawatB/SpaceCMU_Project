@@ -5,6 +5,27 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
 
+/** แปลง **ข้อความ** ให้เป็น <strong> และ >>ข้อความ ให้เป็นบรรทัดย่อหน้า */
+function renderBoldText(text: string) {
+  // แยกตาม newline ก่อน เพื่อจัดการ >> ได้ทีละบรรทัด
+  const lines = text.split('\n');
+  return lines.map((line, lineIdx) => {
+    const indented = line.startsWith('>>');
+    const content = indented ? line.slice(2) : line;
+    // แยก bold ภายในบรรทัด
+    const parts = content.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+      part.startsWith('**') && part.endsWith('**')
+        ? <strong key={i} className="font-extrabold text-gray-900">{part.slice(2, -2)}</strong>
+        : <span key={i}>{part}</span>
+    );
+    return (
+      <span key={lineIdx} className="block" style={indented ? { textIndent: '1.25rem' } : undefined}>
+        {parts}
+      </span>
+    );
+  });
+}
+
 export interface SidebarMenuItem {
   name: string;
   icon: React.ReactNode;
@@ -324,38 +345,95 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     {
       title: "ยินดีต้อนรับสู่ SpaceCMU!",
       content:
-        "แพลตฟอร์มโซเชียลมีเดีย สำหรับนักศึกษาและบุคลากร มหาวิทยาลัยเชียงใหม่ ที่จะช่วยให้คุณเชื่อมต่อกับเพื่อนๆ และแชร์ประสบการณ์ต่างๆ",
-      image: "/SpaceCMUlogo1.png",
+        "SpaceCMU คือ แพลตฟอร์มโซเชียลมีเดีย สำหรับนักศึกษาและบุคลากร มหาวิทยาลัยเชียงใหม่ \nโดยใช้การยืนยันตัวตนผ่าน CMU Account \n ดังนั้น มีแค่บุคคลากรและนักศึกษาของ CMU เท่านั้นที่สามารถเข้าร่วมได้",
+      image: "/Spacecmu-Slide1.png",
+    },
+    {
+      title: "คำอธิบายระบบ",
+      content:
+        "SpaceCMU จะแบ่งตัวตนการใช้งานออกเป็น 3 รูปแบบ \n โดยแบ่งเป็นบุคคลธรรมดา 2 รูปแบบ คือ Public, Anonymous และ Official Account สำหรับหน่วยงานต่างๆ ภายในมหาวิทยาลัย ซึ่งหากท่านต้องการลงทะเบียนเป็น Official Account กรุณาติดต่อทีมพัฒนา สามารถติดต่อผู้พัฒนาได้ที่ Slide สุดท้ายของการสอนใช้งาน",
+      image: "/Slide2.png",
+      image2: "/Slide2-1.png"
+    },
+    {
+      title: "Setting",
+      content:
+        "ที่เมนู Setting ท่านสามารถจัดการโปรไฟล์ของท่าน ได้ตามต้องการ อาทิเช่น เปลี่ยนรูปโปรไฟล์, เปลี่ยนชื่อ, Bio และสามารถสลับโหมดการใช้งานได้ที่เมนู Sidebar ทางซ้าย ด้านบนปุ่ม Logout",
+      note: "⚠️ Profile Public จะไม่สามารถเปลี่ยนชื่อได้ เพื่อคงเอกลักษณ์ของโหมด Public ไว้ หากท่านต้องการความเป็นส่วนตัวสามารถใช้โหมด Anonymous แทนโหมด Public ได้ ⚠️",
+      image: "/Slide3.png",
+      image2: "/Slide3-1.png",
     },
     {
       title: "Profile",
-      content:
-        "จัดการโปรไฟล์ของคุณ เปลี่ยนสถานะเป็น Public หรือ Anonymous ได้ตามต้องการ",
-      image: "/default-avatar.svg",
+      content: "ท่านสามารถดูโปรไฟล์ที่กำลังใช้งานได้ที่นี่ รวมไปถึงโพสต์และข้อมูลต่างๆ อาทิเช่น โพสต์ที่เคยโพสต์หรือ สินค้าที่ท่านลงขายใน Market เพื่อนของท่าน หรือ โพสต์ต่างๆที่เคยมีส่วนร่วม จะถูกแสดงที่นี่",
+      image: "/Slide4.png",
     },
     {
       title: "Feeds",
-      content: "ดูโพสต์และการอัปเดตจากเพื่อนๆ พร้อมกับแชร์เรื่องราวของคุณเอง",
-      image: "/cat-post.jpg",
+      content: "หน้า Feeds เป็นหน้าหลักที่รวบรวมโพสต์ต่างๆจากผู้ใช้งานคนอื่นๆ ตามหมวดหมู่ต่างๆ ที่ท่านเลือกมาแสดง จะถูกแสดงที่นี่ ท่านสามารถกดไลค์ คอมเมนต์ รีโพสต์ หรือ แชร์โพสต์ต่างๆให้เพื่อนๆของท่านได้ ผ่าน ShareBar ที่ส่วนด้านล่างของหน้าต่าง ซึ่งจะอธิบายต่อไป",
+      image: "/Slide5.png",
+    },
+    {
+      title: "ShareBar",
+      content: "ShareBar เป็นส่วนที่ช่วยให้ท่านสามารถแชร์โพสต์ต่างๆ ท่านสามารถพิมพ์ข้อความ หรืออัพโหลดรูปภาพไปยัง Feeds ต่างๆได้ผ่านส่วนนี้ และเลือกประเภทของ Feeds ที่ท่านต้องการจะแชร์ได้จากที่นี่ และสามารถกดลูกศรเพื่อซ่อนส่วน ShareBar ได้",
+      note: "⚠️ ท่านจำเป็นต้องเลือกประเภทของ Feeds ที่ท่านต้องการจะแชร์โพสต์ของท่านด้วย หากท่านไม่เลือกประเภทของ Feeds โพสต์ของท่านจะไม่สามารถถูกแชร์ได้ ⚠️",
+      image: "/Slide6.png",
+      image2: "/Slide6-1.png",
+    },
+    {
+      title: "Feeds Types",
+      content: "**SpaceCMU** ขอแจ้งให้ทราบถึงวัตถุประสงค์ของการแบ่งประเภท Feeds ดังนี้ \n **Global :** สำหรับแชร์โพสต์ซึ่งต้องการให้ทุกคนในระบบเห็น โพสต์ของท่าน \n **Friends :** มีเพียงเพื่อนของท่านเท่านั้นที่จะเห็นโพสต์ในส่วนนี้ \n **Announcement :** สำหรับโพสต์ที่เป็นประกาศสำคัญ จะถูกรวบรวมไว้ที่นี่ เพื่อให้ทุกคนสามารถเข้าถึงได้ง่ายขึ้น \n **Events :** สำหรับโพสต์ที่เกี่ยวข้องกับกิจกรรมต่างๆ ที่จะเกิดขึ้นภายในมหาวิทยาลัยเชียงใหม่ \n **Question :** สำหรับโพสต์ที่เป็นคำถามต่างๆ ที่ท่านอยากจะถามเพื่อนๆ หรือคนในระบบ เพื่อขอความช่วยเหลือหรือคำแนะนำต่างๆ \n **Marketplace :** สำหรับโพสต์ที่เกี่ยวข้องกับการซื้อขายสินค้าและบริการต่างๆ ที่ท่านต้องการจะขายหรือขอซื้อจากเพื่อนๆในระบบ \n **Shops / ฝากร้านขายของ :** สำหรับโพสต์ที่เกี่ยวข้องกับการโปรโมทร้านค้าหรือบริการต่างๆ ที่ท่านต้องการจะโปรโมทให้เพื่อนๆในระบบได้เห็น",
+      image: "/Slide7.png",
+    },
+    {
+      title: "Post Interactions",
+      content: "เมื่อมีโพสต์ที่ท่านสนใจ ท่านสามารถกดไลค์ คอมเมนต์ รีโพสต์ หรือ แชร์โพสต์ต่างๆให้เพื่อนๆของท่านได้ ผ่านปุ่ม Interactions ต่างๆ ที่ส่วนด้านล่างของหน้าต่าง \n>> รวมไปถึงการแก้ไขหรือการลบโพสต์ของท่านเองได้ผ่านปุ่ม Edit และ Delete ที่จะปรากฏขึ้นเมื่อท่านเป็นเจ้าของโพสต์นั้นๆ หรือ หากท่านพบโพสต์ที่ไม่เหมาะสม ท่านสามารถกด Report เพื่อรายงานโพสต์นั้นๆให้กับทีมพัฒนาได้ทราบ",
+      image: "/Post.png",
+      image2: "/Post2.png",
+    },
+    {
+      title: "Notifications",
+      content: "ท่านสามารถดูการแจ้งเตือนต่างๆ ที่เกี่ยวข้องกับโพสต์หรือกิจกรรมของท่านได้ที่นี่ รวมไปถึงประกาศจากทีมพัฒนา และข่าวสารต่างๆที่เกี่ยวข้องกับมหาวิทยาลัยเชียงใหม่",
+      note: "ท่านสามารถกดที่การแจ้งเตือนต่างๆเพื่อดูรายละเอียดเพิ่มเติมได้",
+      image: "/Noti.png",
+      image2: "/Noti2.png",
     },
     {
       title: "Market",
-      content: "ตลาดออนไลน์สำหรับซื้อขายสิ่งของระหว่างนักศึกษา",
-      image: "/shoe.webp",
+      content: "ท่านสามารถลงขายสินค้าต่างๆของท่านได้ที่หน้า Market และหากสนใจสินค้า ท่านสามารถติดต่อผู้ขายได้ผ่านทาง Direct Message ได้โดยตรง \n>> **Market ของ SpaceCMU ถูก Backup ด้วย CMU Account ดังนั้น หากท่านโดนโกงท่านสามารถติดต่อทีมพัฒนาเพื่อขอความช่วยเหลือได้ เนื่องจาก Market ของ SpaceCMU เชื่อมต่อกับ CMU Account โดยตรง โอกาสที่จะตามตัวผู้กระทำผิดได้มีค่อนข้างสูงมาก**",
+      note: "⚠️ หน้า Market Account ที่เป็น Anonymous จะไม่สามารถใช้งาน Market ได้ เมื่อมีการเข้าถึงหน้า Market ระบบจะบังคับให้ท่านเปลี่ยนไปใช้งานในโหมด Public อัตโนมัติ หากบัญชีของท่านถูกระงับ ท่านจะไม่สามารถใช้งาน Market ได้อีกต่อไป ⚠️",
+      image: "/Market.png",
+      image2: "/Market2.png",
+    },
+    {
+      title: "คำแนะนำสำหรับการใช้งาน Market",
+      content: "หากท่านสนใจสินค้า ท่านสามารถติดต่อผู้ขายได้ผ่านทาง Direct Message ได้โดยตรง \n หากท่านเป็นผู้ขายสินค้าท่านสามารถทำเครื่องหมายว่าขายแล้ว หรือ ลบสินค้าของท่านออกจาก ระบบได้",
+      image: "/Item.png",
+      image2: "/Item2.png",
+    },
+    {
+      title: "Chat",
+      content: "ท่านสามารถพูดคุยกับเพื่อนๆของท่านได้ที่นี่ ผ่านการสร้างห้องแชทใหม่ รายชื่อที่แสดงส่วน Suggested เป็นเพื่อนที่ระบบแนะนำให้ท่าน หรือท่านสามารถค้นหาเพื่อนที่ท่านต้องการจะคุยด้วยได้ผ่านช่องค้นหา **หากท่านเลือก 1 คนจะเป็นการสร้าง แชทส่วนตัว แต่ถ้าหากท่านเลือกหลายคนจะเป็นการสร้างกลุ่มแชท โดยอัตโนมัติ **",
+      image: "/Chat.png",
+      image2: "/Chatdetail.png",
     },
     {
       title: "Friends",
-      content: "ค้นหาและเชื่อมต่อกับเพื่อนๆ นักศึกษา CMU",
-      image: "/tanjiro_with_family.webp",
+      content: "ท่านสามารถเรียกดูคำขอเป็นเพื่อน ค้นหาเพื่อนๆของท่าน หรือดูจาก People you may know ที่ระบบแนะนำเพื่อนให้ท่านได้ที่นี่ ท่านสามารถค้นหาและกดส่งคำขอเป็นเพื่อน หรือค้นหาโปรไฟล์คนอื่นๆได้ผ่านช่องค้นหา \n>> นอกจากนี้ ท่านยังสามารถขอเป็นเพื่อน ส่งข้อความ หรือ ติดตามเพื่อนของคุณได้ผ่านทางช่องทางนี้",
+      note: "⚠️ หากท่านติดตามเพื่อนของท่าน ทุกโพสต์ของเพื่อนหรือทุกคนที่คุณติดตามจะปรากฎผ่านหน้า Feeds ประเภท Following ของท่านโดยอัตโนมัติ ⚠️",
+      image: "/Friends.png",
+      image2: "/Friends2.png",
     },
     {
       title: "Calendar",
-      content: "จัดการตารางเรียน กิจกรรม และนัดหมายต่างๆ ในรูปแบบปฏิทิน",
-      image: "/cmu.png",
+      content: "ท่านสามารถดูปฏิทินกิจกรรมต่างๆ ของท่านได้ที่นี่ โดยรายละเอียดกิจกรรมต่างๆจะแสดงผลดังนี้ \n กิจกรรมที่ท่านเปลี่ยนสถานะเป็น เสร็จสิ้น(success) จะถูกแสดงเป็น **สีเขียว** \n กิจกรรมที่ผ่านไปแล้ว จะถูกแสดงเป็น **สีเทา** \n กิจกรรมที่กำลังจะเกิดขึ้น จะถูกแสดงเป็น **สีแดง**",
+      note: "หน้า Feeds ประเภท Events จะมีคุณสมบัติพิเศษ คือ ท่านสามารถกด Add to Calendar เพื่อ note วันจัดกิจกรรมต่างๆที่ท่านสนใจ จะถูกนำมาแสดงในปฏิทินของท่านอัตโนมัติ และจะถูกแสดงเป็น **สีม่วง**",
+      image: "/Calendar.png",
+      image2: "/Calendar2.png",
     },
     {
       title: "แจ้งปัญหา",
-      content: "หากพบปัญหาหรือต้องการแนะนำ กรุณาแจ้งให้ทีมพัฒนาทราบ",
+      content: "หากพบปัญหา กรุณาแจ้งให้ทีมพัฒนาทราบ",
       image: "/cmu.png",
     },
   ];
@@ -826,15 +904,20 @@ export default function Sidebar({ menuItems }: SidebarProps) {
             {tutorialStep < tutorialSteps.length - 1 ? (
               // Tutorial Steps
               <div>
-                <div className="text-center mb-6">
-                  <div className="text-xl font-bold text-gray-800 mb-3">
+                <div className="text-left mb-6">
+                  <div className="text-xl font-bold text-gray-800 mb-3 text-center">
                     {tutorialSteps[tutorialStep].title}
                   </div>
-                  <p className="text-gray-600 leading-relaxed">
-                    {tutorialSteps[tutorialStep].content}
+                  <p className="text-gray-600 leading-relaxed whitespace-pre-line text-left">
+                    {renderBoldText(tutorialSteps[tutorialStep].content)}
                   </p>
+                  {tutorialSteps[tutorialStep].note && (
+                    <p className="mt-2 text-sm text-gray-700 leading-relaxed whitespace-pre-line bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 text-left">
+                      {renderBoldText(tutorialSteps[tutorialStep].note)}
+                    </p>
+                  )}
                   {tutorialSteps[tutorialStep].image && (
-                    <div className="mb-4 mt-4 flex justify-center">
+                    <div className="mb-4 mt-4 flex flex-col items-center gap-3">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tutorialSteps[tutorialStep].image}
@@ -843,6 +926,16 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                         height={300}
                         className="rounded-xl object-cover shadow-md max-w-full"
                       />
+                      {tutorialSteps[tutorialStep].image2 && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={tutorialSteps[tutorialStep].image2}
+                          alt={`${tutorialSteps[tutorialStep].title} 2`}
+                          width={400}
+                          height={300}
+                          className="rounded-xl object-cover shadow-md max-w-full"
+                        />
+                      )}
                     </div>
                   )}
                 </div>

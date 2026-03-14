@@ -10,6 +10,7 @@ import {
     updateBanner,
     deleteBanner,
     searchUsers,
+    batchGetUsers,
 } from "../controllers/userController.js";
 import { getMe } from "../controllers/authController.js";
 import { upload } from "../middleware/uploadMiddleware.js";
@@ -19,6 +20,7 @@ const router = Router();
 
 router.get("/me", sessionMiddleware, getMe);
 router.get("/search", sessionMiddleware, searchUsers);
+router.get("/batch", sessionMiddleware, batchGetUsers);
 router.get("/", getAllUsers);
 router.get("/:id", sessionMiddleware, getUserById);
 router.post("/", createUser);

@@ -19,7 +19,7 @@ export const postStatusEnum = pgEnum("post_status", ["active", "banned"]);
 export const friendshipStatusEnum = pgEnum("friendship_status", ["pending", "accepted", "blocked"]);
 export const marketItemStatusEnum = pgEnum("market_item_status", ["available", "sold"]);
 export const announcementTypeEnum = pgEnum("announcement_type", ["global", "private"]);
-export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other", "repost", "reply", "comment_like", "friend_accept"]);
+export const notificationTypeEnum = pgEnum("notification_type", ["like", "comment", "friend_request", "other", "repost", "reply", "comment_like", "friend_accept", "mention"]);
 export const roomMemberRoleEnum = pgEnum("room_member_role", ["member", "admin"]);
 export const messageTypeEnum = pgEnum("message_type", ["text", "system", "market_card"]);
 

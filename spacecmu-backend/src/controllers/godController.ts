@@ -534,9 +534,11 @@ export const sendGlobalNotification = async (req: Request, res: Response) => {
         const batchId = randomUUID();
 
         // Batch insert notifications — all sharing the same batchId in referenceId
+        // senderId is intentionally set to null so frontend always renders "FROM ADMIN"
+        // regardless of what role the sender account has at query time
         const rows = recipients.map((r) => ({
             recipientId: r.id,
-            senderId: senderId || null,
+            senderId: null,
             type: "other" as const,
             referenceId: batchId,
             message: message.trim(),
@@ -588,9 +590,11 @@ export const sendPrivateNotifications = async (req: Request, res: Response) => {
         const { randomUUID } = await import("crypto");
         const batchId = randomUUID();
 
+        // senderId is intentionally set to null so frontend always renders "FROM ADMIN"
+        // regardless of what role the sender account has at query time
         const rows = existing.map((r) => ({
             recipientId: r.id,
-            senderId: senderId || null,
+            senderId: null,
             type: "other" as const,
             referenceId: batchId,
             message: message.trim(),

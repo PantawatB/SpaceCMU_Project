@@ -10,7 +10,7 @@ interface Notification {
   id: string;
   recipientId: string;
   senderId: string | null;
-  type: "like" | "comment" | "friend_request" | "other" | "repost" | "reply" | "comment_like" | "friend_accept";
+  type: "like" | "comment" | "friend_request" | "other" | "repost" | "reply" | "comment_like" | "friend_accept" | "mention";
   referenceId: string | null;
   message: string | null;
   isRead: boolean;
@@ -38,11 +38,11 @@ function timeAgo(dateStr: string): string {
 }
 
 function isAdminNotification(notif: Notification): boolean {
-  // Only treat as admin notification if it's the "other" type sent by admin/god
-  // User-generated types (like, comment, reply, repost, comment_like) always show sender's real profile
-  const userGeneratedTypes: Notification["type"][] = ["like", "comment", "reply", "repost", "comment_like", "friend_request", "friend_accept"];
-  if (userGeneratedTypes.includes(notif.type)) return false;
-  return notif.sender?.role === "god" || notif.sender?.role === "admin" || notif.senderId === null;
+  // "other" type is ALWAYS an admin/god broadcast — never show the real sender name
+  // regardless of what role the sender currently has (role can change after notification was sent).
+  // User-generated types always show the real sender profile.
+  if (notif.type === "other") return true;
+  return false;
 }
 
 function NotifIcon({ type, isAdmin }: { type: Notification["type"]; isAdmin: boolean }) {
@@ -118,6 +118,15 @@ function NotifIcon({ type, isAdmin }: { type: Notification["type"]; isAdmin: boo
       </span>
     );
   }
+  if (type === "mention") {
+    return (
+      <span className="flex items-center justify-center w-7 h-7 rounded-full bg-violet-100 text-violet-600">
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
+        </svg>
+      </span>
+    );
+  }
   return (
     <span className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-500">
       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -127,7 +136,7 @@ function NotifIcon({ type, isAdmin }: { type: Notification["type"]; isAdmin: boo
   );
 }
 
-function typeLabel(type: Notification["type"], senderName: string): string {
+function typeLabel(type: Notification["type"], senderName: string, message?: string | null): string {
   switch (type) {
     case "like": return `${senderName} liked your post`;
     case "comment": return `${senderName} commented on your post`;
@@ -136,11 +145,17 @@ function typeLabel(type: Notification["type"], senderName: string): string {
     case "comment_like": return `${senderName} liked your comment`;
     case "friend_request": return `${senderName} sent you a friend request`;
     case "friend_accept": return `${senderName} accepted your friend request`;
+    case "mention": {
+      const src = message?.match(/^\[src:(post|comment)\]/)?.[1];
+      return src === "comment"
+        ? `${senderName} mentioned you in a comment`
+        : `${senderName} mentioned you in a post`;
+    }
     default: return `Message from ${senderName}`;
   }
 }
 
-function typeAction(type: Notification["type"]): string {
+function typeAction(type: Notification["type"], message?: string | null): string {
   switch (type) {
     case "like": return " liked your post";
     case "comment": return " commented on your post";
@@ -149,6 +164,10 @@ function typeAction(type: Notification["type"]): string {
     case "comment_like": return " liked your comment";
     case "friend_request": return " sent you a friend request";
     case "friend_accept": return " accepted your friend request";
+    case "mention": {
+      const src = message?.match(/^\[src:(post|comment)\]/)?.[1];
+      return src === "comment" ? " mentioned you in a comment" : " mentioned you in a post";
+    }
     default: return "";
   }
 }
@@ -168,7 +187,7 @@ function VerifiedBadge() {
 }
 
 // Types that have a postId as referenceId
-const POST_REF_TYPES: Notification["type"][] = ["like", "comment", "reply", "repost"];
+const POST_REF_TYPES: Notification["type"][] = ["like", "comment", "reply", "repost", "mention"];
 // comment_like uses commentId as referenceId — need to resolve to postId
 const COMMENT_REF_TYPES: Notification["type"][] = ["comment_like"];
 
@@ -350,11 +369,11 @@ function NotifDetailModal({
           ) : (
             <>
               <p className="text-sm font-medium text-gray-800 mb-2">
-                {typeLabel(notif.type, senderName)}
+                {typeLabel(notif.type, senderName, notif.message)}
               </p>
               {notif.message && (
                 <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap wrap-break-word border-l-2 border-slate-300 pl-3 italic">
-                  {notif.message}
+                  {notif.message.replace(/^\[src:(post|comment)\]/, "")}
                 </p>
               )}
 
@@ -723,10 +742,10 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
                             <span className="font-semibold">{senderName}</span>
                             {notif.sender?.role === "official_account" && <VerifiedBadge />}
                           </span>
-                          {typeAction(notif.type)}
+                          {typeAction(notif.type, notif.message)}
                         </p>
                         {notif.message && (
-                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 italic">&ldquo;{notif.message}&rdquo;</p>
+                          <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 italic">&ldquo;{notif.message.replace(/^\[src:(post|comment)\]/, "")}&rdquo;</p>
                         )}
                         <p className="text-xs text-gray-400 mt-0.5">{timeAgo(notif.createdAt)}</p>
                       </>
