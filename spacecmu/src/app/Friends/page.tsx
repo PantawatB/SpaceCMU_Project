@@ -51,6 +51,7 @@ interface FriendRequest {
   avatarUrl: string | null;
   bannerUrl: string | null;
   bio: string | null;
+  role?: string | null;
   createdAt: string;
 }
 
@@ -62,11 +63,12 @@ interface FriendCardProps {
   bio: string;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
+  role?: string | null;
   onAccept: (requestId: string) => void;
   onReject: (requestId: string) => void;
   onChat?: (requestId: string) => void;
 }
-function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAccept, onReject, onChat }: FriendCardProps) {
+function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, role, onAccept, onReject, onChat }: FriendCardProps) {
   const [loading, setLoading] = React.useState<"accept" | "reject" | null>(null);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) || null : null;
@@ -112,15 +114,19 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, onAc
         </div>
 
         {/* Name */}
-        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight mt-1">
-          {name}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center w-full px-2 leading-tight mt-1 flex items-center justify-center gap-1">
+          <span className="truncate">{name}</span>
+          {role === "official_account" && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+            </svg>
+          )}
         </p>
 
         {/* Username */}
         <p className="text-xs text-gray-400 text-center mt-0.5 truncate w-full px-2">
           @{username}
         </p>
-
         {/* Bio */}
         <p className="text-xs sm:text-sm text-gray-500 text-center line-clamp-2 w-full px-2 mt-1 mb-4 leading-relaxed min-h-10 overflow-hidden">
           {bio || <span className="italic text-gray-300">No bio yet</span>}
@@ -183,6 +189,7 @@ interface UserFriend {
   bannerUrl: string | null;
   bio: string | null;
   friendsCount: number | null;
+  role?: string | null;
 }
 
 interface MarketItemSeller {
@@ -190,6 +197,7 @@ interface MarketItemSeller {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  role?: string | null;
 }
 
 interface MarketItemAPI {
@@ -246,8 +254,13 @@ function UserFriendCard({
         </div>
 
         {/* Name */}
-        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight mt-1">
-          {name}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center w-full px-2 leading-tight mt-1 flex items-center justify-center gap-1">
+          <span className="truncate">{name}</span>
+          {friend.role === "official_account" && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+            </svg>
+          )}
         </p>
 
         {/* Username */}
@@ -301,6 +314,7 @@ interface FriendSuggestion {
   avatarUrl: string | null;
   bannerUrl: string | null;
   bio: string | null;
+  role?: string | null;
   friendsCount: number;
   mutualFriendsCount: number;
   suggestionReason: string;
@@ -315,6 +329,7 @@ interface SuggestedPersonCardProps {
   bio: string;
   avatarUrl?: string | null;
   bannerUrl?: string | null;
+  role?: string | null;
   mutualFriendsCount?: number;
   initialStatus?: "idle" | "requested";
   onAddFriend: (id: string) => Promise<void>;
@@ -322,7 +337,7 @@ interface SuggestedPersonCardProps {
   onViewProfile: (id: string) => void;
   onChat: (id: string) => void;
 }
-function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, mutualFriendsCount, initialStatus = "idle", onAddFriend, onCancelRequest, onViewProfile, onChat }: SuggestedPersonCardProps) {
+function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, role, mutualFriendsCount, initialStatus = "idle", onAddFriend, onCancelRequest, onViewProfile, onChat }: SuggestedPersonCardProps) {
   const [status, setStatus] = React.useState<"idle" | "loading" | "requested" | "cancelling">(initialStatus);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) || null : null;
@@ -367,8 +382,13 @@ function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, mu
             onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }} />
         </div>
         {/* Name */}
-        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center truncate w-full px-2 leading-tight mt-1">
-          {name}
+        <p className="text-gray-900 font-semibold text-sm sm:text-base text-center w-full px-2 leading-tight mt-1 flex items-center justify-center gap-1">
+          <span className="truncate">{name}</span>
+          {role === "official_account" && (
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+            </svg>
+          )}
         </p>
         {/* Username */}
         <p className="text-xs text-gray-400 text-center mt-0.5 truncate w-full px-2">@{username}</p>
@@ -663,6 +683,7 @@ export default function FriendsMainPage() {
             bio: req.bio ?? "",
             avatarUrl: req.avatarUrl,
             bannerUrl: req.bannerUrl,
+            role: req.role,
             onAccept: handleAcceptRequest,
             onReject: handleRejectRequest,
             onChat: () => {
@@ -1234,6 +1255,7 @@ export default function FriendsMainPage() {
         imageUrls: allImageUrls,
         sellerName: `${marketChatItem.seller.firstName} ${marketChatItem.seller.lastName}`,
         sellerAvatarUrl: sellerAvatarAbs,
+        sellerRole: marketChatItem.seller.role ?? null,
       });
 
       await apiService.post("/api/messages", { roomId, content: cardContent });
@@ -1909,6 +1931,7 @@ export default function FriendsMainPage() {
                                     image={imageUrl}
                                     sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
                                     sellerImage={sellerAvatarUrl}
+                                    sellerRole={item.seller.role}
                                     onViewClick={() => {
                                       setSelectedMarketItem(item);
                                       setCurrentImageIndex(0);
@@ -2212,6 +2235,7 @@ export default function FriendsMainPage() {
                   bio: s.bio ?? "",
                   avatarUrl: s.avatarUrl,
                   bannerUrl: s.bannerUrl,
+                  role: s.role,
                   mutualFriendsCount: s.mutualFriendsCount,
                   initialStatus: s.friendshipStatus === "pending" ? "requested" as const : "idle" as const,
                   onAddFriend: handleAddFriendSuggestion,
@@ -2383,8 +2407,13 @@ export default function FriendsMainPage() {
                       />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">
+                      <p className="font-semibold text-gray-900 flex items-center gap-1">
                         {selectedMarketItem.seller.firstName} {selectedMarketItem.seller.lastName}
+                        {selectedMarketItem.seller.role === "official_account" && (
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0" aria-label="Verified official account">
+                            <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                          </svg>
+                        )}
                       </p>
                       <p className="text-sm text-gray-500">
                         {activeUser?.id === selectedMarketItem.seller.id ? "ผู้ขาย (คุณ)" : "ผู้ขาย"}

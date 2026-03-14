@@ -34,6 +34,7 @@ interface ChatRoomMember {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  userRole?: string | null;
 }
 
 interface ChatRoomLastMessage {
@@ -112,6 +113,7 @@ interface RoomDetailMember {
   firstName: string;
   lastName: string;
   avatarUrl: string | null;
+  userRole?: string | null;
 }
 
 interface RoomDetail {
@@ -138,6 +140,7 @@ interface MarketCardPayload {
   imageUrls?: string[];          // all product images (may be absent in old messages)
   sellerName?: string;
   sellerAvatarUrl?: string | null;
+  sellerRole?: string | null;
 }
 
 function parseMarketCard(content: string): MarketCardPayload | null {
@@ -166,16 +169,22 @@ function MarketCardBubble({
   const [liveStatus, setLiveStatus] = React.useState<"available" | "sold" | "deleted" | "loading">(
     card.itemId ? "loading" : "available"
   );
+  // Live seller role fetched from API — used to backfill old messages that lack sellerRole in payload
+  const [liveSellerRole, setLiveSellerRole] = React.useState<string | null | undefined>(undefined);
 
   // Fetch live status from API (getOptional returns null silently for 404/deleted items)
   React.useEffect(() => {
     if (!card.itemId) return;
-    apiService.getOptional<{ status: string }>(`/api/market/items/${card.itemId}`)
+    apiService.getOptional<{ status: string; seller?: { role?: string | null } }>(`/api/market/items/${card.itemId}`)
       .then((data) => {
         if (data === null || data.status === "deleted") {
           setLiveStatus("deleted");
         } else {
           setLiveStatus(data.status === "sold" ? "sold" : "available");
+          // backfill seller role for old messages that don't have it in payload
+          if (data.seller?.role !== undefined) {
+            setLiveSellerRole(data.seller.role ?? null);
+          }
         }
       })
       .catch(() => {
@@ -185,6 +194,9 @@ function MarketCardBubble({
 
   const isSold = liveStatus === "sold";
   const isDeleted = liveStatus === "deleted";
+
+  // Effective seller role: prefer payload value, fall back to live API value
+  const effectiveSellerRole = card.sellerRole !== undefined ? card.sellerRole : liveSellerRole;
 
   // Resolve seller display info: prefer payload fields, fallback to message sender
   const resolvedSellerName = card.sellerName ?? senderName ?? "ผู้ขาย";
@@ -307,8 +319,13 @@ function MarketCardBubble({
               className={`w-6 h-6 rounded-full object-cover border border-gray-200 flex-none ${(isSold || isDeleted) ? "grayscale" : ""}`}
               onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
             />
-            <span className={`text-xs font-medium truncate ${isMine ? "text-slate-200" : (isSold || isDeleted) ? "text-gray-400" : "text-gray-700"}`}>
+            <span className={`text-xs font-medium truncate flex items-center gap-1 ${isMine ? "text-slate-200" : (isSold || isDeleted) ? "text-gray-400" : "text-gray-700"}`}>
               {resolvedSellerName}
+              {effectiveSellerRole === "official_account" && (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-blue-400 shrink-0 flex-none" aria-label="Verified official account">
+                  <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                </svg>
+              )}
             </span>
           </div>
           <button
@@ -464,7 +481,14 @@ function MarketCardBubble({
                           />
                         </div>
                         <div>
-                          <p className={`font-semibold ${isSold ? "text-gray-400" : "text-gray-900"}`}>{resolvedSellerName}</p>
+                          <p className={`font-semibold flex items-center gap-1 ${isSold ? "text-gray-400" : "text-gray-900"}`}>
+                            {resolvedSellerName}
+                            {effectiveSellerRole === "official_account" && (
+                              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+                                <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </p>
                           <p className="text-sm text-gray-500">ผู้ขาย</p>
                         </div>
                       </div>
@@ -2018,8 +2042,21 @@ export default function ChatPage() {
                       )}
                     </div>
                     <div>
-                      <h2 className="font-semibold text-gray-900 text-base leading-tight">
+                      <h2 className="font-semibold text-gray-900 text-base leading-tight flex items-center gap-1">
                         {selectedRoom?.displayName ?? "..."}
+                        {(() => {
+                          if (!selectedRoom?.isGroup) {
+                            const otherMember = selectedRoom?.members.find((m) => m.userId !== currentUserId);
+                            if (otherMember?.userRole === "official_account") {
+                              return (
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+                                  <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                                </svg>
+                              );
+                            }
+                          }
+                          return null;
+                        })()}
                       </h2>
                       <p className="text-xs text-gray-400">
                         {selectedRoom?.isGroup
@@ -2323,7 +2360,14 @@ export default function ChatPage() {
                             <div className={`max-w-[65%] flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                               {/* ชื่อผู้ส่ง */}
                               {showSenderName && (
-                                <span className="text-[11px] text-gray-400 mb-0.5 px-1">{senderName}</span>
+                                <span className="text-[11px] text-gray-400 mb-0.5 px-1 flex items-center gap-1">
+                                  {senderName}
+                                  {senderMember?.userRole === "official_account" && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+                                      <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </span>
                               )}
 
                               {/* ── Edit/Delete action buttons (own messages only) ─── */}
@@ -2919,8 +2963,19 @@ export default function ChatPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className={`text-sm truncate ${isActive || room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
+                          <span className={`text-sm truncate flex items-center gap-1 ${isActive || room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
                             {room.displayName}
+                            {!room.isGroup && (() => {
+                              const otherMember = room.members.find((m) => m.userId !== currentUserId);
+                              if (otherMember?.userRole === "official_account") {
+                                return (
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+                                    <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                                  </svg>
+                                );
+                              }
+                              return null;
+                            })()}
                           </span>
                           <span className="text-xs text-gray-400 flex-none ml-2">{timeLabel}</span>
                         </div>
@@ -3095,7 +3150,14 @@ export default function ChatPage() {
                                 onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
                               />
                               <div className="flex-1 min-w-0">
-                                <p className="text-sm font-semibold text-gray-800 truncate">{mName}</p>
+                                <p className="text-sm font-semibold text-gray-800 truncate flex items-center gap-1">
+                                  {mName}
+                                  {m.userRole === "official_account" && (
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+                                      <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                                    </svg>
+                                  )}
+                                </p>
                                 <p className="text-xs text-gray-400 mt-0.5">{isMe ? "คุณ" : "สมาชิก"}</p>
                               </div>
                               {isMe && (
@@ -3249,7 +3311,14 @@ export default function ChatPage() {
                                   onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
                                 />
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-gray-800 truncate">{mName}</p>
+                                  <p className="text-sm font-medium text-gray-800 truncate flex items-center gap-1">
+                                    {mName}
+                                    {m.userRole === "official_account" && (
+                                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
+                                        <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                                      </svg>
+                                    )}
+                                  </p>
                                   <p className="text-xs text-gray-400">{m.role === "admin" ? "แอดมิน" : "สมาชิก"}</p>
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-none">

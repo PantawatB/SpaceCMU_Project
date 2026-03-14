@@ -30,6 +30,7 @@ export const getMarketItems = async (req: Request, res: Response) => {
                 firstName: usersTable.firstName,
                 lastName: usersTable.lastName,
                 avatarUrl: usersTable.avatarUrl,
+                role: usersTable.role,
             },
             category: {
                 id: marketCategoriesTable.id,
@@ -153,6 +154,7 @@ export const createMarketItem = async (req: Request, res: Response) => {
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,
@@ -252,6 +254,7 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,
@@ -433,6 +436,7 @@ export const getMarketItemById = async (req: Request, res: Response) => {
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,
@@ -481,6 +485,7 @@ export const getMyMarketItems = async (req: Request, res: Response) => {
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,
@@ -526,6 +531,7 @@ export const getMarketItemsByUserId = async (req: Request, res: Response) => {
                     firstName: usersTable.firstName,
                     lastName: usersTable.lastName,
                     avatarUrl: usersTable.avatarUrl,
+                    role: usersTable.role,
                 },
                 category: {
                     id: marketCategoriesTable.id,
