@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable, notificationsTable } from "../../db/schema.js";
-import { eq, count, sql, desc, and, ilike, or } from "drizzle-orm";
+import { eq, count, sql, desc, and, ilike, or, inArray } from "drizzle-orm";
 
 /**
  * Helper: ถ้า user (role === "admin") ไม่มี official account ที่ตัวเองเป็น admin อีกแล้ว
@@ -163,28 +163,46 @@ export const setUserStatus = async (req: Request, res: Response) => {
 
 /** GET /api/god/activities — full activity log */
 export const getFullActivityLog = async (req: Request, res: Response) => {
-    try {
-        const logs = await dbClient
-            .select({
-                id: activitiesTable.id,
-                action: activitiesTable.action,
-                details: activitiesTable.details,
-                ipAddress: activitiesTable.ipAddress,
-                createdAt: activitiesTable.createdAt,
-                user: {
-                    id: usersTable.id,
-                    firstName: usersTable.firstName,
-                    lastName: usersTable.lastName,
-                    email: usersTable.email,
-                    role: usersTable.role,
-                },
-            })
-            .from(activitiesTable)
-            .leftJoin(usersTable, eq(activitiesTable.userId, usersTable.id))
-            .orderBy(desc(activitiesTable.createdAt))
-            .limit(200);
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const offset = (page - 1) * limit;
 
-        res.json(logs);
+    try {
+        const [logs, totalRow] = await Promise.all([
+            dbClient
+                .select({
+                    id: activitiesTable.id,
+                    action: activitiesTable.action,
+                    details: activitiesTable.details,
+                    ipAddress: activitiesTable.ipAddress,
+                    createdAt: activitiesTable.createdAt,
+                    user: {
+                        id: usersTable.id,
+                        firstName: usersTable.firstName,
+                        lastName: usersTable.lastName,
+                        email: usersTable.email,
+                        role: usersTable.role,
+                    },
+                })
+                .from(activitiesTable)
+                .leftJoin(usersTable, eq(activitiesTable.userId, usersTable.id))
+                .orderBy(desc(activitiesTable.createdAt))
+                .limit(limit)
+                .offset(offset),
+            dbClient.select({ total: count() }).from(activitiesTable),
+        ]);
+
+        const total = totalRow[0]?.total ?? 0;
+        res.json({
+            data: logs,
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasMore: offset + limit < total,
+            },
+        });
     } catch (error) {
         console.error("God getFullActivityLog error:", error);
         res.status(500).json({ message: "Internal server error" });
@@ -511,12 +529,16 @@ export const sendGlobalNotification = async (req: Request, res: Response) => {
             return res.json({ message: "No recipients found", count: 0 });
         }
 
-        // Batch insert notifications
+        // Generate a unique batch token so the sent-history can group by this batch
+        const { randomUUID } = await import("crypto");
+        const batchId = randomUUID();
+
+        // Batch insert notifications — all sharing the same batchId in referenceId
         const rows = recipients.map((r) => ({
             recipientId: r.id,
             senderId: senderId || null,
             type: "other" as const,
-            referenceId: null,
+            referenceId: batchId,
             message: message.trim(),
             isRead: false,
         }));
@@ -562,11 +584,15 @@ export const sendPrivateNotifications = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "No valid recipients found" });
         }
 
+        // Generate a unique batch token so the sent-history can group by this batch
+        const { randomUUID } = await import("crypto");
+        const batchId = randomUUID();
+
         const rows = existing.map((r) => ({
             recipientId: r.id,
             senderId: senderId || null,
             type: "other" as const,
-            referenceId: null,
+            referenceId: batchId,
             message: message.trim(),
             isRead: false,
         }));
@@ -576,6 +602,174 @@ export const sendPrivateNotifications = async (req: Request, res: Response) => {
         res.json({ message: `Notification sent to ${rows.length} users`, count: rows.length });
     } catch (error) {
         console.error("sendPrivateNotifications error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * GET /api/god/notifications/sent?page=1&limit=10
+ * ดึงประวัติ notification ที่ god ส่ง — group by referenceId (batch token ที่ generate ตอนส่ง)
+ * Rows ที่ยังไม่มี referenceId (ส่งก่อน patch นี้) จะ group by message+minute เพื่อ backward-compat
+ */
+export const getSentNotifications = async (req: Request, res: Response) => {
+    const senderId: string = req.session?.activeUserId ?? req.session?.userId ?? "";
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const offset = (page - 1) * limit;
+
+    if (!senderId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    try {
+        // Get total user count to determine isGlobal
+        const [totalUsersRow] = await dbClient
+            .select({ total: count() })
+            .from(usersTable);
+        const totalUsers = Number(totalUsersRow?.total ?? 0);
+
+        // Step 1: Get paginated batches grouped by referenceId
+        // For old rows without referenceId, fall back to grouping by (message, truncated minute)
+        const rows = await dbClient.execute(sql`
+            SELECT
+                COALESCE(reference_id::text, CONCAT(message, '|', DATE_TRUNC('minute', MIN(created_at))::text)) AS batch_key,
+                reference_id,
+                message,
+                MIN(created_at) AS sent_at,
+                COUNT(*)::int AS recipient_count
+            FROM notifications
+            WHERE sender_id = ${senderId}::uuid
+              AND type = 'other'
+            GROUP BY reference_id, message
+            ORDER BY MIN(created_at) DESC
+            LIMIT ${limit} OFFSET ${offset}
+        `) as unknown as {
+            batch_key: string;
+            reference_id: string | null;
+            message: string | null;
+            sent_at: string;
+            recipient_count: number;
+        }[];
+
+        // Step 2: Total count of distinct batches
+        const [totalRow] = await dbClient.execute(sql`
+            SELECT COUNT(*)::int AS total
+            FROM (
+                SELECT COALESCE(reference_id::text, CONCAT(message, '|', DATE_TRUNC('minute', MIN(created_at))::text)) AS batch_key
+                FROM notifications
+                WHERE sender_id = ${senderId}::uuid
+                  AND type = 'other'
+                GROUP BY reference_id, message
+            ) sub
+        `) as unknown as { total: number }[];
+
+        const total = Number(totalRow?.total ?? 0);
+
+        // Step 3: Get recipient preview (up to 3 names) per batch in one pass
+        const previewMap: Record<string, string> = {};
+
+        for (const r of rows) {
+            let previewResult: { recipient_preview: string | null }[];
+            if (r.reference_id) {
+                // New batches: group by referenceId for exact accuracy
+                previewResult = await dbClient.execute(sql`
+                    SELECT STRING_AGG(full_name, ', ') AS recipient_preview
+                    FROM (
+                        SELECT CONCAT(u2.first_name, ' ', u2.last_name) AS full_name
+                        FROM notifications n2
+                        LEFT JOIN users u2 ON n2.recipient_id = u2.id
+                        WHERE n2.sender_id = ${senderId}::uuid
+                          AND n2.reference_id = ${r.reference_id}::uuid
+                          AND n2.type = 'other'
+                        LIMIT 3
+                    ) sub
+                `) as unknown as { recipient_preview: string | null }[];
+            } else {
+                // Old batches (no referenceId): fall back to message match
+                previewResult = await dbClient.execute(sql`
+                    SELECT STRING_AGG(full_name, ', ') AS recipient_preview
+                    FROM (
+                        SELECT CONCAT(u2.first_name, ' ', u2.last_name) AS full_name
+                        FROM notifications n2
+                        LEFT JOIN users u2 ON n2.recipient_id = u2.id
+                        WHERE n2.sender_id = ${senderId}::uuid
+                          AND n2.message = ${r.message ?? ""}
+                          AND n2.type = 'other'
+                        LIMIT 3
+                    ) sub
+                `) as unknown as { recipient_preview: string | null }[];
+            }
+            previewMap[r.batch_key] = previewResult[0]?.recipient_preview ?? "";
+        }
+
+        res.json({
+            data: rows.map((r) => ({
+                message: r.message,
+                sentAt: r.sent_at,
+                recipientCount: r.recipient_count,
+                recipientPreview: previewMap[r.batch_key] ?? null,
+                // Global = sent to everyone (within 10% tolerance for any timing differences)
+                isGlobal: r.recipient_count >= Math.floor(totalUsers * 0.9),
+            })),
+            pagination: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+                hasMore: offset + limit < total,
+            },
+        });
+    } catch (error) {
+        console.error("getSentNotifications error:", error);
+        res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+/**
+ * GET /api/god/users/search-all?query=...
+ * Search ALL users including official_account role — for private message recipients
+ */
+export const searchAllUsers = async (req: Request, res: Response) => {
+    const { query } = req.query;
+
+    if (!query || typeof query !== "string") {
+        return res.status(400).json({ message: "query parameter is required" });
+    }
+
+    const searchTerm = query.trim().replace(/^@/, "");
+    if (searchTerm.length === 0) {
+        return res.json([]);
+    }
+
+    try {
+        const users = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                email: usersTable.email,
+                role: usersTable.role,
+                status: usersTable.status,
+                avatarUrl: usersTable.avatarUrl,
+                faculty: usersTable.faculty,
+            })
+            .from(usersTable)
+            .where(
+                sql`(
+                    LOWER(${usersTable.firstName}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.lastName}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.username}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(${usersTable.email}) LIKE LOWER(${`%${searchTerm}%`}) OR
+                    LOWER(CONCAT(${usersTable.firstName}, ' ', ${usersTable.lastName})) LIKE LOWER(${`%${searchTerm}%`})
+                )`
+            )
+            .orderBy(usersTable.firstName)
+            .limit(20);
+
+        res.json(users);
+    } catch (error) {
+        console.error("searchAllUsers error:", error);
         res.status(500).json({ message: "Internal server error" });
     }
 };
