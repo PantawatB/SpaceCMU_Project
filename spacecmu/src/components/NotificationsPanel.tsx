@@ -38,11 +38,11 @@ function timeAgo(dateStr: string): string {
 }
 
 function isAdminNotification(notif: Notification): boolean {
-  // Only treat as admin notification if it's the "other" type sent by admin/god
-  // User-generated types (like, comment, reply, repost, comment_like) always show sender's real profile
-  const userGeneratedTypes: Notification["type"][] = ["like", "comment", "reply", "repost", "comment_like", "friend_request", "friend_accept"];
-  if (userGeneratedTypes.includes(notif.type)) return false;
-  return notif.sender?.role === "god" || notif.sender?.role === "admin" || notif.senderId === null;
+  // "other" type is ALWAYS an admin/god broadcast — never show the real sender name
+  // regardless of what role the sender currently has (role can change after notification was sent).
+  // User-generated types always show the real sender profile.
+  if (notif.type === "other") return true;
+  return false;
 }
 
 function NotifIcon({ type, isAdmin }: { type: Notification["type"]; isAdmin: boolean }) {
