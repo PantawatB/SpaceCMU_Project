@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { apiService } from "@/lib/api";
+import MentionText from "@/components/MentionText";
 
 // ── Link preview helpers ──────────────────────────────────────────────────────
 interface LinkPreview {
@@ -17,30 +18,6 @@ const URL_REGEX = /https?:\/\/(?:[-\w]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
 
 function extractFirstUrl(text: string): string | null {
   return text.match(URL_REGEX)?.[0] ?? null;
-}
-
-function renderTextWithLinks(text: string): React.ReactNode {
-  const parts = text.split(URL_REGEX);
-  const urls = text.match(URL_REGEX) ?? [];
-  const result: React.ReactNode[] = [];
-  parts.forEach((part, i) => {
-    if (part) result.push(<span key={`t-${i}`}>{part}</span>);
-    if (urls[i]) {
-      result.push(
-        <a
-          key={`u-${i}`}
-          href={urls[i]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-500 hover:text-blue-700 underline break-all"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {urls[i]}
-        </a>
-      );
-    }
-  });
-  return <>{result}</>;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -212,7 +189,7 @@ export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
       {/* ── Content ── */}
       {post.content && (
         <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word mb-3">
-          {renderTextWithLinks(post.content)}
+          <MentionText text={post.content} />
         </p>
       )}
 

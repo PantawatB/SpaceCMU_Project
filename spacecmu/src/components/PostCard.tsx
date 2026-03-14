@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
+import MentionTextarea from "@/components/MentionTextarea";
+import MentionText from "@/components/MentionText";
 
 
 interface PostMedia {
@@ -88,30 +90,6 @@ const URL_REGEX = /https?:\/\/(?:[-\w]+\.)+[a-zA-Z]{2,}(?:\/[^\s]*)?/g;
 function extractFirstUrl(text: string): string | null {
   const match = text.match(URL_REGEX);
   return match?.[0] ?? null;
-}
-
-function renderTextWithLinks(text: string): React.ReactNode {
-  const parts = text.split(URL_REGEX);
-  const urls = text.match(URL_REGEX) ?? [];
-  const result: React.ReactNode[] = [];
-  parts.forEach((part, i) => {
-    if (part) result.push(<span key={`t-${i}`}>{part}</span>);
-    if (urls[i]) {
-      result.push(
-        <a
-          key={`u-${i}`}
-          href={urls[i]}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-blue-500 hover:text-blue-700 underline break-all"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {urls[i]}
-        </a>
-      );
-    }
-  });
-  return <>{result}</>;
 }
 
 /** Blue verified checkmark — shown only for official_account role */
@@ -414,6 +392,7 @@ export default function PostCard({
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [showCommentPopup, setShowCommentPopup] = useState(false);
   const [commentText, setCommentText] = useState("");
+  const [commentRawText, setCommentRawText] = useState(""); // raw with @[userId] for server
   const [comments, setComments] = useState<Comment[]>([]);
   const [loadingComments, setLoadingComments] = useState(false);
   const [postingComment, setPostingComment] = useState(false);
@@ -427,6 +406,8 @@ export default function PostCard({
   // Edit post state
   const [showEditPostPopup, setShowEditPostPopup] = useState(false);
   const [editPostContent, setEditPostContent] = useState("");
+  const [editPostRawText, setEditPostRawText] = useState(""); // raw @[userId] for server
+  const [editPostInitialRaw, setEditPostInitialRaw] = useState(""); // stable initial raw for decode
   const [editPostMediaFiles, setEditPostMediaFiles] = useState<File[]>([]);
   const [editPostMediaPreviews, setEditPostMediaPreviews] = useState<string[]>([]);
   const [editPostRemoveMediaIds, setEditPostRemoveMediaIds] = useState<string[]>([]);
@@ -481,6 +462,8 @@ export default function PostCard({
   const [commentMenuOpen, setCommentMenuOpen] = useState<string | null>(null);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentText, setEditingCommentText] = useState("");
+  const [editingCommentRawText, setEditingCommentRawText] = useState(""); // raw @[userId] for server
+  const [editingCommentInitialRaw, setEditingCommentInitialRaw] = useState(""); // stable initial raw for decode
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [showCommentDeleteConfirm, setShowCommentDeleteConfirm] = useState<string | null>(null);
@@ -991,30 +974,34 @@ export default function PostCard({
     if (!editingCommentText.trim()) return;
     setSavingEdit(true);
     try {
+      // Use raw text (with @[userId]) if available, else display text
+      const contentToSend = editingCommentRawText.trim() || editingCommentText.trim();
       const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ content: editingCommentText.trim() }),
+        body: JSON.stringify({ content: contentToSend }),
       });
       if (!response.ok) throw new Error("Failed to edit comment");
       const now = new Date().toISOString();
-      // Update locally — set content + updatedAt
+      // Update locally — set content + updatedAt (store the raw text for correct rendering)
       setComments(prev => prev.map(c =>
-        String(c.id) === commentId ? { ...c, content: editingCommentText.trim(), updatedAt: now } : c
+        String(c.id) === commentId ? { ...c, content: contentToSend, updatedAt: now } : c
       ));
       // Also update inside expanded replies
       setExpandedReplies(prev => {
         const updated = { ...prev };
         for (const key of Object.keys(updated)) {
           updated[key] = updated[key].map(r =>
-            String(r.id) === commentId ? { ...r, content: editingCommentText.trim(), updatedAt: now } : r
+            String(r.id) === commentId ? { ...r, content: contentToSend, updatedAt: now } : r
           );
         }
         return updated;
       });
       setEditingCommentId(null);
       setEditingCommentText("");
+      setEditingCommentRawText("");
+      setEditingCommentInitialRaw("");
     } catch (err) {
       console.error(err);
       alert("Failed to edit comment");
@@ -1115,7 +1102,9 @@ export default function PostCard({
     try {
       const formData = new FormData();
       formData.append("postId", post.id.toString());
-      formData.append("content", commentText.trim() || "");
+      // Always encode @[Name](id) → @[id] to be safe regardless of which state was set
+      const encodeRaw = (t: string) => t.replace(/@\[([^\]]+)\]\(([^)]+)\)/g, (_m, _name, id) => `@[${id}]`);
+      formData.append("content", encodeRaw(commentRawText.trim() || commentText.trim() || ""));
       if (replyingTo) {
         formData.append("parentCommentId", replyingTo.id);
       }
@@ -1138,6 +1127,7 @@ export default function PostCard({
       }
 
       setCommentText("");
+      setCommentRawText("");
       setCommentMediaFiles([]);
       setCommentMediaPreviews([]);
 
@@ -1172,6 +1162,7 @@ export default function PostCard({
   const closeCommentPopup = () => {
     setShowCommentPopup(false);
     setCommentText("");
+    setCommentRawText("");
     setCommentMediaFiles([]);
     setCommentMediaPreviews([]);
     setReplyingTo(null);
@@ -1269,6 +1260,7 @@ export default function PostCard({
   // --- Edit Post Handlers ---
   const closeEditPostPopup = () => {
     setShowEditPostPopup(false);
+    setEditPostRawText("");
     setEditPostMediaFiles([]);
     setEditPostMediaPreviews([]);
     setEditPostRemoveMediaIds([]);
@@ -1331,8 +1323,10 @@ export default function PostCard({
     if (!activeUser) return;
     setSavingEditPost(true);
     try {
+      // Use raw text (with @[userId]) if available, else display text
+      const contentToSend = editPostRawText.trim() || editPostContent.trim();
       const formData = new FormData();
-      formData.append("content", editPostContent.trim());
+      formData.append("content", contentToSend);
       editPostRemoveMediaIds.forEach(id => formData.append("removeMediaIds", id));
       editPostMediaFiles.forEach(file => formData.append("media", file));
 
@@ -1399,7 +1393,7 @@ export default function PostCard({
       {/* Post Content */}
       {localPostContent && (
         <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
-          {renderTextWithLinks(localPostContent)}
+          <MentionText text={localPostContent} />
         </div>
       )}
 
@@ -1983,24 +1977,27 @@ export default function PostCard({
                           {/* Inline Edit Mode */}
                           {editingCommentId === String(comment.id) ? (
                             <div className="mt-1">
-                              <textarea
+                              <MentionTextarea
                                 value={editingCommentText}
-                                onChange={e => setEditingCommentText(e.target.value)}
+                                onChange={(text) => setEditingCommentText(text)}
+                                onChangeRaw={(raw) => setEditingCommentRawText(raw)}
+                                initialRaw={editingCommentInitialRaw}
                                 className="w-full px-3 py-2 rounded-xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 text-sm resize-none"
                                 rows={2}
-                                autoFocus
                                 onKeyDown={e => {
                                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveCommentEdit(String(comment.id)); }
-                                  if (e.key === "Escape") { setEditingCommentId(null); setEditingCommentText(""); }
+                                  if (e.key === "Escape") { setEditingCommentId(null); setEditingCommentText(""); setEditingCommentRawText(""); setEditingCommentInitialRaw(""); }
                                 }}
                               />
                               <div className="flex gap-2 mt-1.5 justify-end">
-                                <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
+                                <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); setEditingCommentRawText(""); setEditingCommentInitialRaw(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-1">Cancel</button>
                                 <button onClick={() => handleSaveCommentEdit(String(comment.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-slate-600 text-white px-3 py-1 rounded-full hover:bg-slate-700 disabled:opacity-50 transition-colors">{savingEdit ? "Saving…" : "Save"}</button>
                               </div>
                             </div>
                           ) : (
-                            <p className="text-sm text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">{comment.content}</p>
+                            <p className="text-sm text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">
+                              <MentionText text={comment.content ?? ""} />
+                            </p>
                           )}
 
                           {/* Comment Media — Post-style Slideshow */}
@@ -2109,7 +2106,7 @@ export default function PostCard({
                                   {activeUser && activeUser.id === comment.userId && (
                                     <>
                                       <button
-                                        onClick={() => { setEditingCommentId(String(comment.id)); setEditingCommentText(comment.content); setCommentMenuOpen(null); }}
+                                        onClick={() => { setEditingCommentId(String(comment.id)); setEditingCommentText(comment.content); setEditingCommentRawText(comment.content); setEditingCommentInitialRaw(comment.content); setCommentMenuOpen(null); }}
                                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                       >
                                         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -2213,24 +2210,27 @@ export default function PostCard({
                                     {/* Inline edit for reply */}
                                     {editingCommentId === String(reply.id) ? (
                                       <div className="mt-1">
-                                        <textarea
+                                        <MentionTextarea
                                           value={editingCommentText}
-                                          onChange={e => setEditingCommentText(e.target.value)}
+                                          onChange={(text) => setEditingCommentText(text)}
+                                          onChangeRaw={(raw) => setEditingCommentRawText(raw)}
+                                          initialRaw={editingCommentInitialRaw}
                                           className="w-full px-2 py-1.5 rounded-lg bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-300 text-xs resize-none"
                                           rows={2}
-                                          autoFocus
                                           onKeyDown={e => {
                                             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSaveCommentEdit(String(reply.id)); }
-                                            if (e.key === "Escape") { setEditingCommentId(null); setEditingCommentText(""); }
+                                            if (e.key === "Escape") { setEditingCommentId(null); setEditingCommentText(""); setEditingCommentRawText(""); setEditingCommentInitialRaw(""); }
                                           }}
                                         />
                                         <div className="flex gap-1.5 mt-1 justify-end">
-                                          <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5">Cancel</button>
+                                          <button onClick={() => { setEditingCommentId(null); setEditingCommentText(""); setEditingCommentRawText(""); setEditingCommentInitialRaw(""); }} className="text-xs text-gray-400 hover:text-gray-600 px-2 py-0.5">Cancel</button>
                                           <button onClick={() => handleSaveCommentEdit(String(reply.id))} disabled={savingEdit || !editingCommentText.trim()} className="text-xs bg-slate-600 text-white px-2.5 py-0.5 rounded-full hover:bg-slate-700 disabled:opacity-50">{savingEdit ? "…" : "Save"}</button>
                                         </div>
                                       </div>
                                     ) : (
-                                      <p className="text-xs text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">{reply.content}</p>
+                                      <p className="text-xs text-gray-700 mt-0.5 wrap-break-word whitespace-pre-wrap">
+                                        <MentionText text={reply.content ?? ""} />
+                                      </p>
                                     )}
                                     {/* Reply Media — Post-style Slideshow */}
                                     {reply.media && reply.media.length > 0 && (
@@ -2337,7 +2337,7 @@ export default function PostCard({
                                             {activeUser && activeUser.id === reply.userId && (
                                               <>
                                                 <button
-                                                  onClick={() => { setEditingCommentId(String(reply.id)); setEditingCommentText(reply.content); setCommentMenuOpen(null); }}
+                                                  onClick={() => { setEditingCommentId(String(reply.id)); setEditingCommentText(reply.content); setEditingCommentRawText(reply.content); setEditingCommentInitialRaw(reply.content); setCommentMenuOpen(null); }}
                                                   className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                                                 >
                                                   <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -2466,10 +2466,11 @@ export default function PostCard({
                     className="w-10 h-10 rounded-full object-cover shrink-0 mt-1"
                   />
                   <div className="flex-1">
-                    <textarea
+                    <MentionTextarea
                       value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : "Write a comment…"}
+                      onChange={(text) => setCommentText(text)}
+                      onChangeRaw={(raw) => setCommentRawText(raw)}
+                      placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : "Write a comment… (type @ to mention)"}
                       rows={1}
                       className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white text-sm transition-all resize-none overflow-hidden"
                       style={{ minHeight: "40px", maxHeight: "120px" }}
@@ -2623,6 +2624,8 @@ export default function PostCard({
                   onClick={() => {
                     setShowEditPostPopup(true);
                     setEditPostContent(localPostContent ?? "");
+                    setEditPostRawText(localPostContent ?? ""); // initialize raw = stored content
+                    setEditPostInitialRaw(localPostContent ?? ""); // stable decode trigger
                     setEditPostMediaFiles([]);
                     setEditPostMediaPreviews([]);
                     setEditPostRemoveMediaIds([]);
@@ -2725,12 +2728,15 @@ export default function PostCard({
             <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
               {/* Text area */}
               <div className="relative">
-                <textarea
+                <MentionTextarea
                   value={editPostContent}
-                  onChange={(e) => setEditPostContent(e.target.value.slice(0, POST_CONTENT_MAX_LENGTH))}
+                  onChange={(text) => setEditPostContent(text.slice(0, POST_CONTENT_MAX_LENGTH))}
+                  onChangeRaw={(raw) => setEditPostRawText(raw)}
+                  initialRaw={editPostInitialRaw}
                   placeholder="What's on your mind?"
                   rows={4}
                   className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-slate-300 text-gray-800 resize-none text-sm"
+                  maxLength={POST_CONTENT_MAX_LENGTH}
                 />
                 <div className={`absolute bottom-2 right-3 text-xs select-none pointer-events-none ${
                   editPostContent.length >= POST_CONTENT_MAX_LENGTH

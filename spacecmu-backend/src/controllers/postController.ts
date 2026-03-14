@@ -3,7 +3,7 @@ import { dbClient } from "../../db/client.js";
 import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable, notificationsTable } from "../../db/schema.js";
 import { eq, desc, asc, and, sql, lt, ne, inArray, gt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
-import { createNotificationIfNotDuplicate } from "../utils/notificationUtils.js";
+import { createNotificationIfNotDuplicate, sendMentionNotifications, resolveMentionsInText } from "../utils/notificationUtils.js";
 
 // --- Post Management ---
 
@@ -519,6 +519,16 @@ export const createPostWithMedia = async (req: Request, res: Response) => {
             logActivity(userId, "Created media post", `Created a post with media/event`, req);
         });
 
+        // Send mention notifications for @[userId] tags in post content
+        if (content?.trim()) {
+            await sendMentionNotifications({
+                text: content,
+                senderId: userId,
+                referenceId: newPost.id,
+                sourceType: "post",
+            });
+        }
+
         res.status(201).json({
             ...newPost,
             media: media,
@@ -665,6 +675,16 @@ export const editPost = async (req: Request, res: Response) => {
         await import("../utils/activityLogger.js").then(({ logActivity }) => {
             logActivity(userId, "Edited post", `Edited post ID: ${postId}`, req);
         });
+
+        // Send mention notifications for any @[userId] tags in the updated content
+        if (content?.trim()) {
+            await sendMentionNotifications({
+                text: content,
+                senderId: userId,
+                referenceId: postId,
+                sourceType: "post",
+            });
+        }
 
         res.json({ ...updatedPost, media });
     } catch (error) {
@@ -845,12 +865,13 @@ export const addComment = async (req: Request, res: Response) => {
                 .limit(1);
             const parentOwnerId = parentComment[0]?.userId;
             if (parentOwnerId && parentOwnerId !== userId) {
+                const resolvedMsg = content ? await resolveMentionsInText(content.substring(0, 120)) : null;
                 await createNotificationIfNotDuplicate({
                     recipientId: parentOwnerId,
                     senderId: userId,
                     type: "reply",
                     referenceId: String(postId),
-                    message: content ? content.substring(0, 100) : null,
+                    message: resolvedMsg,
                 });
             }
         } else {
@@ -862,14 +883,25 @@ export const addComment = async (req: Request, res: Response) => {
                 .limit(1);
             const postOwnerId = postRecord[0]?.userId;
             if (postOwnerId && postOwnerId !== userId) {
+                const resolvedMsg = content ? await resolveMentionsInText(content.substring(0, 120)) : null;
                 await createNotificationIfNotDuplicate({
                     recipientId: postOwnerId,
                     senderId: userId,
                     type: "comment",
                     referenceId: String(postId),
-                    message: content ? content.substring(0, 100) : null,
+                    message: resolvedMsg,
                 });
             }
+        }
+
+        // Send mention notifications for @[userId] tags in comment text
+        if (content?.trim()) {
+            await sendMentionNotifications({
+                text: content,
+                senderId: userId,
+                referenceId: String(postId),
+                sourceType: "comment",
+            });
         }
     } catch (error) {
         console.error(error);
@@ -895,6 +927,14 @@ export const editComment = async (req: Request, res: Response) => {
             .update(commentsTable)
             .set({ content: content.trim() })
             .where(eq(commentsTable.id, commentId));
+
+        // Send mention notifications for any @[userId] tags in the updated comment
+        await sendMentionNotifications({
+            text: content.trim(),
+            senderId: userId,
+            referenceId: String(existing[0].postId),
+            sourceType: "comment",
+        });
 
         res.json({ message: "Comment updated", content: content.trim() });
     } catch (error) {

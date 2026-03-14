@@ -7,6 +7,7 @@ import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
 import NotificationsPanel from "../../components/NotificationsPanel";
+import MentionTextarea from "../../components/MentionTextarea";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -56,6 +57,7 @@ export default function FeedsMainPage() {
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showShareBar, setShowShareBar] = useState(true);
   const [postText, setPostText] = useState("");
+  const [postRawText, setPostRawText] = useState(""); // raw with @[userId] for server
   const [postMode, setPostMode] = useState<string | null>(null);
   const [showModeDropdown, setShowModeDropdown] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
@@ -406,8 +408,10 @@ export default function FeedsMainPage() {
       // Create FormData for multipart/form-data
       const formData = new FormData();
 
-      // Add text content and category
-      formData.append("content", postText);
+      // Add text content and category — always encode @[Name](id) → @[id] to be safe
+      const encodeRaw = (t: string) => t.replace(/@\[([^\]]+)\]\(([^)]+)\)/g, (_m, _name, id) => `@[${id}]`);
+      const contentToSend = encodeRaw(postRawText.trim() || postText.trim());
+      formData.append("content", contentToSend);
       formData.append("category", postMode);
 
       // If this is an Events post, send event data as what the backend expects
@@ -460,6 +464,7 @@ export default function FeedsMainPage() {
 
       // Reset form
       setPostText("");
+      setPostRawText("");
       setPostMode(null);
       setSelectedImages([]);
       setSelectedVideos([]);
@@ -1261,10 +1266,11 @@ export default function FeedsMainPage() {
                   className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover shrink-0 mt-1"
                 />
                 <div className="flex-1 relative">
-                  <textarea
+                  <MentionTextarea
                     value={postText}
-                    onChange={(e) => setPostText(e.target.value.slice(0, 2000))}
-                    placeholder="What's on your mind?"
+                    onChange={(text) => setPostText(text.slice(0, 2000))}
+                    onChangeRaw={(raw) => setPostRawText(raw.slice(0, 2000))}
+                    placeholder="What's on your mind? (type @ to mention)"
                     rows={1}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
                     style={{ minHeight: '40px', maxHeight: '120px' }}
@@ -1273,6 +1279,7 @@ export default function FeedsMainPage() {
                       target.style.height = 'auto';
                       target.style.height = Math.min(target.scrollHeight, 120) + 'px';
                     }}
+                    maxLength={2000}
                   />
                   {postText.length > 1700 && (
                     <div className={`absolute bottom-1.5 right-3 text-xs pointer-events-none select-none ${

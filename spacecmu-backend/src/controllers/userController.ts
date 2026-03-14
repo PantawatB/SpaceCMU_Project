@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { usersTable, friendshipsTable } from "../../db/schema.js";
-import { eq, sql, or, and } from "drizzle-orm";
+import { eq, sql, or, and, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import fs from "fs";
 import path from "path";
@@ -673,5 +673,49 @@ export const searchUsers = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error searching users" });
+    }
+};
+
+// Batch get users by IDs (for mention rendering)
+export const batchGetUsers = async (req: Request, res: Response) => {
+    try {
+        const userId = req.session?.activeUserId;
+        if (!userId) {
+            res.status(401).json({ message: "Unauthorized" });
+            return;
+        }
+
+        const { ids } = req.query;
+        if (!ids || typeof ids !== "string") {
+            res.json([]);
+            return;
+        }
+
+        const idList = ids
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean)
+            .slice(0, 50); // max 50
+
+        if (idList.length === 0) {
+            res.json([]);
+            return;
+        }
+
+        const users = await dbClient
+            .select({
+                id: usersTable.id,
+                firstName: usersTable.firstName,
+                lastName: usersTable.lastName,
+                username: usersTable.username,
+                avatarUrl: usersTable.avatarUrl,
+            })
+            .from(usersTable)
+            .where(inArray(usersTable.id, idList));
+
+        res.json(users);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching users" });
     }
 };
