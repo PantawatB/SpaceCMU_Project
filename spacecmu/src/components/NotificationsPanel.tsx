@@ -415,27 +415,63 @@ function NotifDetailModal({
 export default function NotificationsPanel({ userId }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [deleteMode, setDeleteMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [deleting, setDeleting] = useState(false);
   const [detailNotif, setDetailNotif] = useState<Notification | null>(null);
 
-  const fetchNotifications = useCallback(async () => {
+  const fetchPage = useCallback(async (targetPage: number, append: boolean) => {
     if (!userId) return;
-    setLoading(true);
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${userId}`, {
-        credentials: "include",
-      });
+      const res = await fetch(
+        `${API_CONFIG.BASE_URL}/api/notifications/${userId}?page=${targetPage}&limit=20`,
+        { credentials: "include" }
+      );
       if (!res.ok) throw new Error("Failed to fetch");
-      const data = await res.json();
-      setNotifications(Array.isArray(data) ? data : []);
+      const body = await res.json();
+
+      // Handle both old plain-array response and new paginated { data, pagination } shape
+      const items: Notification[] = Array.isArray(body)
+        ? body
+        : Array.isArray(body?.data)
+        ? body.data
+        : [];
+      const more: boolean = body?.pagination?.hasMore ?? false;
+
+      if (append) {
+        setNotifications((prev) => [...prev, ...items]);
+        setPage(targetPage);
+      } else {
+        setNotifications(items);
+        setPage(1);
+      }
+      setHasMore(more);
     } catch {
-      setNotifications([]);
+      if (!append) setNotifications([]);
     } finally {
-      setLoading(false);
+      if (append) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, [userId]);
+
+  const fetchNotifications = useCallback(() => {
+    fetchPage(1, false);
+  }, [fetchPage]);
+
+  const loadMore = useCallback(() => {
+    fetchPage(page + 1, true);
+  }, [fetchPage, page]);
 
   useEffect(() => {
     fetchNotifications();
@@ -704,6 +740,29 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
                 </div>
               );
             })}
+
+            {/* Load more button */}
+            {hasMore && !deleteMode && (
+              <div className="flex justify-center py-2">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50 transition"
+                >
+                  {loadingMore ? (
+                    <span className="flex items-center gap-1">
+                      <svg className="animate-spin w-3 h-3" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Loading…
+                    </span>
+                  ) : (
+                    "Load more"
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Bottom bar */}

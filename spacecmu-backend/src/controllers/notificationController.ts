@@ -103,3 +103,22 @@ export const deleteAllNotifications = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Error deleting notifications" });
     }
 };
+
+/**
+ * PATCH /api/notifications/:userId/read-all
+ * Mark all notifications for a specific userId as read.
+ * Used by admin page to mark all as read without entering the account.
+ */
+export const markAllAsReadForUser = async (req: Request, res: Response) => {
+    try {
+        const { userId } = req.params;
+        await dbClient
+            .update(notificationsTable)
+            .set({ isRead: true })
+            .where(eq(notificationsTable.recipientId, userId));
+        res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error marking all notifications as read" });
+    }
+};

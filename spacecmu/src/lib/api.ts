@@ -566,6 +566,11 @@ class ApiService {
     return this.get<NotificationPage>(`/api/notifications/${userId}?page=${page}&limit=${limit}`);
   }
 
+  /** Mark all notifications as read for a specific user (admin panel use) */
+  async markAllNotificationsReadForUser(userId: string): Promise<{ message: string }> {
+    return this.patch<{ message: string }>(`/api/notifications/${userId}/read-all`, {});
+  }
+
   /** Get sent notifications history (god only), paginated */
   async getSentNotifications(page = 1, limit = 10): Promise<SentNotificationPage> {
     return this.get<SentNotificationPage>(`/api/god/notifications/sent?page=${page}&limit=${limit}`);

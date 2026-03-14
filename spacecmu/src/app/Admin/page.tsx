@@ -847,6 +847,7 @@ function AccountNotificationsCard({ account }: { account: MyOfficialAccount }) {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [markingAll, setMarkingAll] = useState(false);
   const LIMIT = 10;
 
   const loadData = useCallback((p: number) => {
@@ -893,11 +894,41 @@ function AccountNotificationsCard({ account }: { account: MyOfficialAccount }) {
           </div>
           <p className="text-xs text-slate-400">@{account.username}</p>
         </div>
-        {unreadCount > 0 && (
-          <span className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold min-w-5">
-            {unreadCount}
-          </span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {unreadCount > 0 && (
+            <>
+              <button
+                onClick={async () => {
+                  setMarkingAll(true);
+                  try {
+                    await apiService.markAllNotificationsReadForUser(account.userId);
+                    // Optimistically mark all on current page as read
+                    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+                  } catch {
+                    // silent — UI already reflects optimistic update
+                  } finally {
+                    setMarkingAll(false);
+                  }
+                }}
+                disabled={markingAll}
+                title="Mark all as read"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-blue-50 text-blue-600 hover:bg-blue-100 border border-blue-200 disabled:opacity-50 transition-colors"
+              >
+                {markingAll ? (
+                  <span className="w-3 h-3 rounded-full border-2 border-blue-300 border-t-blue-600 animate-spin block" />
+                ) : (
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+                  </svg>
+                )}
+                Mark all read
+              </button>
+              <span className="flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold min-w-5">
+                {unreadCount}
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Content */}
