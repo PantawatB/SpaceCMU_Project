@@ -428,6 +428,28 @@ export const officialAccountsTable = pgTable("official_accounts", {
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
 });
 
+// --- Reports Table ---
+// User-submitted bug reports / feedback (from the tutorial contact form)
+export const reportsTable = pgTable("reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  submitterUserId: uuid("submitter_user_id").references(() => usersTable.id, { onDelete: "set null" }),
+
+  // Legacy columns kept for backward compat
+  reporterName: varchar("reporter_name", { length: 100 }),
+  attachmentUrl: varchar("attachment_url", { length: 512 }),
+  attachmentType: varchar("attachment_type", { length: 20 }),
+  ipAddress: varchar("ip_address", { length: 45 }),
+
+  name: varchar("name", { length: 150 }),         // optional display name
+  issue: text("issue").notNull(),                  // problem description
+  mediaUrls: text("media_urls"),                   // JSON array of uploaded file paths
+  postId: uuid("post_id").references(() => postsTable.id, { onDelete: "set null" }), // linked post (if report is about a post)
+  status: varchar("status", { length: 20 }).default("open").notNull(), // open | resolved | dismissed
+
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date", precision: 3 }).$onUpdate(() => new Date()),
+});
+
 // --- Official Account Admins Table ---
 // Junction table: which real users can manage which official account (multiple admins allowed)
 export const officialAccountAdminsTable = pgTable("official_account_admins", {

@@ -71,8 +71,9 @@ export default function Sidebar({ menuItems }: SidebarProps) {
   const [reportForm, setReportForm] = useState({
     name: "",
     issue: "",
-    attachedFile: null as File | null,
+    attachedFiles: [] as File[],
   });
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   // Determine active profile index based on activeMode
   const activeProfile = activeMode === "ANONYMOUS" ? 1 : 0;
@@ -438,13 +439,24 @@ export default function Sidebar({ menuItems }: SidebarProps) {
     },
   ];
 
-  const handleReportSubmit = (e: React.FormEvent) => {
+  const handleReportSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // ส่งข้อมูลไปยัง backend หรือ email service
-    console.log("Report submitted:", reportForm);
-    alert("ส่งรายงานปัญหาเรียบร้อยแล้ว ขอบคุณสำหรับการแจ้ง!");
-    setShowTutorial(false);
-    setReportForm({ name: "", issue: "", attachedFile: null });
+    setReportSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append("name", reportForm.name.trim());
+      formData.append("issue", reportForm.issue.trim());
+      reportForm.attachedFiles.forEach((file) => formData.append("media", file));
+      await apiService.submitReport(formData);
+      alert("ส่งรายงานปัญหาเรียบร้อยแล้ว ขอบคุณสำหรับการแจ้ง!");
+      setShowTutorial(false);
+      setTutorialStep(0);
+      setReportForm({ name: "", issue: "", attachedFiles: [] });
+    } catch {
+      alert("เกิดข้อผิดพลาดในการส่งรายงาน กรุณาลองใหม่อีกครั้ง");
+    } finally {
+      setReportSubmitting(false);
+    }
   };
 
   // Switch mode handler
@@ -953,7 +965,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                   </div>
                 </div>
 
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <button
                     onClick={() => setTutorialStep(Math.max(0, tutorialStep - 1))}
                     disabled={tutorialStep === 0}
@@ -965,12 +977,20 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                   >
                     ย้อนกลับ
                   </button>
-                  <button
-                    onClick={() => setTutorialStep(tutorialStep + 1)}
-                    className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
-                  >
-                    ถัดไป
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTutorialStep(tutorialSteps.length - 1)}
+                      className="px-4 py-2.5 text-gray-400 hover:text-gray-600 rounded-xl font-medium transition-colors text-sm underline underline-offset-2"
+                    >
+                      แจ้งปัญหา
+                    </button>
+                    <button
+                      onClick={() => setTutorialStep(tutorialStep + 1)}
+                      className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
+                    >
+                      ถัดไป
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -993,10 +1013,14 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     <input
                       type="text"
                       value={reportForm.name}
-                      onChange={(e) => setReportForm({ ...reportForm, name: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors"
+                      onChange={(e) => setReportForm({ ...reportForm, name: e.target.value.slice(0, 100) })}
+                      maxLength={100}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors bg-white text-gray-900 placeholder-gray-400"
                       placeholder="ชื่อของคุณ"
                     />
+                    <p className={`text-right text-[11px] mt-1 ${reportForm.name.length >= 90 ? "text-amber-500" : "text-gray-400"}`}>
+                      {reportForm.name.length}/100
+                    </p>
                   </div>
 
                   <div>
@@ -1005,86 +1029,92 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     </label>
                     <textarea
                       value={reportForm.issue}
-                      onChange={(e) => setReportForm({ ...reportForm, issue: e.target.value })}
+                      onChange={(e) => setReportForm({ ...reportForm, issue: e.target.value.slice(0, 1000) })}
                       required
+                      maxLength={1000}
                       rows={4}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors resize-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-gray-200 focus:border-gray-500 outline-none transition-colors resize-none bg-white text-gray-900 placeholder-gray-400"
                       placeholder="อธิบายปัญหาหรือข้อเสนอแนะ..."
                     />
+                    <p className={`text-right text-[11px] mt-1 ${reportForm.issue.length >= 900 ? "text-amber-500" : "text-gray-400"}`}>
+                      {reportForm.issue.length}/1000
+                    </p>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      แนบไฟล์รูปภาพ (ไม่บังคับ)
+                      แนบรูปภาพ / วีดีโอ (ไม่บังคับ · เพิ่มได้หลายไฟล์)
                     </label>
 
-                    {reportForm.attachedFile ? (
-                      <div className="space-y-3">
-                        <div className="border-2 border-gray-300 rounded-xl p-3 bg-gray-50">
-                          <div className="flex items-center justify-between mb-3">
-                            <span className="text-sm font-medium text-gray-700">รูปภาพที่เลือก:</span>
+                    {/* Preview grid */}
+                    {reportForm.attachedFiles.length > 0 && (
+                      <div className="mb-3 grid grid-cols-3 gap-2">
+                        {reportForm.attachedFiles.map((file, idx) => (
+                          <div key={idx} className="relative group rounded-xl overflow-hidden bg-gray-100 aspect-square">
+                            {file.type.startsWith("video/") ? (
+                              <video
+                                src={URL.createObjectURL(file)}
+                                className="w-full h-full object-cover"
+                                muted
+                              />
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={URL.createObjectURL(file)}
+                                alt={`preview-${idx}`}
+                                className="w-full h-full object-cover"
+                              />
+                            )}
                             <button
                               type="button"
-                              onClick={() => setReportForm({ ...reportForm, attachedFile: null })}
-                              className="text-red-500 hover:text-red-700 transition-colors"
-                              title="ลบรูปภาพ"
+                              onClick={() =>
+                                setReportForm({
+                                  ...reportForm,
+                                  attachedFiles: reportForm.attachedFiles.filter((_, i) => i !== idx),
+                                })
+                              }
+                              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
                             >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
+                              ×
                             </button>
+                            {file.type.startsWith("video/") && (
+                              <span className="absolute bottom-1 left-1 text-[9px] bg-black/60 text-white px-1 rounded">VID</span>
+                            )}
                           </div>
-                          <div className="flex flex-col items-center space-y-2">
-                            <div className="relative">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img
-                                src={URL.createObjectURL(reportForm.attachedFile)}
-                                alt="Preview"
-                                className="w-32 h-32 object-cover rounded-lg shadow-sm"
-                              />
-                            </div>
-                            <div className="text-center">
-                              <p className="text-sm font-medium text-gray-700">{reportForm.attachedFile.name}</p>
-                              <p className="text-xs text-gray-500">{(reportForm.attachedFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="border-2 border-dashed border-gray-300 rounded-xl p-3 text-center hover:border-gray-400 transition-colors">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => { const file = e.target.files?.[0] || null; setReportForm({ ...reportForm, attachedFile: file }); }}
-                            className="hidden"
-                            id="file-upload-replace"
-                          />
-                          <label htmlFor="file-upload-replace" className="cursor-pointer flex flex-col items-center space-y-1">
-                            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-                            </svg>
-                            <span className="text-sm font-medium text-gray-600">เปลี่ยนรูปภาพ</span>
-                          </label>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-gray-400 transition-colors">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => { const file = e.target.files?.[0] || null; setReportForm({ ...reportForm, attachedFile: file }); }}
-                          className="hidden"
-                          id="file-upload"
-                        />
-                        <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center space-y-2">
-                          <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                          </svg>
-                          <div className="text-sm text-gray-500">
-                            <span className="font-medium text-gray-600">คลิกเพื่อเลือกรูปภาพ</span>
-                            <p className="text-xs mt-1">PNG, JPG, GIF (ขนาดไม่เกิน 5MB)</p>
-                          </div>
-                        </label>
+                        ))}
                       </div>
                     )}
+
+                    {/* Drop zone */}
+                    <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:border-gray-400 transition-colors">
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        multiple
+                        onChange={(e) => {
+                          const newFiles = Array.from(e.target.files ?? []);
+                          setReportForm({
+                            ...reportForm,
+                            attachedFiles: [...reportForm.attachedFiles, ...newFiles].slice(0, 10),
+                          });
+                          e.target.value = "";
+                        }}
+                        className="hidden"
+                        id="file-upload-report"
+                      />
+                      <label htmlFor="file-upload-report" className="cursor-pointer flex flex-col items-center space-y-2">
+                        <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <div className="text-sm text-gray-500">
+                          <span className="font-medium text-gray-600">คลิกเพื่อเพิ่มรูปภาพหรือวีดีโอ</span>
+                          <p className="text-xs mt-1">PNG, JPG, GIF, MP4, MOV · สูงสุด 10 ไฟล์ · 50 MB ต่อไฟล์</p>
+                          {reportForm.attachedFiles.length > 0 && (
+                            <p className="text-xs text-gray-700 mt-0.5 font-medium">{reportForm.attachedFiles.length} ไฟล์ที่เลือก</p>
+                          )}
+                        </div>
+                      </label>
+                    </div>
                   </div>
 
                   <div className="flex justify-between">
@@ -1097,9 +1127,13 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                     </button>
                     <button
                       type="submit"
-                      className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-700 transition-colors"
+                      disabled={reportSubmitting}
+                      className="px-5 py-2.5 bg-gray-800 text-white rounded-xl font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors flex items-center gap-2"
                     >
-                      ส่งรายงาน
+                      {reportSubmitting && (
+                        <span className="w-3.5 h-3.5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
+                      )}
+                      {reportSubmitting ? "กำลังส่ง..." : "ส่งรายงาน"}
                     </button>
                   </div>
                 </form>
