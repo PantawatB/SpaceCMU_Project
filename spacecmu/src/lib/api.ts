@@ -4,9 +4,12 @@ import { UserMeResponse } from '@/types/user';
 export interface GodStats {
   totalUsers: number;
   totalAdmins: number;
+  totalRoleUsers: number;
+  totalOfficialAccounts: number;
   totalBanned: number;
   totalPosts: number;
   activeSessions: number;
+  totalReports: number;
 }
 
 export interface GodUser {

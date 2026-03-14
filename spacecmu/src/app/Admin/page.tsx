@@ -350,12 +350,11 @@ function AccountDetailView({
         <div className="space-y-5">
           <div className="grid grid-cols-3 gap-4">
             {[
-              { label: "Admins", value: account.admins.length, icon: "🛡️" },
-              { label: "Faculty", value: account.faculty, icon: "🏛️" },
-              { label: "Since", value: new Date(account.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }), icon: "📅" },
+              { label: "Admins", value: account.admins.length },
+              { label: "Faculty", value: account.faculty },
+              { label: "Since", value: new Date(account.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" }) },
             ].map((s) => (
               <div key={s.label} className="bg-white rounded-2xl border border-slate-200 p-5 text-center shadow-sm">
-                <p className="text-2xl mb-2">{s.icon}</p>
                 <p className="text-lg font-bold text-slate-900 truncate">{s.value}</p>
                 <p className="text-xs text-slate-400 mt-0.5">{s.label}</p>
               </div>
@@ -600,19 +599,15 @@ function AccountDetailView({
           {isOwner ? (
             /* Owner: blocked state — must transfer first */
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
-              <div className="flex items-start gap-4">
-                <span className="text-2xl shrink-0">🚪</span>
-                <div>
-                  <p className="text-base font-bold text-slate-900">Leave this account</p>
-                  <p className="text-sm text-slate-500 mt-1">
-                    ในฐานะ Owner คุณไม่สามารถลาออกได้โดยตรง
-                  </p>
-                </div>
+              <div>
+                <p className="text-base font-bold text-slate-900">Leave this account</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  ในฐานะ Owner คุณไม่สามารถลาออกได้โดยตรง
+                </p>
               </div>
 
               {/* Owner-only warning box */}
-              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4 flex items-start gap-3">
-                <span className="text-base shrink-0 mt-0.5">�</span>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-4">
                 <div>
                   <p className="text-sm font-semibold text-amber-900">คุณคือ Owner ของ account นี้</p>
                   <p className="text-xs text-amber-700 mt-1 leading-relaxed">
@@ -642,15 +637,12 @@ function AccountDetailView({
           ) : (
             /* Non-owner: normal leave flow */
             <div className="bg-white rounded-2xl border border-red-200 p-6 shadow-sm space-y-4">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl shrink-0">🚪</span>
-                <div>
-                  <p className="text-base font-bold text-slate-900">Leave this account</p>
-                  <p className="text-sm text-slate-500 mt-1">
-                    You will lose admin access to <span className="font-semibold text-slate-700">{account.name}</span>.<br />
-                    The owner can re-add you at any time.
-                  </p>
-                </div>
+              <div>
+                <p className="text-base font-bold text-slate-900">Leave this account</p>
+                <p className="text-sm text-slate-500 mt-1">
+                  You will lose admin access to <span className="font-semibold text-slate-700">{account.name}</span>.<br />
+                  The owner can re-add you at any time.
+                </p>
               </div>
 
               {!leaveConfirm ? (

@@ -514,8 +514,6 @@ export default function GodPage() {
 
   if (activeUser?.role !== "god") return null;
 
-  const activeUsers = stats ? stats.totalUsers - stats.totalBanned : null;
-
   return (
     <div className="flex h-screen bg-white text-slate-800 overflow-hidden">
       {/* App Sidebar */}
@@ -569,26 +567,45 @@ export default function GodPage() {
                 {/* Stat cards */}
                 {loadingData ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
+                    {Array.from({ length: 8 }).map((_, i) => (
                       <div key={i} className="h-28 rounded-2xl bg-slate-200 animate-pulse" />
                     ))}
                   </div>
                 ) : stats ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { label: "Total Users",  value: stats.totalUsers,    icon: "👥", sub: `${activeUsers} active` },
-                      { label: "Admins",        value: stats.totalAdmins,   icon: "🛡️", sub: "elevated role" },
-                      { label: "Banned",        value: stats.totalBanned,   icon: "🚫", sub: "restricted" },
-                      { label: "Total Posts",   value: stats.totalPosts,    icon: "📝", sub: "all time" },
-                    ].map((card) => (
-                      <div key={card.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-                        <div className="text-3xl mb-2">{card.icon}</div>
-                        <div className="text-2xl font-bold text-slate-900">{card.value.toLocaleString()}</div>
-                        <div className="text-sm text-slate-600 mt-0.5">{card.label}</div>
-                        <div className="text-xs text-slate-400 mt-1">{card.sub}</div>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    {/* Row 1: User breakdown */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "ผู้ใช้ทั้งหมด",        value: stats.totalUsers,           icon: "👥", sub: "non-anonymous accounts", color: "bg-slate-50" },
+                        { label: "Role: User",          value: stats.totalRoleUsers,        icon: "�", sub: "regular users",          color: "bg-slate-50" },
+                        { label: "Role: Admin",         value: stats.totalAdmins,           icon: "🛡️", sub: "elevated role",          color: "bg-slate-50" },
+                        { label: "Official Account",    value: stats.totalOfficialAccounts, icon: "✅", sub: "official pages",         color: "bg-slate-50" },
+                      ].map((card) => (
+                        <div key={card.label} className={`${card.color} rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow`}>
+                          <div className="text-3xl mb-2">{card.icon}</div>
+                          <div className="text-2xl font-bold text-slate-900">{Number(card.value).toLocaleString()}</div>
+                          <div className="text-sm text-slate-600 mt-0.5">{card.label}</div>
+                          <div className="text-xs text-slate-400 mt-1">{card.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Row 2: Activity & content */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Banned",        value: stats.totalBanned,    icon: "🚫", sub: "restricted accounts",  color: "bg-red-50"    },
+                        { label: "Total Reports", value: stats.totalReports,   icon: "🚨", sub: "all time",             color: "bg-orange-50" },
+                        { label: "Total Posts",   value: stats.totalPosts,     icon: "📝", sub: "all time",             color: "bg-slate-50"  },
+                        { label: "Active Now",    value: stats.activeSessions, icon: "🟢", sub: "live sessions",        color: "bg-green-50"  },
+                      ].map((card) => (
+                        <div key={card.label} className={`${card.color} rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow`}>
+                          <div className="text-3xl mb-2">{card.icon}</div>
+                          <div className="text-2xl font-bold text-slate-900">{Number(card.value).toLocaleString()}</div>
+                          <div className="text-sm text-slate-600 mt-0.5">{card.label}</div>
+                          <div className="text-xs text-slate-400 mt-1">{card.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
                   <button
                     onClick={fetchStats}
@@ -596,19 +613,6 @@ export default function GodPage() {
                   >
                     Load Stats
                   </button>
-                )}
-
-                {/* Active sessions card */}
-                {stats && (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">Active Sessions</p>
-                        <p className="text-3xl font-bold text-slate-900 mt-1">{stats.activeSessions.toLocaleString()}</p>
-                      </div>
-                      <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl">🟢</div>
-                    </div>
-                  </div>
                 )}
               </div>
             )}
