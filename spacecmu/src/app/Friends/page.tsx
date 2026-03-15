@@ -1814,7 +1814,7 @@ export default function FriendsMainPage() {
 
                       {/* Market Items Grid */}
                       {!marketItemsLoading && !marketItemsError && selectedUserMarketItems.length > 0 && (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-8">
                           {selectedUserMarketItems.map((item) => {
                             const imageUrl = item.imageUrl
                               ? item.imageUrl.startsWith("http")
@@ -2167,7 +2167,7 @@ export default function FriendsMainPage() {
 
       {/* Market Item Detail Popup */}
       {selectedMarketItem && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
@@ -2175,7 +2175,7 @@ export default function FriendsMainPage() {
           />
 
           {/* Modal */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] max-h-[85vh] overflow-hidden">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-2xl lg:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
             {/* Close Button */}
             <button
               onClick={() => { setSelectedMarketItem(null); setCurrentImageIndex(0); }}
@@ -2186,9 +2186,9 @@ export default function FriendsMainPage() {
               </svg>
             </button>
 
-            <div className="flex flex-col md:flex-row h-full overflow-y-auto">
+            <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
               {/* Left — Images */}
-              <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative">
+              <div className="w-full md:w-1/2 bg-gray-50 p-5 sm:p-8 flex items-center justify-center relative flex-none md:overflow-y-auto">
                 {/* SOLD full-panel overlay */}
                 {selectedMarketItem.status === "sold" && (
                   <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] rounded-tl-2xl rounded-bl-2xl pointer-events-none">
@@ -2260,10 +2260,10 @@ export default function FriendsMainPage() {
               </div>
 
               {/* Right — Details */}
-              <div className="w-full md:w-1/2 p-8 flex flex-col">
+              <div className="w-full md:w-1/2 p-5 sm:p-8 flex flex-col md:overflow-y-auto">
                 <div className="mb-6">
                   <div className="flex items-start gap-3 mb-3 flex-wrap">
-                    <h2 className="text-3xl font-bold text-gray-900 flex-1">{selectedMarketItem.title}</h2>
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex-1">{selectedMarketItem.title}</h2>
                     {selectedMarketItem.status === "sold" && (
                       <span className="shrink-0 mt-1 inline-flex items-center gap-1 bg-gray-900 text-white text-xs font-bold tracking-widest uppercase px-2.5 py-1 rounded-md">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2274,7 +2274,7 @@ export default function FriendsMainPage() {
                     )}
                   </div>
                   <div className="flex items-baseline gap-3">
-                    <span className={`text-4xl font-bold ${selectedMarketItem.status === "sold" ? "text-gray-300 line-through" : "text-orange-600"}`}>
+                    <span className={`text-3xl sm:text-4xl font-bold ${selectedMarketItem.status === "sold" ? "text-gray-300 line-through" : "text-orange-600"}`}>
                       ฿{parseFloat(selectedMarketItem.price).toFixed(0)}
                     </span>
                     {selectedMarketItem.status === "sold" && (
@@ -2428,7 +2428,7 @@ export default function FriendsMainPage() {
                       setCurrentImageIndex(0);
                       setTimeout(() => marketChatTextareaRef.current?.focus(), 100);
                     }}
-                    className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                    className="w-full bg-slate-600 text-white py-3 sm:py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />

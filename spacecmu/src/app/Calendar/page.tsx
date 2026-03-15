@@ -16,6 +16,7 @@ export default function CalendarPage() {
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
   const [selectedYear, setSelectedYear] = useState(today.getFullYear());
   const [showAddTaskPopup, setShowAddTaskPopup] = useState(false);
+  const [addTaskStep, setAddTaskStep] = useState<"form" | "preview">("form");
   const [showDayViewPopup, setShowDayViewPopup] = useState(false);
   const [taskTitle, setTaskTitle] = useState("");
   const [taskDetails, setTaskDetails] = useState("");
@@ -176,12 +177,12 @@ export default function CalendarPage() {
       <Sidebar />
 
       {/* Main Content (Center) */}
-      <main className="flex-1 p-4 md:p-8 bg-white overflow-auto min-h-0">
+      <main className="flex-1 p-6 md:p-6 bg-white overflow-auto min-h-0">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-6 md:mb-8">
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Calendar</h1>
-            <p className="text-sm md:text-base text-gray-600">
+            <h1 className="text-2xl md:text-3xl ml-12 lg:ml-0 font-bold text-gray-800 mb-2">Calendar</h1>
+            <p className="text-sm md:text-base mt-4 text-gray-600">
               จัดการตารางเรียน กิจกรรม และนัดหมายต่างๆ ของคุณ
             </p>
           </div>
@@ -203,28 +204,6 @@ export default function CalendarPage() {
                       >
                         {months[currentMonth]}
                       </button>
-
-                      {/* Month Picker Popup */}
-                      {showMonthPicker && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-2 grid grid-cols-3 gap-1 w-64">
-                          {months.map((month, index) => (
-                            <button
-                              key={month}
-                              onClick={() => {
-                                setCurrentMonth(index);
-                                setShowMonthPicker(false);
-                              }}
-                              className={`px-3 py-2 text-sm rounded hover:bg-gray-100 transition-colors ${
-                                index === currentMonth
-                                  ? "bg-blue-100 text-blue-600 font-medium"
-                                  : "text-gray-600"
-                              }`}
-                            >
-                              {month.slice(0, 3)}
-                            </button>
-                          ))}
-                        </div>
-                      )}
                     </div>
 
                     {/* Year - Clickable */}
@@ -237,30 +216,6 @@ export default function CalendarPage() {
                           {currentYear}
                         </span>
                       </button>
-
-                      {/* Year Picker Popup */}
-                      {showYearPicker && (
-                        <div className="absolute top-full left-0 mt-2 bg-white border border-gray-300 rounded-lg shadow-lg z-50 p-2 max-h-48 overflow-y-auto">
-                          <div className="grid grid-cols-4 gap-1 w-48">
-                            {yearOptions.map((year) => (
-                              <button
-                                key={year}
-                                onClick={() => {
-                                  setCurrentYear(year);
-                                  setShowYearPicker(false);
-                                }}
-                                className={`px-2 py-1 text-sm rounded hover:bg-gray-100 transition-colors ${
-                                  year === currentYear
-                                    ? "bg-blue-100 text-blue-600 font-medium"
-                                    : "text-gray-600"
-                                }`}
-                              >
-                                {year}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -652,10 +607,10 @@ export default function CalendarPage() {
       {/* Chatbox (Right) */}
       <Chatbox />
 
-      {/* Overlay for closing popups */}
+      {/* Overlay for closing pickers */}
       {(showMonthPicker || showYearPicker) && (
         <div
-          className="fixed inset-0 z-40"
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
           onClick={() => {
             setShowMonthPicker(false);
             setShowYearPicker(false);
@@ -663,7 +618,91 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Day View Popup - For small screens */}
+      {/* Month Picker — fixed centered modal */}
+      {showMonthPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowMonthPicker(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-5 w-64">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">เลือกเดือน</span>
+              <button
+                onClick={() => setShowMonthPicker(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              {months.map((month, index) => (
+                <button
+                  key={month}
+                  onClick={() => {
+                    setCurrentMonth(index);
+                    setShowMonthPicker(false);
+                  }}
+                  className={`py-2.5 text-sm rounded-xl font-medium transition-colors ${
+                    index === currentMonth
+                      ? "bg-slate-700 text-white"
+                      : "text-gray-600 hover:bg-gray-100"
+                  }`}
+                >
+                  {month.slice(0, 3)}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Year Picker — fixed centered modal */}
+      {showYearPicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0"
+            onClick={() => setShowYearPicker(false)}
+          />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-5 w-72">
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm font-semibold text-gray-700 uppercase tracking-wide">เลือกปี</span>
+              <button
+                onClick={() => setShowYearPicker(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="max-h-56 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-1">
+                {yearOptions.map((year) => (
+                  <button
+                    key={year}
+                    onClick={() => {
+                      setCurrentYear(year);
+                      setShowYearPicker(false);
+                    }}
+                    className={`py-2 text-sm rounded-lg font-medium transition-colors ${
+                      year === currentYear
+                        ? "bg-slate-700 text-white"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    {year}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Day View Popup — fixed centered modal */}
       {showDayViewPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
@@ -673,11 +712,11 @@ export default function CalendarPage() {
           />
 
           {/* Popup Container */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
             {/* Close Button */}
             <button
               onClick={() => setShowDayViewPopup(false)}
-              className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute top-3 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -686,13 +725,13 @@ export default function CalendarPage() {
 
             {/* Header */}
             <div className="border-b border-gray-300 px-6 py-4 bg-slate-100">
-              <div className="text-xl font-bold text-gray-800 text-center">
+              <div className="text-lg font-bold text-gray-800 text-center">
                 {selectedDate} {monthsInThai[selectedMonth]} {selectedYear}
               </div>
             </div>
 
             {/* Content */}
-            <div className="p-6 flex-1 overflow-y-auto">
+            <div className="p-5 flex-1 overflow-y-auto">
               {(() => {
                 const key = dateKey(selectedDate, selectedMonth, selectedYear);
                 const dayTasks = tasks[key] || [];
@@ -700,41 +739,20 @@ export default function CalendarPage() {
                 if (dayTasks.length === 0) {
                   return (
                     <div className="flex flex-col items-center justify-center h-full py-8">
-                      <svg
-                        width="100"
-                        height="100"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="text-gray-300 mb-4"
-                      >
-                        <path
-                          d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M7.5 13.5H13.5M7.5 16.5H11"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                      <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-300 mb-3">
+                        <path d="M8 2V5M16 2V5M3.5 9.09H20.5M21 8.5V17C21 20 19.5 22 16 22H8C4.5 22 3 20 3 17V8.5C3 5.5 4.5 3.5 8 3.5H16C19.5 3.5 21 5.5 21 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M7.5 13.5H13.5M7.5 16.5H11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                       <p className="text-gray-400 text-sm">ไม่มีงานในวันนี้</p>
                     </div>
                   );
                 }
                 
-                // Separate completed and incomplete tasks
                 const incompleteTasks = dayTasks.filter(task => !task.completed);
                 const completedTasks = dayTasks.filter(task => task.completed);
                 
                 return (
                   <div className="space-y-3">
-                    {/* Incomplete Tasks */}
                     {incompleteTasks.map((task) => (
                       <NoteCard
                         key={task.id}
@@ -745,38 +763,18 @@ export default function CalendarPage() {
                         completed={task.completed}
                         dotStatus={getTaskDotStatus(task, key)}
                         onSuccess={async () => {
-                          await fetch(
-                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
-                            { method: "PATCH", credentials: "include" }
-                          );
-                          setTasks(prev => ({
-                            ...prev,
-                            [key]: prev[key].map(t =>
-                              t.id === task.id ? { ...t, completed: true } : t
-                            )
-                          }));
+                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`, { method: "PATCH", credentials: "include" });
+                          setTasks(prev => ({ ...prev, [key]: prev[key].map(t => t.id === task.id ? { ...t, completed: true } : t) }));
                         }}
                         onDelete={async () => {
-                          await fetch(
-                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
-                            { method: "DELETE", credentials: "include" }
-                          );
-                          setTasks(prev => ({
-                            ...prev,
-                            [key]: prev[key].filter(t => t.id !== task.id)
-                          }));
+                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`, { method: "DELETE", credentials: "include" });
+                          setTasks(prev => ({ ...prev, [key]: prev[key].filter(t => t.id !== task.id) }));
                         }}
                       />
                     ))}
-                    
-                    {/* Divider - Only show if there are both incomplete and completed tasks */}
                     {incompleteTasks.length > 0 && completedTasks.length > 0 && (
-                      <div className="py-2">
-                        <div className="border-t-2 border-gray-300"></div>
-                      </div>
+                      <div className="py-2"><div className="border-t-2 border-gray-300" /></div>
                     )}
-                    
-                    {/* Completed Tasks */}
                     {completedTasks.map((task) => (
                       <NoteCard
                         key={task.id}
@@ -787,26 +785,12 @@ export default function CalendarPage() {
                         completed={task.completed}
                         dotStatus={getTaskDotStatus(task, key)}
                         onSuccess={async () => {
-                          await fetch(
-                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
-                            { method: "PATCH", credentials: "include" }
-                          );
-                          setTasks(prev => ({
-                            ...prev,
-                            [key]: prev[key].map(t =>
-                              t.id === task.id ? { ...t, completed: false } : t
-                            )
-                          }));
+                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`, { method: "PATCH", credentials: "include" });
+                          setTasks(prev => ({ ...prev, [key]: prev[key].map(t => t.id === task.id ? { ...t, completed: false } : t) }));
                         }}
                         onDelete={async () => {
-                          await fetch(
-                            `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
-                            { method: "DELETE", credentials: "include" }
-                          );
-                          setTasks(prev => ({
-                            ...prev,
-                            [key]: prev[key].filter(t => t.id !== task.id)
-                          }));
+                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`, { method: "DELETE", credentials: "include" });
+                          setTasks(prev => ({ ...prev, [key]: prev[key].filter(t => t.id !== task.id) }));
                         }}
                       />
                     ))}
@@ -820,6 +804,7 @@ export default function CalendarPage() {
               <button
                 onClick={() => {
                   setShowDayViewPopup(false);
+                  setAddTaskStep("form");
                   setShowAddTaskPopup(true);
                 }}
                 className="w-full bg-slate-600 text-white py-3 px-4 rounded-lg hover:bg-slate-700 transition-colors font-medium"
@@ -833,200 +818,203 @@ export default function CalendarPage() {
 
       {/* Add Task Popup Modal */}
       {showAddTaskPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop with blur */}
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowAddTaskPopup(false)}
+            onClick={() => { setShowAddTaskPopup(false); setAddTaskStep("form"); }}
           />
 
           {/* Modal Container */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] h-[650px] overflow-hidden">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-xl lg:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Close Button */}
             <button
-              onClick={() => setShowAddTaskPopup(false)}
+              onClick={() => { setShowAddTaskPopup(false); setAddTaskStep("form"); }}
               className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors"
             >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
 
             {/* Modal Content */}
-            <div className="flex h-full overflow-y-auto">
-              {/* Left Side - Preview */}
-              <div className="w-80 bg-gray-50 p-4 flex flex-col">
-                <h3 className="text-md font-semibold text-gray-500 uppercase tracking-wide mb-6">
-                  Preview
-                </h3>
+            <div className="flex flex-1 overflow-hidden">
 
-                {/* Preview Card - use NoteCard component so preview and real note match exactly */}
-                <NoteCard title={taskTitle || "Preview"} details={taskDetails || "This is an example that will be displayed here."} time={taskTime} />
+              {/* ── Preview Panel ── (left on desktop, toggled on mobile) */}
+              <div className={`lg:w-72 xl:w-80 lg:border-r border-gray-200 bg-gray-50 flex flex-col transition-all duration-300 ${addTaskStep === "preview" ? "flex w-full" : "hidden lg:flex"}`}>
+                {/* Mobile preview header with back button */}
+                <div className="lg:hidden flex items-center gap-3 px-5 pt-5 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddTaskStep("form")}
+                    className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    กลับ
+                  </button>
+                  <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Preview</span>
+                </div>
+
+                <div className="px-5 sm:px-6 pt-0 lg:pt-6 pb-6 flex-1 overflow-y-auto">
+                  <h3 className="hidden lg:block text-sm font-semibold text-gray-500 uppercase tracking-wide mb-6">Preview</h3>
+                  <NoteCard
+                    title={taskTitle || "Preview"}
+                    details={taskDetails || "This is an example that will be displayed here."}
+                    time={taskTime}
+                  />
+                </div>
+
+                {/* Mobile: submit button also in preview panel */}
+                <div className="lg:hidden border-t border-gray-200 p-4 bg-white">
+                  <button
+                    form="addTaskForm"
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium disabled:opacity-60 text-base"
+                  >
+                    {isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มงาน"}
+                  </button>
+                </div>
               </div>
 
-              {/* Right Side - Form */}
-              <div className="flex-1 p-8">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                  เพิ่มงานใหม่
-                </h2>
+              {/* ── Form Panel ── (right on desktop, toggled on mobile) */}
+              <div className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${addTaskStep === "preview" ? "hidden lg:flex" : "flex"}`}>
+                {/* Mobile step header — title + Preview button side by side */}
+                <div className="lg:hidden flex items-center gap-3 px-5 pt-5 pb-2">
+                  <h2 className="text-xl font-semibold text-gray-800">เพิ่มงานใหม่</h2>
+                  <button
+                    type="button"
+                    onClick={() => setAddTaskStep("preview")}
+                    className="flex items-center gap-1 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-colors shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Preview
+                  </button>
+                </div>
 
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setIsSubmitting(true);
+                <div className="px-5 sm:px-8 pt-0 lg:pt-8 pb-5 sm:pb-8">
+                  <h2 className="hidden lg:block text-2xl font-semibold text-gray-800 mb-6 pr-8">เพิ่มงานใหม่</h2>
 
-                    // Build ISO datetime from selected date + time
-                    const [hours, minutes] = taskTime.split(":").map(Number);
-                    const startDateTime = new Date(
-                      selectedYear,
-                      selectedMonth,
-                      selectedDate,
-                      hours,
-                      minutes
-                    );
+                  <form
+                    id="addTaskForm"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      setIsSubmitting(true);
 
-                    try {
-                      const res = await fetch(
-                        `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.CREATE}`,
-                        {
-                          method: "POST",
-                          credentials: "include",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            title: taskTitle,
-                            description: taskDetails,
-                            startTime: startDateTime.toISOString(),
-                            type: "task",
-                          }),
+                      const [hours, minutes] = taskTime.split(":").map(Number);
+                      const startDateTime = new Date(selectedYear, selectedMonth, selectedDate, hours, minutes);
+
+                      try {
+                        const res = await fetch(
+                          `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.CREATE}`,
+                          {
+                            method: "POST",
+                            credentials: "include",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              title: taskTitle,
+                              description: taskDetails,
+                              startTime: startDateTime.toISOString(),
+                              type: "task",
+                            }),
+                          }
+                        );
+
+                        if (res.ok) {
+                          const created = await res.json();
+                          const key = dateKey(selectedDate, selectedMonth, selectedYear);
+                          setTasks((prev) => ({
+                            ...prev,
+                            [key]: [...(prev[key] || []), {
+                              id: created.id,
+                              title: created.title,
+                              details: created.description ?? taskDetails,
+                              time: taskTime,
+                              completed: created.status === "completed",
+                              type: created.type ?? "task",
+                            }],
+                          }));
+                        } else {
+                          console.error("Failed to create event:", await res.text());
                         }
-                      );
-
-                      if (res.ok) {
-                        const created = await res.json();
-                        const key = dateKey(selectedDate, selectedMonth, selectedYear);
-                        const newTask = {
-                          id: created.id,
-                          title: created.title,
-                          details: created.description ?? taskDetails,
-                          time: taskTime,
-                          completed: created.status === "completed",
-                          type: created.type ?? "task",
-                        };
-                        setTasks((prev) => ({
-                          ...prev,
-                          [key]: [...(prev[key] || []), newTask],
-                        }));
-                      } else {
-                        console.error("Failed to create event:", await res.text());
+                      } catch (err) {
+                        console.error("Error creating event:", err);
+                      } finally {
+                        setIsSubmitting(false);
+                        setShowAddTaskPopup(false);
+                        setAddTaskStep("form");
+                        setTaskTitle("");
+                        setTaskDetails("");
+                        setTaskTime("17:00");
                       }
-                    } catch (err) {
-                      console.error("Error creating event:", err);
-                    } finally {
-                      setIsSubmitting(false);
-                      setShowAddTaskPopup(false);
-                      setTaskTitle("");
-                      setTaskDetails("");
-                      setTaskTime("17:00");
-                    }
-                  }}
-                  className="space-y-6"
-                >
-                  {/* Task Title */}
-                  <div>
-                    <label
-                      htmlFor="taskTitle"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      ชื่องาน
-                    </label>
-                    <input
-                      type="text"
-                      id="taskTitle"
-                      value={taskTitle}
-                      onChange={(e) => setTaskTitle(e.target.value)}
-                      placeholder="เช่น ประชุมทีม, ส่งงาน, ..."
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                      required
-                    />
-                  </div>
-
-                  {/* Task Details */}
-                  <div>
-                    <label
-                      htmlFor="taskDetails"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      รายละเอียด
-                    </label>
-                    <textarea
-                      id="taskDetails"
-                      value={taskDetails}
-                      onChange={(e) => setTaskDetails(e.target.value)}
-                      placeholder="อธิบายรายละเอียดของงาน..."
-                      rows={4}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none"
-                      required
-                    />
-                  </div>
-
-                  {/* Task Time */}
-                  <div>
-                    <label
-                      htmlFor="taskTime"
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                    >
-                      เวลา
-                    </label>
-                    <input
-                      type="time"
-                      id="taskTime"
-                      value={taskTime}
-                      onChange={(e) => setTaskTime(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all"
-                      required
-                    />
-                  </div>
-
-                  {/* Selected Date Display */}
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-600">
-                      วันที่:{" "}
-                      <span className="font-medium text-gray-800">
-                        {selectedDate} {monthsInThai[selectedMonth]}{" "}
-                        {selectedYear}
-                      </span>
-                    </p>
-                  </div>
-
-                  {/* Submit Buttons */}
-                  <div className="flex gap-3 pt-4">
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มงาน"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddTaskPopup(false)}
-                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                    >
-                      ยกเลิก
-                    </button>
-                  </div>
-                </form>
+                    }}
+                    className="space-y-4 mt-3 lg:mt-0"
+                  >
+                    <div>
+                      <label htmlFor="taskTitle" className="block text-sm font-medium text-gray-700 mb-1.5">ชื่องาน</label>
+                      <input
+                        type="text"
+                        id="taskTitle"
+                        value={taskTitle}
+                        onChange={(e) => setTaskTitle(e.target.value)}
+                        placeholder="เช่น ประชุมทีม, ส่งงาน, ..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="taskDetails" className="block text-sm font-medium text-gray-700 mb-1.5">รายละเอียด</label>
+                      <textarea
+                        id="taskDetails"
+                        value={taskDetails}
+                        onChange={(e) => setTaskDetails(e.target.value)}
+                        placeholder="อธิบายรายละเอียดของงาน..."
+                        rows={3}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-base"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="taskTime" className="block text-sm font-medium text-gray-700 mb-1.5">เวลา</label>
+                      <input
+                        type="time"
+                        id="taskTime"
+                        value={taskTime}
+                        onChange={(e) => setTaskTime(e.target.value)}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all text-base"
+                        required
+                      />
+                    </div>
+                    <div className="bg-gray-50 rounded-lg px-4 py-3">
+                      <p className="text-sm text-gray-600">
+                        วันที่: <span className="font-medium text-gray-800">{selectedDate} {monthsInThai[selectedMonth]} {selectedYear}</span>
+                      </p>
+                    </div>
+                    <div className="flex gap-3 pt-1 pb-1">
+                      <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed text-base"
+                      >
+                        {isSubmitting ? "กำลังเพิ่ม..." : "เพิ่มงาน"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddTaskPopup(false); setAddTaskStep("form"); }}
+                        className="px-5 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium text-base"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                  </form>
+                </div>
               </div>
+
             </div>
           </div>
         </div>

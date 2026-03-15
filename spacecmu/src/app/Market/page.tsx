@@ -56,6 +56,7 @@ export default function MarketMainPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showModeWarning, setShowModeWarning] = useState(false);
+  const [addProductStep, setAddProductStep] = useState<"form" | "preview">("form");
 
   // ── Ban detection state ──────────────────────────────────────────────────
   const isPublicBanned = user?.status === 'banned';
@@ -399,75 +400,44 @@ export default function MarketMainPage() {
           </div>
         )}
         {/* Fixed header area (Search + Title) */}
-        <div className="flex-none pt-8 px-8 pb-4 bg-white z-10">
+        <div className="flex-none pt-4 lg:pt-8 px-4 lg:px-8 pb-4 bg-white z-10">
           {/* Search bar */}
-          <div className="mb-6">
+          <div className="mb-4 lg:mb-6">
             <div className="relative w-full">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
-                className="w-5 h-5"
-              >
-                <circle
-                  cx="11"
-                  cy="11"
-                  r="8"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  fill="none"
-                />
-                <line
-                  x1="21"
-                  y1="21"
-                  x2="16.65"
-                  y2="16.65"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
-            </span>
-            <input
-              type="text"
-              placeholder="Search"
-              className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
-          </div>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Search"
+                className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+            </div>
           </div>
 
           {/* Header */}
           <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Markets</h1>
-            
-            {/* Add Product Button */}
+            <h1 className="text-xl lg:text-2xl font-bold">Markets</h1>
+
+            {/* Add Product Button — icon only on mobile, full on desktop */}
             <button
               onClick={() => setShowAddProductPopup(true)}
-              className="flex items-center gap-2 bg-slate-600 text-white px-5 py-2.5 rounded-lg hover:bg-slate-700 transition-colors font-medium shadow-sm"
+              className="flex items-center gap-2 bg-slate-600 text-white px-3 lg:px-5 py-2 lg:py-2.5 rounded-lg hover:bg-slate-700 transition-colors font-medium shadow-sm"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
+              <svg className="w-5 h-5 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Add Product
+              <span className="hidden sm:inline">Add Product</span>
             </button>
           </div>
         </div>
 
         {/* Scrollable content area */}
-        <div ref={marketScrollRef} className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
-          <div className="max-w-9xl pt-8 mx-auto w-full">
+        <div ref={marketScrollRef} className="flex-1 overflow-y-auto px-4 lg:px-8 pb-8 min-w-0">
+          <div className="max-w-9xl pt-4 lg:pt-8 mx-auto w-full">
             {/* Loading State */}
             {loading && (
               <div className="text-center py-12">
@@ -484,7 +454,7 @@ export default function MarketMainPage() {
 
             {/* Market Items Grid */}
             {!loading && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-8">
                 {/* API Market Items */}
                 {apiMarketItems.map((item) => {
                   // Construct proper image URL
@@ -552,18 +522,18 @@ export default function MarketMainPage() {
 
       {/* Add Product Popup Modal */}
       {showAddProductPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop with blur */}
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-            onClick={() => setShowAddProductPopup(false)}
+            onClick={() => { setShowAddProductPopup(false); setAddProductStep("form"); }}
           />
 
           {/* Modal Container */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] h-[650px] overflow-hidden">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-xl lg:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
             {/* Close Button */}
             <button
-              onClick={() => setShowAddProductPopup(false)}
+              onClick={() => { setShowAddProductPopup(false); setAddProductStep("form"); }}
               className="absolute top-4 right-4 z-10 text-gray-400 hover:text-gray-600 transition-colors"
             >
               <svg
@@ -582,31 +552,63 @@ export default function MarketMainPage() {
             </button>
 
             {/* Modal Content */}
-            <div className="flex h-full overflow-y-auto">
-              {/* Left Side - Preview */}
-              <div className="w-100 bg-gray-50 p-6 flex flex-col">
-                <h3 className="text-md font-semibold text-gray-500 uppercase tracking-wide mb-6">
-                  Preview
-                </h3>
+            <div className="flex flex-1 overflow-hidden">
 
-                {/* Preview Card */}
-                <MarketCard
-                  price={productPrice ? `฿${productPrice}` : "฿0"}
-                  title={productTitle || "ชื่อสินค้า"}
-                  jobTitle={productDescription || "รายละเอียดสินค้า..."}
-                  image={imagePreviews.length > 0 ? imagePreviews[0] : undefined}
-                  sellerName="Your Name"
-                  sellerImage="/default-avatar.svg"
-                />
+              {/* Left Side - Preview Panel (hidden on mobile unless step=preview) */}
+              <div className={`lg:w-72 xl:w-80 lg:border-r border-gray-200 bg-gray-50 flex flex-col transition-all duration-300 ${addProductStep === "preview" ? "flex w-full" : "hidden lg:flex"}`}>
+                {/* Mobile preview header with back button */}
+                <div className="lg:hidden flex items-center gap-3 px-5 pt-5 pb-3">
+                  <button
+                    type="button"
+                    onClick={() => setAddProductStep("form")}
+                    className="flex items-center gap-1.5 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-3 py-1.5 hover:bg-slate-50 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                    กลับ
+                  </button>
+                  <span className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Preview</span>
+                </div>
+
+                <div className="px-5 lg:px-6 pt-0 lg:pt-6 pb-6 flex-1 overflow-y-auto">
+                  <h3 className="hidden lg:block text-sm font-semibold text-gray-500 uppercase tracking-wide mb-6">Preview</h3>
+                  <MarketCard
+                    price={productPrice ? `฿${productPrice}` : "฿0"}
+                    title={productTitle || "ชื่อสินค้า"}
+                    jobTitle={productDescription || "รายละเอียดสินค้า..."}
+                    image={imagePreviews.length > 0 ? imagePreviews[0] : undefined}
+                    sellerName="Your Name"
+                    sellerImage="/default-avatar.svg"
+                  />
+                </div>
               </div>
 
-              {/* Right Side - Form */}
-              <div className="flex-1 p-8 overflow-y-auto">
-                <h2 className="text-2xl font-semibold text-gray-800 mb-6">
-                  เพิ่มสินค้าใหม่
-                </h2>
+              {/* Right Side - Form Panel */}
+              <div className={`flex-1 flex flex-col overflow-y-auto transition-all duration-300 ${addProductStep === "preview" ? "hidden lg:flex" : "flex"}`}>
+                {/* Mobile step header — title + Preview button side by side */}
+                <div className="lg:hidden flex items-center gap-3 px-5 pt-5 pb-2">
+                  <h2 className="text-xl font-semibold text-gray-800">เพิ่มสินค้าใหม่</h2>
+                  <button
+                    type="button"
+                    onClick={() => setAddProductStep("preview")}
+                    className="flex items-center gap-1 text-sm font-medium text-slate-600 border border-slate-300 rounded-lg px-2.5 py-1.5 hover:bg-slate-50 transition-colors shrink-0"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Preview
+                  </button>
+                </div>
+
+                <div className="px-5 lg:px-8 pt-0 lg:pt-8 pb-5 lg:pb-8">
+                  <h2 className="hidden lg:block text-2xl font-semibold text-gray-800 mb-6 pr-8">
+                    เพิ่มสินค้าใหม่
+                  </h2>
 
                 <form
+                  id="addProductForm"
                   onSubmit={async (e) => {
                     e.preventDefault();
                     
@@ -728,13 +730,12 @@ export default function MarketMainPage() {
                       value={productDescription}
                       onChange={(e) => setProductDescription(e.target.value)}
                       placeholder="อธิบายรายละเอียดของสินค้า..."
-                      className="w-full max-w-[292px] border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none wrap-break-word text-sm text-gray-500 px-3 py-2"
+                      className="w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all resize-none text-sm text-gray-800 px-3 py-2"
                       style={{ 
-                        lineHeight: '1.25rem',
-                        height: 'auto',
-                        minHeight: '2.5rem'
+                        lineHeight: '1.5rem',
+                        minHeight: '5rem'
                       }}
-                      rows={2}
+                      rows={3}
                       required
                     />
                   </div>
@@ -852,22 +853,24 @@ export default function MarketMainPage() {
                   </div>
 
                   {/* Submit Buttons */}
-                  <div className="flex gap-3 pt-4">
+                  <div className="flex gap-3 pt-4 pb-2">
                     <button
                       type="submit"
+                      form="addProductForm"
                       className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium"
                     >
                       เพิ่มสินค้า
                     </button>
                     <button
                       type="button"
-                      onClick={() => setShowAddProductPopup(false)}
+                      onClick={() => { setShowAddProductPopup(false); setAddProductStep("form"); }}
                       className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
                     >
                       ยกเลิก
                     </button>
                   </div>
                 </form>
+                </div>
               </div>
             </div>
           </div>
@@ -876,7 +879,7 @@ export default function MarketMainPage() {
 
       {/* Product Detail Popup Modal */}
       {showProductDetailPopup && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop with blur */}
           <div
             className="absolute inset-0 bg-black/30 backdrop-blur-sm"
@@ -889,7 +892,7 @@ export default function MarketMainPage() {
           />
 
           {/* Modal Container */}
-          <div className="relative bg-white rounded-2xl shadow-2xl w-[900px] max-h-[85vh] overflow-hidden">
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm sm:max-w-2xl lg:max-w-[900px] max-h-[90vh] overflow-hidden flex flex-col">
             {/* Close Button */}
             <button
               onClick={() => {
@@ -916,9 +919,9 @@ export default function MarketMainPage() {
             </button>
 
             {/* Modal Content */}
-            <div className="flex flex-col md:flex-row h-full overflow-y-auto">
+            <div className="flex flex-col md:flex-row flex-1 overflow-y-auto md:overflow-hidden">
               {/* Left Side - Product Image with Navigation */}
-              <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center relative">
+              <div className="w-full md:w-1/2 bg-gray-50 p-5 sm:p-8 flex items-center justify-center relative flex-none md:flex-none md:overflow-y-auto">
 
                 {/* SOLD full-panel overlay */}
                 {selectedProduct.status === "sold" && (
@@ -1037,11 +1040,11 @@ export default function MarketMainPage() {
               </div>
 
               {/* Right Side - Product Details */}
-              <div className="w-full md:w-1/2 p-8 flex flex-col">
+              <div className="w-full md:w-1/2 p-5 sm:p-8 flex flex-col md:overflow-y-auto">
                 {/* Product Title and Price */}
                 <div className="mb-6">
                   <div className="flex items-start gap-3 mb-3">
-                    <h2 className="text-3xl font-bold text-gray-900 flex-1">
+                    <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 flex-1">
                       {selectedProduct.title}
                     </h2>
                     {selectedProduct.status === "sold" && (
@@ -1054,7 +1057,7 @@ export default function MarketMainPage() {
                     )}
                   </div>
                   <div className="flex items-baseline gap-3">
-                    <span className={`text-4xl font-bold ${selectedProduct.status === "sold" ? "text-gray-300 line-through" : "text-orange-600"}`}>
+                    <span className={`text-3xl sm:text-4xl font-bold ${selectedProduct.status === "sold" ? "text-gray-300 line-through" : "text-orange-600"}`}>
                       ฿{parseFloat(selectedProduct.price).toFixed(0)}
                     </span>
                     {selectedProduct.status === "sold" && (
@@ -1132,7 +1135,7 @@ export default function MarketMainPage() {
                       setShowChatPopup(true);
                       setTimeout(() => chatPopupTextareaRef.current?.focus(), 100);
                     }}
-                    className="w-full bg-slate-600 text-white py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
+                    className="w-full bg-slate-600 text-white py-3 sm:py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors font-semibold text-base sm:text-lg shadow-lg hover:shadow-xl flex items-center justify-center gap-3"
                   >
                     <svg 
                       className="w-6 h-6" 
