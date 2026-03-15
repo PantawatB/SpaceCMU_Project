@@ -64,7 +64,7 @@ function OfficialAccountCard({
       )}
 
       {/* Card header */}
-      <div className="p-5 flex items-start gap-4">
+      <div className="p-4 sm:p-5 flex items-start gap-3 sm:gap-4 flex-wrap sm:flex-nowrap">
         <div className={`w-12 h-12 rounded-full overflow-hidden shrink-0 bg-slate-100 ${isBanned ? 'grayscale' : ''}`}>
           <img // eslint-disable-line @next/next/no-img-element
             src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
@@ -89,37 +89,38 @@ function OfficialAccountCard({
           <p className="text-sm text-slate-400 mt-0.5">@{account.username} · {account.faculty}</p>
         </div>
         {/* Buttons */}
-        <div className="shrink-0 flex items-center gap-2">
+        <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           {/* Switch to official button */}
           <button
             onClick={() => !isBanned && onSwitch(account)}
             disabled={isBanned}
             title={isBanned ? 'บัญชีนี้ถูกระงับ' : undefined}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold border transition-colors ${
               isBanned
                 ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
                 : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'
             }`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" strokeLinecap="round" strokeLinejoin="round"/>
               <polyline points="10 17 15 12 10 7" strokeLinecap="round" strokeLinejoin="round"/>
               <line x1="15" y1="12" x2="3" y2="12" strokeLinecap="round"/>
             </svg>
-            ใช้งาน Account นี้
+            <span className="hidden sm:inline">ใช้งาน Account นี้</span>
+            <span className="sm:hidden">ใช้งาน</span>
           </button>
           {/* Manage button */}
           <button
             onClick={() => !isBanned && onOpen(account)}
             disabled={isBanned}
             title={isBanned ? 'บัญชีนี้ถูกระงับ' : undefined}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
+            className={`flex items-center justify-center gap-1.5 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold transition-colors ${
               isBanned
                 ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
                 : 'bg-slate-900 text-white hover:bg-slate-700'
             }`}
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path d="M9 18l6-6-6-6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Manage
@@ -269,9 +270,9 @@ function AccountDetailView({
       {/* ── Back button + header ── */}
       <div className="mb-6">
         {/* Account header card — Profile-style */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+        <div className="bg-white rounded-2xl shadow overflow-hidden">
           {/* Cover / Banner */}
-          <div className="h-36 w-full relative">
+          <div className="h-40 w-full rounded-t-2xl overflow-hidden">
             {account.bannerUrl ? (
               <img // eslint-disable-line @next/next/no-img-element
                 src={apiService.getImageUrl(account.bannerUrl) ?? ""}
@@ -283,49 +284,49 @@ function AccountDetailView({
             )}
           </div>
 
-          {/* Avatar overlapping banner */}
-          <div className="absolute left-4 sm:left-8 top-[88px]">
-            <div className="rounded-full border-4 border-white bg-white shadow-md">
-              <img // eslint-disable-line @next/next/no-img-element
-                src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
-                alt={account.name}
-                className="w-16 h-16 sm:w-[82px] sm:h-[82px] rounded-full object-cover"
-              />
-            </div>
-          </div>
-
-          {/* Name + badge + username + stats */}
-          <div className="pt-12 sm:pt-14 px-4 sm:px-8 pb-5">
-            {/* Stats — inline with avatar, profile-style */}
-            <div className="flex items-center ml-[76px] sm:ml-[106px] -mt-10 sm:-mt-12 mb-3 relative" >
-              <div className="flex items-center gap-1 sm:gap-0 flex-wrap">
-                <span className="text-base sm:text-xl font-semibold text-slate-900">{account.admins.length}</span>
-                <span className="text-gray-500 text-sm sm:text-base ml-1">Admins</span>
-                <span className="text-gray-400 ml-2 sm:ml-4 hidden sm:inline">|</span>
-                <span className="text-slate-800 font-semibold text-sm sm:text-base ml-2 sm:ml-4 hidden sm:inline">{account.faculty}</span>
+          {/* Profile info */}
+          <div className="relative">
+            {/* Avatar — overlapping banner, left-aligned */}
+            <div className="absolute left-6 sm:left-12 -top-10 sm:-top-11 z-10">
+              <div className="rounded-full border-4 border-white bg-white">
+                <img // eslint-disable-line @next/next/no-img-element
+                  src={account.avatarUrl ? (apiService.getImageUrl(account.avatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+                  alt={account.name}
+                  className="w-20 h-20 sm:w-[90px] sm:h-[90px] rounded-full object-cover"
+                />
               </div>
             </div>
 
-            {/* Faculty on small screens */}
-            <div className="ml-4 sm:hidden mt-14 mb-1">
-              <span className="text-gray-500 text-xs">{account.faculty}</span>
+            {/* Stats row — to the right of avatar */}
+            <div className="flex items-center ml-32 sm:ml-44 pt-2 sm:pt-3 gap-2 sm:gap-8 flex-wrap">
+              <div className="flex items-center gap-1 sm:gap-0">
+                <span className="text-sm sm:text-xl font-semibold text-slate-900">{account.admins.length}</span>
+                <span className="text-gray-500 text-sm sm:text-base ml-1">Admins</span>
+                <span className="text-gray-500 ml-2 sm:ml-4">|</span>
+                <span className="text-slate-800 font-semibold text-sm sm:text-base ml-2 sm:ml-4">{account.faculty}</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2 flex-wrap mt-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-slate-900">{account.name}</h2>
+            {/* Name & badge */}
+            <div className="flex items-center mt-8 sm:mt-8 ml-6 sm:ml-10 flex-wrap gap-x-2">
+              <span className="text-lg sm:text-2xl font-bold text-slate-900">{account.name}</span>
               {account.isOwner && (
                 <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold uppercase tracking-wider border border-amber-200">
                   👑 Owner
                 </span>
               )}
             </div>
-            <p className="text-sm text-slate-400 mt-0.5">@{account.username}</p>
+
+            {/* Username */}
+            <div className="text-left text-gray-500 text-sm mt-1 ml-6 sm:ml-10 pb-5">
+              @{account.username}
+            </div>
           </div>
         </div>
       </div>
 
       {/* ── Detail tabs ── */}
-      <div className="flex gap-8 border-b border-slate-200 mb-6">
+      <div className="flex gap-4 sm:gap-8 border-b border-slate-200 mb-6">
         {detailTabs.map((t) => (
           <button
             key={t.id}
@@ -348,7 +349,7 @@ function AccountDetailView({
       {/* ── Dashboard tab ── */}
       {detailTab === "dashboard" && (
         <div className="space-y-5">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
               { label: "Admins", value: account.admins.length },
               { label: "Faculty", value: account.faculty },
@@ -990,7 +991,7 @@ function ActivitiesTab({
 }) {
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="font-semibold text-slate-900">Notifications</h2>
           <p className="text-xs text-slate-400 mt-0.5">Notifications received by each official account you manage</p>
@@ -1108,15 +1109,15 @@ export default function AdminPage() {
       <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
 
         {/* Fixed header */}
-        <div className="flex-none pt-8 px-8 pb-0 bg-white z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-slate-900">Admin Panel</h1>
-              <p className="text-sm text-slate-400 mt-0.5">Manage your official accounts &amp; content</p>
+        <div className="flex-none pt-5 sm:pt-8 px-4 sm:px-8 pb-0 bg-white z-10">
+          <div className="flex items-center justify-between mb-4 sm:mb-6 gap-3 pl-14 lg:pl-0">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 truncate">Admin Panel</h1>
+              <p className="text-xs sm:text-sm text-slate-400 mt-0.5">Manage your official accounts &amp; content</p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Avatar name={activeUser?.firstName ?? "A"} avatarUrl={activeUser?.avatarUrl} size="sm" />
-              <div>
+              <div className="hidden sm:block">
                 <p className="text-sm font-semibold text-slate-900 leading-tight">
                   {activeUser?.firstName} {activeUser?.lastName}
                 </p>
@@ -1127,12 +1128,12 @@ export default function AdminPage() {
 
           {/* Top-level tabs — hide when in account detail view */}
           {!selectedAccount ? (
-            <div className="flex gap-8 border-b border-slate-200">
+            <div className="flex gap-4 sm:gap-8 border-b border-slate-200">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`pb-3 font-semibold text-base transition-all whitespace-nowrap ${
+                  className={`pb-3 font-semibold text-sm sm:text-base transition-all whitespace-nowrap ${
                     activeTab === tab.id
                       ? "text-slate-900 border-b-2 border-slate-900"
                       : "text-slate-400 hover:text-slate-600"
@@ -1158,8 +1159,8 @@ export default function AdminPage() {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
-          <div className="max-w-3xl pt-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 min-w-0">
+          <div className="max-w-3xl pt-5 sm:pt-6">
 
             {/* ── Account Detail View (replaces list) ── */}
             {selectedAccount ? (
@@ -1175,7 +1176,7 @@ export default function AdminPage() {
                 {/* ══ OFFICIAL ACCOUNTS ══ */}
                 {activeTab === "official" && (
                   <div className="space-y-5">
-                    <div className="flex items-center justify-between">
+                  <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
                       <div>
                         <h2 className="font-semibold text-slate-900">Your Official Accounts</h2>
                         <p className="text-xs text-slate-400 mt-0.5">Accounts you own or co-manage</p>
@@ -1239,7 +1240,7 @@ export default function AdminPage() {
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl shadow-lg text-white text-sm font-medium transition-all ${
+          className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-50 flex items-center gap-2 px-5 py-3 rounded-2xl shadow-lg text-white text-sm font-medium transition-all ${
             toast.ok ? "bg-slate-900" : "bg-red-500"
           }`}
         >
