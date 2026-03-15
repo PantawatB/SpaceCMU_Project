@@ -25,6 +25,9 @@ interface Notification {
 
 interface NotificationsPanelProps {
   userId: string | null;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
+  onUnreadChange?: (count: number) => void;
 }
 
 function timeAgo(dateStr: string): string {
@@ -431,7 +434,7 @@ function NotifDetailModal({
   );
 }
 
-export default function NotificationsPanel({ userId }: NotificationsPanelProps) {
+export default function NotificationsPanel({ userId, mobileOpen = false, onMobileClose, onUnreadChange }: NotificationsPanelProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -574,6 +577,11 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
+  // Notify parent whenever unread count changes
+  useEffect(() => {
+    onUnreadChange?.(unreadCount);
+  }, [unreadCount, onUnreadChange]);
+
   return (
     <>
       {/* Detail Popup */}
@@ -584,6 +592,158 @@ export default function NotificationsPanel({ userId }: NotificationsPanelProps) 
         />
       )}
 
+      {/* ── Mobile Notification Modal (centered) ── */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={onMobileClose}
+          />
+          {/* Modal card */}
+          <div className="relative bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden w-full max-w-sm max-h-[80vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 shrink-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-gray-800">Notifications</h2>
+                {unreadCount > 0 && (
+                  <span className="flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-slate-700 text-white text-xs font-bold">
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                {!deleteMode && unreadCount > 0 && (
+                  <button onClick={markAllAsRead} className="text-xs text-slate-500 hover:text-slate-700 transition">
+                    Mark all read
+                  </button>
+                )}
+                <button onClick={fetchNotifications} className="p-1 rounded-lg hover:bg-gray-100 transition">
+                  <svg className={`w-3.5 h-3.5 text-gray-400 ${loading ? "animate-spin" : ""}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+                <button onClick={onMobileClose} className="p-1 rounded-lg hover:bg-gray-100 transition">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content — scrollable */}
+            <div className="overflow-y-auto flex-1 py-1">
+              {loading && notifications.length === 0 && (
+                <div className="flex justify-center py-5">
+                  <svg className="animate-spin w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                </div>
+              )}
+              {!loading && notifications.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-300">
+                  <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  <p className="text-sm">No notifications yet</p>
+                </div>
+              )}
+              {notifications.map((notif) => {
+                const admin = isAdminNotification(notif);
+                const senderName = admin
+                  ? "Admin"
+                  : notif.sender
+                  ? `${notif.sender.firstName ?? ""} ${notif.sender.lastName ?? ""}`.trim() || "Someone"
+                  : "Someone";
+                const avatarUrl = notif.sender?.avatarUrl;
+                const isChecked = selected.has(notif.id);
+                return (
+                  <div
+                    key={notif.id}
+                    onClick={() => { if (deleteMode) { toggleSelect(notif.id); } else { openDetail(notif); } }}
+                    className={`w-full flex items-start gap-3 px-4 py-3 text-left transition-all duration-150 cursor-pointer ${
+                      deleteMode && isChecked ? "bg-slate-100" : notif.isRead ? "hover:bg-gray-50" : "bg-slate-50 hover:bg-slate-100"
+                    }`}
+                  >
+                    {deleteMode && (
+                      <span className={`shrink-0 mt-1 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${isChecked ? "bg-slate-700 border-slate-700" : "border-slate-300 bg-white"}`}>
+                        {isChecked && <svg className="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" strokeWidth={3} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                      </span>
+                    )}
+                    <div className="relative shrink-0">
+                      {admin ? (
+                        <div className="w-9 h-9 rounded-full bg-slate-700 flex items-center justify-center shadow-sm">
+                          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z" /></svg>
+                        </div>
+                      ) : avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={apiService.getImageUrl(avatarUrl) || "/default-avatar.svg"} alt={senderName} width={36} height={36} className="w-9 h-9 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500">{senderName.charAt(0).toUpperCase()}</div>
+                      )}
+                      {!admin && <span className="absolute -bottom-1 -right-1 scale-75"><NotifIcon type={notif.type} isAdmin={false} /></span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {admin ? (
+                        <>
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">from Admin</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-400" />
+                            <span className="text-xs text-gray-400">{timeAgo(notif.createdAt)}</span>
+                          </div>
+                          <p className={`text-sm leading-snug line-clamp-2 ${notif.isRead ? "text-gray-500" : "text-gray-800 font-medium"}`}>{notif.message ?? <span className="text-gray-400 italic">No message</span>}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className={`text-sm leading-snug line-clamp-2 ${notif.isRead ? "text-gray-600" : "text-gray-800"}`}>
+                            <span className="font-semibold">{senderName}</span>
+                            {notif.sender?.role === "official_account" && <VerifiedBadge />}
+                            {typeAction(notif.type, notif.message)}
+                          </p>
+                          {notif.message && <p className="text-xs text-gray-500 mt-0.5 line-clamp-1 italic">&ldquo;{notif.message.replace(/^\[src:(post|comment)\]/, "")}&rdquo;</p>}
+                          <p className="text-xs text-gray-400 mt-0.5">{timeAgo(notif.createdAt)}</p>
+                        </>
+                      )}
+                    </div>
+                    {!deleteMode && !notif.isRead && <span className="shrink-0 mt-1.5 w-2 h-2 rounded-full bg-slate-500" />}
+                  </div>
+                );
+              })}
+              {hasMore && !deleteMode && (
+                <div className="flex justify-center py-2">
+                  <button onClick={loadMore} disabled={loadingMore} className="text-xs text-slate-500 hover:text-slate-700 disabled:opacity-50 transition">
+                    {loadingMore ? "Loading…" : "Load more"}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Bottom bar */}
+            {notifications.length > 0 && (
+              <div className="border-t border-gray-100 shrink-0">
+                {!deleteMode ? (
+                  <button onClick={toggleDeleteMode} className="w-full py-3 text-xs font-medium text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors">
+                    Delete
+                  </button>
+                ) : (
+                  <div className="flex">
+                    <button onClick={selected.size > 0 ? deleteSelected : deleteAll} disabled={deleting} className="flex-1 py-3 text-xs font-semibold text-white bg-slate-700 hover:bg-slate-800 disabled:opacity-50 transition-colors">
+                      {deleting ? "Deleting…" : selected.size > 0 ? `Delete (${selected.size})` : "Delete All"}
+                    </button>
+                    <div className="w-px bg-slate-600" />
+                    <button onClick={toggleDeleteMode} disabled={deleting} className="flex-1 py-3 text-xs font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50 transition-colors">
+                      Cancel
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Desktop sidebar panel ── */}
       <aside className="hidden lg:flex w-72 pt-8 px-4 bg-white flex-col gap-0 items-start">
         <div className="w-full rounded-2xl border border-gray-100 shadow-sm bg-white overflow-hidden">
 

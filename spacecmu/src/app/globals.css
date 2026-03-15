@@ -12,19 +12,14 @@
   --font-mono: var(--font-geist-mono);
 } */
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
+/* Dark mode disabled — app is light-only. Prevent dark OS setting from making body black. */
 
-/* Make sure the root elements fill viewport and use the theme background.
+/* Make sure the root elements fill viewport and always use white background.
    Prevent horizontal overflow that causes visible body background on responsive */
 html, body, #__next {
   height: 100%;
-  background: var(--background);
-  color: var(--foreground);
+  background: #ffffff;
+  color: #171717;
   margin: 0;
   padding: 0;
   overscroll-behavior: none;

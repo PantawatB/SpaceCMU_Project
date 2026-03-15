@@ -48,6 +48,8 @@ export default function FeedsMainPage() {
   const router = useRouter();
   const [showFeedFilter, setShowFeedFilter] = useState(false);
   const feedFilterButtonRef = useRef<HTMLButtonElement>(null);
+  const [showMobileNotif, setShowMobileNotif] = useState(false);
+  const [mobileNotifUnread, setMobileNotifUnread] = useState(0);
   const [feedFilterPos, setFeedFilterPos] = useState({ top: 0, right: 0 });
   const [selectedFilter, setSelectedFilter] = useState(() => {
     if (typeof window !== "undefined") {
@@ -569,7 +571,7 @@ export default function FeedsMainPage() {
   }));
 
   return (
-    <div className="flex h-screen bg-white text-gray-800 overflow-hidden min-w-[375px]">
+    <div className="flex h-dvh bg-white text-gray-800 overflow-hidden min-w-[375px]" style={{ height: '100dvh' }}>
       {/* Sidebar (Left) - Sidebar component manages its own open/close, backdrop, and hamburger button */}
       <Sidebar />
 
@@ -1185,7 +1187,7 @@ export default function FeedsMainPage() {
         )}
 
         {/* Share something bar - fixed bottom with toggle */}
-        <div className="fixed bottom-4 left-4 right-20 md:left-8 md:right-22 lg:left-72 lg:right-96 z-20 flex flex-col items-center">
+        <div className="fixed bottom-4 left-4 right-20 sm:right-20 md:right-24 lg:left-72 lg:right-96 z-20 flex flex-col items-center">
           {/* Toggle Button */}
           <button
             className="mb-2 text-gray-500 bg-white/95 backdrop-blur-sm rounded-full p-2 hover:bg-gray-100 shadow-lg flex items-center justify-center transition-all duration-200"
@@ -1462,7 +1464,30 @@ export default function FeedsMainPage() {
         </div>
       </main>
       {/* Right Section: Notifications - Hidden together with Sidebar (show at lg and up) */}
-      <NotificationsPanel userId={activeUser?.id ?? null} />
+      <NotificationsPanel
+        userId={activeUser?.id ?? null}
+        mobileOpen={showMobileNotif}
+        onMobileClose={() => setShowMobileNotif(false)}
+        onUnreadChange={setMobileNotifUnread}
+      />
+
+      {/* Mobile Notification Bell Button — above chatbox circle, hidden on lg+ */}
+      <div className="lg:hidden fixed bottom-24 right-4 z-30">
+        <button
+          onClick={() => setShowMobileNotif((prev) => !prev)}
+          className="w-14 h-14 rounded-full bg-white shadow-2xl flex items-center justify-center border border-gray-200 hover:scale-110 transition-all duration-200 active:scale-95 relative"
+          aria-label="Notifications"
+        >
+          <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          {mobileNotifUnread > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+              {mobileNotifUnread > 99 ? "99+" : mobileNotifUnread}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />

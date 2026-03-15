@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
+import NotificationsPanel from "../../components/NotificationsPanel";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
@@ -33,6 +34,8 @@ interface MarketItemAPI {
 export default function MarketMainPage() {
   const { activeMode, refreshUser, activeUser, user } = useUser();
   const { showSuccess, showError, showWarning } = useToast();
+  const [showMobileNotif, setShowMobileNotif] = React.useState(false);
+  const [mobileNotifUnread, setMobileNotifUnread] = React.useState(0);
   const [showAddProductPopup, setShowAddProductPopup] = React.useState(false);
   const [showProductDetailPopup, setShowProductDetailPopup] = React.useState(false);
   const [selectedProduct, setSelectedProduct] = React.useState<MarketItemAPI | null>(null);
@@ -361,7 +364,7 @@ export default function MarketMainPage() {
   };
 
   return (
-    <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
+    <div className="flex h-dvh bg-white text-gray-800 overflow-hidden" style={{ height: '100dvh' }}>
       {/* Sidebar: keep fixed/sticky so it won't scroll with the main content */}
       <div className="flex-none h-screen sticky top-0 z-30">
         <Sidebar />
@@ -519,6 +522,32 @@ export default function MarketMainPage() {
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />
+
+      {/* Notifications Panel */}
+      <NotificationsPanel
+        userId={activeUser?.id ?? null}
+        mobileOpen={showMobileNotif}
+        onMobileClose={() => setShowMobileNotif(false)}
+        onUnreadChange={setMobileNotifUnread}
+      />
+
+      {/* Mobile Notification Bell — above chatbox, hidden on lg+ */}
+      <div className="lg:hidden fixed bottom-24 right-4 z-30">
+        <button
+          onClick={() => setShowMobileNotif((prev) => !prev)}
+          className="w-14 h-14 rounded-full bg-white shadow-2xl flex items-center justify-center border border-gray-200 hover:scale-110 transition-all duration-200 active:scale-95 relative"
+          aria-label="Notifications"
+        >
+          <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          {mobileNotifUnread > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+              {mobileNotifUnread > 99 ? "99+" : mobileNotifUnread}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Add Product Popup Modal */}
       {showAddProductPopup && (

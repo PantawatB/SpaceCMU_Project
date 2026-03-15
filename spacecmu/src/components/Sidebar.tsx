@@ -558,6 +558,7 @@ export default function Sidebar({ menuItems, hideHamburger = false }: SidebarPro
       {isSidebarOpen && (
         <div
           className="lg:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+          style={{ minHeight: '100dvh' }}
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -565,7 +566,7 @@ export default function Sidebar({ menuItems, hideHamburger = false }: SidebarPro
       {/* Sidebar */}
       <aside
         className={`
-          fixed lg:sticky top-0 left-0 h-screen
+          fixed lg:sticky top-0 left-0 h-dvh
           w-64 min-w-[256px] max-w-[256px]
           p-6 flex flex-col
           bg-white
@@ -573,6 +574,7 @@ export default function Sidebar({ menuItems, hideHamburger = false }: SidebarPro
           z-40
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
+        style={{ height: '100dvh' }}
       >
         {/* Close Button - Curved tab design (Mobile only, shown only when sidebar is open) */}
         {isSidebarOpen && (

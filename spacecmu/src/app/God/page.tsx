@@ -515,7 +515,7 @@ export default function GodPage() {
   if (activeUser?.role !== "god") return null;
 
   return (
-    <div className="flex h-screen bg-white text-slate-800 overflow-hidden">
+    <div className="flex h-dvh bg-white text-slate-800 overflow-hidden" style={{ height: '100dvh' }}>
       {/* App Sidebar */}
       <div className="flex-none h-screen sticky top-0 z-30">
         <Sidebar />

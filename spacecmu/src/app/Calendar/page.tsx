@@ -4,10 +4,15 @@ import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import NoteCard from "../../components/NoteCard";
+import NotificationsPanel from "../../components/NotificationsPanel";
 import { API_CONFIG, API_ENDPOINTS } from "@/lib/config";
+import { useUser } from "@/contexts/UserContext";
 
 export default function CalendarPage() {
   const today = new Date();
+  const { activeUser } = useUser();
+  const [showMobileNotif, setShowMobileNotif] = useState(false);
+  const [mobileNotifUnread, setMobileNotifUnread] = useState(0);
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [showMonthPicker, setShowMonthPicker] = useState(false);
@@ -172,7 +177,7 @@ export default function CalendarPage() {
   // Generate year options (1800 - 2200)
   const yearOptions = Array.from({ length: 401 }, (_, i) => 1800 + i);
   return (
-    <div className="flex h-screen bg-white text-gray-800">
+    <div className="flex h-dvh bg-white text-gray-800" style={{ height: '100dvh' }}>
       {/* Sidebar (Left) */}
       <Sidebar />
 
@@ -606,6 +611,32 @@ export default function CalendarPage() {
 
       {/* Chatbox (Right) */}
       <Chatbox />
+
+      {/* Notifications Panel */}
+      <NotificationsPanel
+        userId={activeUser?.id ?? null}
+        mobileOpen={showMobileNotif}
+        onMobileClose={() => setShowMobileNotif(false)}
+        onUnreadChange={setMobileNotifUnread}
+      />
+
+      {/* Mobile Notification Bell — above chatbox, hidden on lg+ */}
+      <div className="lg:hidden fixed bottom-24 right-4 z-30">
+        <button
+          onClick={() => setShowMobileNotif((prev) => !prev)}
+          className="w-14 h-14 rounded-full bg-white shadow-2xl flex items-center justify-center border border-gray-200 hover:scale-110 transition-all duration-200 active:scale-95 relative"
+          aria-label="Notifications"
+        >
+          <svg className="w-6 h-6 text-slate-700" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          {mobileNotifUnread > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-5 h-5 px-1 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+              {mobileNotifUnread > 99 ? "99+" : mobileNotifUnread}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Overlay for closing pickers */}
       {(showMonthPicker || showYearPicker) && (
