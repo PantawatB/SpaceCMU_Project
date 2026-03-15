@@ -4,9 +4,93 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import { useUser } from "@/contexts/UserContext";
-import { apiService, type GodStats, type GodUser, type GodActivity, type OfficialAccount, type SentNotification } from "@/lib/api";
+import { apiService, type GodStats, type GodUser, type GodActivity, type OfficialAccount, type SentNotification, type Report } from "@/lib/api";
+import { API_CONFIG } from "@/lib/config";
+import PostCardReadOnly from "@/components/PostCardReadOnly";
 
-type TabId = "dashboard" | "users" | "announcements" | "activities" | "official";
+type TabId = "dashboard" | "users" | "announcements" | "activities" | "official" | "reports";
+
+/* ─────────────────────────────────────────────────────────────
+   ReportedPostPreview — fetches & shows the reported post
+   in a NotificationsPanel-style card with a "ดูโพสต์" button
+───────────────────────────────────────────────────────────── */
+interface PostData {
+  id: string;
+  content: string;
+  category?: string;
+  likeCount?: number;
+  commentCount?: number;
+  repostCount?: number;
+  createdAt: string;
+  author?: { firstName: string | null; lastName: string | null; avatarUrl: string | null; role?: string | null };
+  media?: { id: number; postId: number; mediaUrl: string; mediaType: "image" | "video"; order: number; fileSize: number | null }[];
+}
+
+function ReportedPostPreview({ postId }: { postId: string }) {
+  const router = useRouter();
+  const [post, setPost] = useState<PostData | null>(null);
+  const [status, setStatus] = useState<"loading" | "loaded" | "deleted">("loading");
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, { credentials: "include" })
+      .then(async (res) => {
+        if (cancelled) return;
+        if (!res.ok) { setStatus("deleted"); return; }
+        const data = await res.json();
+        if (data?.deleted) { setStatus("deleted"); return; }
+        setPost(data);
+        setStatus("loaded");
+      })
+      .catch(() => { if (!cancelled) setStatus("deleted"); });
+    return () => { cancelled = true; };
+  }, [postId]);
+
+  return (
+    <div className="rounded-2xl overflow-hidden border-2 border-slate-300 shadow-md">
+      {/* Header bar */}
+      <div className="flex items-center justify-between bg-slate-800 px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <svg className="w-3.5 h-3.5 text-slate-300 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+          <span className="text-[11px] font-bold text-slate-200 uppercase tracking-wider">โพสต์ที่ถูกรายงาน</span>
+        </div>
+        {status === "loaded" && post && (
+          <button
+            onClick={() => router.push(`/Feeds?postId=${postId}`)}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-[11px] font-semibold transition-colors border border-white/20"
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+            </svg>
+            ดูโพสต์
+          </button>
+        )}
+      </div>
+
+      {/* Body */}
+      <div className="bg-slate-50 px-4 py-3">
+        {status === "loading" ? (
+          <div className="flex items-center gap-2 text-xs text-slate-400 py-2">
+            <span className="w-3.5 h-3.5 rounded-full border-2 border-slate-200 border-t-slate-500 animate-spin shrink-0" />
+            กำลังโหลดโพสต์…
+          </div>
+        ) : status === "deleted" ? (
+          <div className="flex items-center gap-2.5 text-sm text-slate-400 py-2">
+            <svg className="w-4 h-4 shrink-0 text-slate-300" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            โพสต์นี้ถูกลบไปแล้ว
+          </div>
+        ) : post ? (
+          <PostCardReadOnly post={post} />
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 
 export default function GodPage() {
@@ -44,6 +128,19 @@ export default function GodPage() {
   const [annPrivateSearchLoading, setAnnPrivateSearchLoading] = useState(false);
   const [annPrivateSelected, setAnnPrivateSelected] = useState<GodUser[]>([]);
   const annSearchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Reports state
+  const [reports, setReports] = useState<Report[]>([]);
+  const [reportsPage, setReportsPage] = useState(1);
+  const [reportsTotalPages, setReportsTotalPages] = useState(1);
+  const [reportsTotal, setReportsTotal] = useState(0);
+  const [reportsLoading, setReportsLoading] = useState(false);
+  const [reportsLoadingMore, setReportsLoadingMore] = useState(false);
+  const [reportsStatusFilter, setReportsStatusFilter] = useState<'all' | 'resolved' | 'dismissed'>('all');
+  const [reportActionLoading, setReportActionLoading] = useState<string | null>(null);
+  const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const REPORTS_LIMIT = 10;
+  const reportsScrollRef = useRef<HTMLDivElement>(null);
 
   // Official Account state
   const [offFirstName, setOffFirstName] = useState("");
@@ -151,6 +248,32 @@ export default function GodPage() {
     }
   }, []);
 
+  const fetchReports = useCallback(async (page: number = 1, statusFilter: string = reportsStatusFilter, append = false) => {
+    if (append) setReportsLoadingMore(true);
+    else setReportsLoading(true);
+    try {
+      const res = await apiService.getReports(page, REPORTS_LIMIT, statusFilter);
+      // Sort: open first (oldest createdAt first within open), then non-open at bottom
+      const sorted = [...res.data].sort((a, b) => {
+        const aOpen = a.status === "open" ? 0 : 1;
+        const bOpen = b.status === "open" ? 0 : 1;
+        if (aOpen !== bOpen) return aOpen - bOpen;
+        // Within same group: open → oldest first, non-open → newest first
+        if (a.status === "open") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+      setReports((prev) => append ? [...prev, ...sorted] : sorted);
+      setReportsPage(res.pagination.page);
+      setReportsTotalPages(res.pagination.totalPages);
+      setReportsTotal(res.pagination.total);
+    } catch {
+      showToast("Failed to load reports", false);
+    } finally {
+      if (append) setReportsLoadingMore(false);
+      else setReportsLoading(false);
+    }
+  }, [reportsStatusFilter]);
+
   useEffect(() => {
     if (!isLoading && activeUser?.role !== "god") {
       router.replace("/Feeds");
@@ -164,7 +287,23 @@ export default function GodPage() {
     else if (activeTab === "activities") fetchActivities(1);
     else if (activeTab === "official") fetchOfficialAccounts();
     else if (activeTab === "announcements") fetchSentHistory(1);
-  }, [activeTab, activeUser, fetchStats, fetchUsers, fetchActivities, fetchOfficialAccounts, fetchSentHistory]);
+    else if (activeTab === "reports") fetchReports(1, reportsStatusFilter);
+  }, [activeTab, activeUser, fetchStats, fetchUsers, fetchActivities, fetchOfficialAccounts, fetchSentHistory, fetchReports, reportsStatusFilter]);
+
+  // Infinite scroll for Reports tab
+  useEffect(() => {
+    if (!reportsScrollRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !reportsLoading && !reportsLoadingMore && reportsPage < reportsTotalPages) {
+          fetchReports(reportsPage + 1, reportsStatusFilter, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+    observer.observe(reportsScrollRef.current);
+    return () => observer.disconnect();
+  }, [reportsScrollRef, reportsLoading, reportsLoadingMore, reportsPage, reportsTotalPages, reportsStatusFilter, fetchReports]);
 
   const handleSetRole = async (userId: string, role: "user" | "admin") => {
     setActionLoading(`role-${userId}`);
@@ -307,6 +446,28 @@ export default function GodPage() {
     }
   };
 
+  const handleUpdateReportStatus = async (reportId: string, status: 'open' | 'resolved' | 'dismissed') => {
+    setReportActionLoading(reportId);
+    try {
+      await apiService.updateReportStatus(reportId, status);
+      showToast(`Report marked as ${status}`);
+      setReports((prev) => {
+        const updated = prev.map((r) => r.id === reportId ? { ...r, status } : r);
+        return [...updated].sort((a, b) => {
+          const aOpen = a.status === "open" ? 0 : 1;
+          const bOpen = b.status === "open" ? 0 : 1;
+          if (aOpen !== bOpen) return aOpen - bOpen;
+          if (a.status === "open") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+      });
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : "Failed to update report", false);
+    } finally {
+      setReportActionLoading(null);
+    }
+  };
+
   const filteredUsers = (() => {
     const query = searchQuery.toLowerCase();
     const matched = users.filter(
@@ -340,6 +501,7 @@ export default function GodPage() {
     { id: "announcements", name: "Messages" },
     { id: "activities",    name: "Activities" },
     { id: "official",      name: "Official Accounts" },
+    { id: "reports",       name: "Reports" },
   ];
 
   if (isLoading) {
@@ -351,8 +513,6 @@ export default function GodPage() {
   }
 
   if (activeUser?.role !== "god") return null;
-
-  const activeUsers = stats ? stats.totalUsers - stats.totalBanned : null;
 
   return (
     <div className="flex h-screen bg-white text-slate-800 overflow-hidden">
@@ -407,26 +567,45 @@ export default function GodPage() {
                 {/* Stat cards */}
                 {loadingData ? (
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {Array.from({ length: 4 }).map((_, i) => (
+                    {Array.from({ length: 8 }).map((_, i) => (
                       <div key={i} className="h-28 rounded-2xl bg-slate-200 animate-pulse" />
                     ))}
                   </div>
                 ) : stats ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {[
-                      { label: "Total Users",  value: stats.totalUsers,    icon: "👥", sub: `${activeUsers} active` },
-                      { label: "Admins",        value: stats.totalAdmins,   icon: "🛡️", sub: "elevated role" },
-                      { label: "Banned",        value: stats.totalBanned,   icon: "🚫", sub: "restricted" },
-                      { label: "Total Posts",   value: stats.totalPosts,    icon: "📝", sub: "all time" },
-                    ].map((card) => (
-                      <div key={card.label} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-                        <div className="text-3xl mb-2">{card.icon}</div>
-                        <div className="text-2xl font-bold text-slate-900">{card.value.toLocaleString()}</div>
-                        <div className="text-sm text-slate-600 mt-0.5">{card.label}</div>
-                        <div className="text-xs text-slate-400 mt-1">{card.sub}</div>
-                      </div>
-                    ))}
-                  </div>
+                  <>
+                    {/* Row 1: User breakdown */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "ผู้ใช้ทั้งหมด",        value: stats.totalUsers,           icon: "👥", sub: "non-anonymous accounts", color: "bg-slate-50" },
+                        { label: "Role: User",          value: stats.totalRoleUsers,        icon: "�", sub: "regular users",          color: "bg-slate-50" },
+                        { label: "Role: Admin",         value: stats.totalAdmins,           icon: "🛡️", sub: "elevated role",          color: "bg-slate-50" },
+                        { label: "Official Account",    value: stats.totalOfficialAccounts, icon: "✅", sub: "official pages",         color: "bg-slate-50" },
+                      ].map((card) => (
+                        <div key={card.label} className={`${card.color} rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow`}>
+                          <div className="text-3xl mb-2">{card.icon}</div>
+                          <div className="text-2xl font-bold text-slate-900">{Number(card.value).toLocaleString()}</div>
+                          <div className="text-sm text-slate-600 mt-0.5">{card.label}</div>
+                          <div className="text-xs text-slate-400 mt-1">{card.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {/* Row 2: Activity & content */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {[
+                        { label: "Banned",        value: stats.totalBanned,    icon: "🚫", sub: "restricted accounts",  color: "bg-red-50"    },
+                        { label: "Total Reports", value: stats.totalReports,   icon: "🚨", sub: "all time",             color: "bg-orange-50" },
+                        { label: "Total Posts",   value: stats.totalPosts,     icon: "📝", sub: "all time",             color: "bg-slate-50"  },
+                        { label: "Active Now",    value: stats.activeSessions, icon: "🟢", sub: "live sessions",        color: "bg-green-50"  },
+                      ].map((card) => (
+                        <div key={card.label} className={`${card.color} rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow`}>
+                          <div className="text-3xl mb-2">{card.icon}</div>
+                          <div className="text-2xl font-bold text-slate-900">{Number(card.value).toLocaleString()}</div>
+                          <div className="text-sm text-slate-600 mt-0.5">{card.label}</div>
+                          <div className="text-xs text-slate-400 mt-1">{card.sub}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
                 ) : (
                   <button
                     onClick={fetchStats}
@@ -434,19 +613,6 @@ export default function GodPage() {
                   >
                     Load Stats
                   </button>
-                )}
-
-                {/* Active sessions card */}
-                {stats && (
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-slate-500">Active Sessions</p>
-                        <p className="text-3xl font-bold text-slate-900 mt-1">{stats.activeSessions.toLocaleString()}</p>
-                      </div>
-                      <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl">🟢</div>
-                    </div>
-                  </div>
                 )}
               </div>
             )}
@@ -1323,6 +1489,242 @@ export default function GodPage() {
               </div>
             )}
 
+            {/* ══════════════════════════════
+                 REPORTS
+            ══════════════════════════════ */}
+            {activeTab === "reports" && (
+              <div className="space-y-4">
+                {/* Toolbar */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex gap-1 p-1 bg-slate-100 rounded-xl">
+                    {(["all", "resolved", "dismissed"] as const).map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => { setReportsStatusFilter(s); fetchReports(1, s); }}
+                        className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all capitalize ${
+                          reportsStatusFilter === s
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {s === "all" ? "All" : s === "resolved" ? "Resolved" : "Dismissed"}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-xs text-slate-400">
+                    <span className="font-semibold text-slate-600">{reportsTotal}</span> report{reportsTotal !== 1 ? "s" : ""}
+                  </span>
+                </div>
+
+                {/* Content */}
+                {reportsLoading ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-[72px] rounded-2xl bg-slate-100 animate-pulse" />
+                    ))}
+                  </div>
+                ) : reports.length === 0 ? (
+                  <div className="bg-white rounded-2xl border border-slate-200 py-16 flex flex-col items-center gap-2">
+                    <span className="text-3xl opacity-20">📭</span>
+                    <p className="text-sm text-slate-400">ไม่มีรายงาน</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {reports.map((report) => {
+                      const isExpanded = expandedReport === report.id;
+                      const statusStyle: Record<string, string> = {
+                        open:      "bg-amber-50 text-amber-700 border-amber-200",
+                        resolved:  "bg-emerald-50 text-emerald-700 border-emerald-200",
+                        dismissed: "bg-slate-100 text-slate-500 border-slate-200",
+                      };
+                      const displayName = report.submitter
+                        ? `${report.submitter.firstName} ${report.submitter.lastName}`
+                        : report.name || "Anonymous";
+
+                      return (
+                        <div
+                          key={report.id}
+                          className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden"
+                        >
+                          {/* ── Header row (always visible) ── */}
+                          <div
+                            className="flex items-center gap-3 px-5 py-3.5 cursor-pointer hover:bg-slate-50/70 transition-colors select-none"
+                            onClick={() => setExpandedReport(isExpanded ? null : report.id)}
+                          >
+                            {/* Avatar */}
+                            <div className="relative w-8 h-8 shrink-0">
+                              {report.submitter?.avatarUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                  src={report.submitter.avatarUrl.startsWith("/uploads/") ? `${API_CONFIG.BASE_URL}${report.submitter.avatarUrl}` : report.submitter.avatarUrl}
+                                  alt={displayName}
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                  {displayName[0]?.toUpperCase() ?? "?"}
+                                </div>
+                              )}
+                              {report.submitter?.role === "official_account" && (
+                                <span className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-white flex items-center justify-center">
+                                  <svg className="w-3.5 h-3.5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Name + preview */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-sm font-semibold text-slate-900 truncate">{displayName}</span>
+                                {report.submitter?.role === "official_account" && (
+                                  <svg className="w-3.5 h-3.5 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                  </svg>
+                                )}
+                                {report.submitter?.username && (
+                                  <span className="text-xs text-slate-400 shrink-0">@{report.submitter.username}</span>
+                                )}
+                                {report.mediaUrls.length > 0 && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-400 font-medium shrink-0">
+                                    📎 {report.mediaUrls.length}
+                                  </span>
+                                )}
+                                {report.postId && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-orange-50 text-orange-500 border border-orange-200 font-semibold shrink-0">
+                                    Post
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-slate-500 truncate leading-relaxed">{report.issue}</p>
+                            </div>
+
+                            {/* Status + date + chevron */}
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border capitalize ${statusStyle[report.status] ?? statusStyle.open}`}>
+                                {report.status}
+                              </span>
+                              <span className="text-[11px] text-slate-400 hidden sm:block whitespace-nowrap">
+                                {new Date(report.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                              </span>
+                              <svg className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9l6 6 6-6" />
+                              </svg>
+                            </div>
+                          </div>
+
+                          {/* ── Expanded panel ── */}
+                          {isExpanded && (
+                            <div className="border-t border-slate-100 px-5 py-4 space-y-4 bg-slate-50/50">
+
+                              {/* Issue */}
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{report.issue}</p>
+
+                              {/* Reported post link */}
+                              {report.postId && (
+                                <ReportedPostPreview postId={report.postId} />
+                              )}
+                              {report.submitter && (
+                                <div className="flex items-center gap-2.5">
+                                  <div className="relative w-7 h-7 shrink-0">
+                                    {report.submitter.avatarUrl ? (
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      <img
+                                        src={report.submitter.avatarUrl.startsWith("/uploads/") ? `${API_CONFIG.BASE_URL}${report.submitter.avatarUrl}` : report.submitter.avatarUrl}
+                                        alt={report.submitter.firstName}
+                                        className="w-7 h-7 rounded-full object-cover"
+                                      />
+                                    ) : (
+                                      <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600">
+                                        {report.submitter.firstName[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                    {report.submitter.role === "official_account" && (
+                                      <span className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-white flex items-center justify-center">
+                                        <svg className="w-3 h-3 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <p className="text-xs font-semibold text-slate-800 flex items-center gap-1">
+                                      {report.submitter.firstName} {report.submitter.lastName}
+                                      {report.submitter.role === "official_account" && (
+                                        <svg className="w-3 h-3 text-blue-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                                          <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                      )}
+                                      {report.submitter.username && <span className="text-slate-400 font-normal">@{report.submitter.username}</span>}
+                                    </p>
+                                    <p className="text-[11px] text-slate-400">{report.submitter.email}</p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Attachments — PostCard-style horizontal slideshow */}
+                              {report.mediaUrls.length > 0 && (
+                                <ReportMediaSlideshow urls={report.mediaUrls} />
+                              )}
+
+                              {/* Footer: timestamp + actions */}
+                              <div className="flex items-center gap-2 pt-0.5">
+                                <span className="text-[11px] text-slate-400 mr-auto">
+                                  {new Date(report.createdAt).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                                {report.status !== "resolved" && (
+                                  <button
+                                    disabled={reportActionLoading === report.id}
+                                    onClick={() => handleUpdateReportStatus(report.id, "resolved")}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+                                  >
+                                    {reportActionLoading === report.id ? "…" : "✓ Resolved"}
+                                  </button>
+                                )}
+                                {report.status !== "dismissed" && (
+                                  <button
+                                    disabled={reportActionLoading === report.id}
+                                    onClick={() => handleUpdateReportStatus(report.id, "dismissed")}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                                  >
+                                    {reportActionLoading === report.id ? "…" : "✕ Dismiss"}
+                                  </button>
+                                )}
+                                {report.status !== "open" && (
+                                  <button
+                                    disabled={reportActionLoading === report.id}
+                                    onClick={() => handleUpdateReportStatus(report.id, "open")}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 transition-colors"
+                                  >
+                                    {reportActionLoading === report.id ? "…" : "↩ Reopen"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Infinite scroll sentinel */}
+                    {reportsPage < reportsTotalPages && (
+                      <div ref={reportsScrollRef} className="flex justify-center py-6">
+                        {reportsLoadingMore
+                          ? <span className="w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-600 animate-spin block" />
+                          : <span className="text-xs text-slate-300">เลื่อนลงเพื่อโหลดเพิ่ม</span>
+                        }
+                      </div>
+                    )}
+
+                    {reportsPage >= reportsTotalPages && reports.length > 0 && (
+                      <p className="text-center text-xs text-slate-300 py-4">— แสดงทั้งหมด {reports.length} รายการ —</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         </div>
       </main>
@@ -1342,8 +1744,169 @@ export default function GodPage() {
 }
 
 /* ════════════════════════════════════
-   Sub-components
+   ReportMediaSlideshow — PostCard-style
 ════════════════════════════════════ */
+function ReportMediaSlideshow({ urls }: { urls: string[] }) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [showLeft, setShowLeft] = useState(false);
+  const [showRight, setShowRight] = useState(urls.length > 1);
+  const [lightbox, setLightbox] = useState<number | null>(null);
+
+  const BACKEND = "http://localhost:3001";
+  const toFull = (url: string) => url.startsWith("/uploads/") ? `${BACKEND}${url}` : url;
+  const isVideo = (url: string) => /\.(mp4|mov|avi|mkv|webm|m4v)$/i.test(url);
+
+  const onScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setShowLeft(el.scrollLeft > 8);
+    setShowRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 8);
+  };
+
+  // image-only list for lightbox indexing
+  const imageUrls = urls.filter((u) => !isVideo(u)).map(toFull);
+
+  return (
+    <div className="relative group/media">
+      {/* Left arrow */}
+      {showLeft && (
+        <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover/media:opacity-100 transition-opacity duration-200">
+          <div className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-md">
+            <svg className="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Right arrow */}
+      {showRight && (
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-0 group-hover/media:opacity-100 transition-opacity duration-200">
+          <div className="bg-white/90 backdrop-blur-sm rounded-full p-1.5 shadow-md">
+            <svg className="w-4 h-4 text-slate-700" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      )}
+
+      {/* Scroll track */}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="overflow-x-auto overflow-y-hidden scrollbar-hide"
+      >
+        <div className={`flex items-center gap-2 ${urls.length === 1 ? "w-full justify-center" : "w-max"}`}>
+          {urls.map((url, idx) => {
+            const full = toFull(url);
+            const video = isVideo(url);
+            const imgIdx = urls.slice(0, idx + 1).filter((u) => !isVideo(u)).length - 1;
+
+            return video ? (
+              <video
+                key={idx}
+                src={full}
+                controls
+                className="rounded-2xl border border-slate-200 bg-black shrink-0"
+                style={{ height: "260px", maxWidth: "420px" }}
+              />
+            ) : (
+              <div
+                key={idx}
+                className="relative rounded-2xl overflow-hidden shrink-0 cursor-pointer group/item"
+                onClick={() => setLightbox(imgIdx)}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={full}
+                  alt={`attachment-${idx + 1}`}
+                  className="rounded-2xl object-contain transition-transform duration-300 group-hover/item:scale-[1.02]"
+                  style={
+                    urls.length === 1
+                      ? { width: "100%", maxHeight: "500px", objectFit: "contain" }
+                      : { height: "260px", width: "auto", maxWidth: "360px" }
+                  }
+                />
+                {/* zoom overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover/item:bg-black/10 transition-colors duration-200 flex items-center justify-center pointer-events-none">
+                  <svg className="w-8 h-8 text-white opacity-0 group-hover/item:opacity-80 transition-opacity duration-200 drop-shadow-lg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                  </svg>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Dot indicators */}
+      {urls.length > 1 && (
+        <div className="flex justify-center gap-1 mt-2">
+          {urls.map((_, i) => (
+            <div key={i} className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox !== null && imageUrls.length > 0 && (
+        <div
+          className="fixed inset-0 z-99999 bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setLightbox(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/70 hover:text-white transition-colors"
+            onClick={() => setLightbox(null)}
+          >
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Counter */}
+          {imageUrls.length > 1 && (
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-black/50 text-white text-sm font-medium">
+              {lightbox + 1} / {imageUrls.length}
+            </div>
+          )}
+
+          {/* Prev */}
+          {lightbox > 0 && (
+            <button
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); setLightbox(lightbox - 1); }}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+
+          {/* Image */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrls[lightbox]}
+            alt="attachment"
+            className="max-w-full max-h-full rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Next */}
+          {lightbox < imageUrls.length - 1 && (
+            <button
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
+              onClick={(e) => { e.stopPropagation(); setLightbox(lightbox + 1); }}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function RoleBadge({ role }: { role: GodUser["role"] | string }) {
   if (role === "god")

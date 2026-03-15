@@ -4,9 +4,12 @@ import { UserMeResponse } from '@/types/user';
 export interface GodStats {
   totalUsers: number;
   totalAdmins: number;
+  totalRoleUsers: number;
+  totalOfficialAccounts: number;
   totalBanned: number;
   totalPosts: number;
   activeSessions: number;
+  totalReports: number;
 }
 
 export interface GodUser {
@@ -147,6 +150,36 @@ export interface NotificationPage {
 
 export interface ActivityPage {
   data: GodActivity[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    hasMore: boolean;
+  };
+}
+
+export interface Report {
+  id: string;
+  name: string | null;
+  issue: string;
+  mediaUrls: string[];
+  postId: string | null;
+  status: 'open' | 'resolved' | 'dismissed';
+  createdAt: string;
+  submitter: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string | null;
+    email: string;
+    avatarUrl: string | null;
+    role: string;
+  } | null;
+}
+
+export interface ReportPage {
+  data: Report[];
   pagination: {
     page: number;
     limit: number;
@@ -579,6 +612,21 @@ class ApiService {
   /** Search ALL users including official_account role (for private message) */
   async searchAllUsersForMessage(query: string): Promise<GodUser[]> {
     return this.get<GodUser[]>(`/api/god/users/search-all?query=${encodeURIComponent(query)}`);
+  }
+
+  /** Submit a user report with optional media files */
+  async submitReport(formData: FormData): Promise<{ message: string }> {
+    return this.postFormData<{ message: string }>('/api/reports', formData);
+  }
+
+  /** Get all reports (god only), paginated */
+  async getReports(page = 1, limit = 20, status = 'all'): Promise<ReportPage> {
+    return this.get<ReportPage>(`/api/god/reports?page=${page}&limit=${limit}&status=${status}`);
+  }
+
+  /** Update a report's status (god only) */
+  async updateReportStatus(reportId: string, status: 'open' | 'resolved' | 'dismissed'): Promise<{ message: string }> {
+    return this.patch<{ message: string }>(`/api/god/reports/${reportId}/status`, { status });
   }
 
 }

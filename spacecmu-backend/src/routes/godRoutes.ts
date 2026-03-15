@@ -15,6 +15,7 @@ import {
     getSentNotifications,
     searchAllUsers,
 } from "../controllers/godController.js";
+import { getReports, updateReportStatus } from "../controllers/reportController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { godMiddleware } from "../middleware/godMiddleware.js";
 
@@ -49,5 +50,9 @@ router.delete("/official-accounts/:id/admins/:adminUserId", removeOfficialAccoun
 router.post("/notifications/global", sendGlobalNotification);
 router.post("/notifications/private", sendPrivateNotifications);
 router.get("/notifications/sent", getSentNotifications);
+
+// Reports (god view)
+router.get("/reports", getReports);
+router.patch("/reports/:id/status", updateReportStatus);
 
 export default router;

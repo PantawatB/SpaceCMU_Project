@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable, notificationsTable } from "../../db/schema.js";
+import { usersTable, postsTable, sessionsTable, activitiesTable, officialAccountsTable, officialAccountAdminsTable, notificationsTable, reportsTable } from "../../db/schema.js";
 import { eq, count, sql, desc, and, ilike, or, inArray } from "drizzle-orm";
 
 /**
@@ -32,20 +32,33 @@ async function downgradeIfNoOfficialAccounts(userId: string): Promise<void> {
 /** GET /api/god/stats — platform-wide overview */
 export const getPlatformStats = async (req: Request, res: Response) => {
     try {
+        // Total real (non-anonymous) accounts
         const [totalUsers] = await dbClient
             .select({ count: count() })
             .from(usersTable)
             .where(eq(usersTable.isAnonymous, false));
 
+        // Role counts — count ALL accounts with that role (incl. anonymous twins)
         const [totalAdmins] = await dbClient
             .select({ count: count() })
             .from(usersTable)
-            .where(and(eq(usersTable.role, "admin"), eq(usersTable.isAnonymous, false)));
+            .where(eq(usersTable.role, "admin"));
 
+        const [totalRoleUsers] = await dbClient
+            .select({ count: count() })
+            .from(usersTable)
+            .where(eq(usersTable.role, "user"));
+
+        const [totalOfficialAccounts] = await dbClient
+            .select({ count: count() })
+            .from(usersTable)
+            .where(eq(usersTable.role, "official_account"));
+
+        // Banned — only non-anonymous accounts (real users)
         const [totalBanned] = await dbClient
             .select({ count: count() })
             .from(usersTable)
-            .where(eq(usersTable.status, "banned"));
+            .where(and(eq(usersTable.status, "banned"), eq(usersTable.isAnonymous, false)));
 
         const [totalPosts] = await dbClient
             .select({ count: count() })
@@ -55,12 +68,19 @@ export const getPlatformStats = async (req: Request, res: Response) => {
             .select({ count: sql<number>`count(distinct ${sessionsTable.activeUserId})` })
             .from(sessionsTable);
 
+        const [totalReports] = await dbClient
+            .select({ count: count() })
+            .from(reportsTable);
+
         res.json({
             totalUsers: totalUsers?.count ?? 0,
             totalAdmins: totalAdmins?.count ?? 0,
+            totalRoleUsers: totalRoleUsers?.count ?? 0,
+            totalOfficialAccounts: totalOfficialAccounts?.count ?? 0,
             totalBanned: totalBanned?.count ?? 0,
             totalPosts: totalPosts?.count ?? 0,
             activeSessions: activeSessions?.count ?? 0,
+            totalReports: totalReports?.count ?? 0,
         });
     } catch (error) {
         console.error("God stats error:", error);
