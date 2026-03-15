@@ -828,6 +828,8 @@ export default function ChatPage() {
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [newChatSearch, setNewChatSearch] = useState("");
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
+  // Keep full Suggestion objects so rawId is retained even when suggestions list changes (search replaces list)
+  const [selectedSuggestionObjects, setSelectedSuggestionObjects] = useState<Suggestion[]>([]);
 
   // Group name modal state
   const [isGroupNameOpen, setIsGroupNameOpen] = useState(false);
@@ -1276,6 +1278,7 @@ export default function ChatPage() {
     setIsNewChatOpen(false);
     setNewChatSearch("");
     setSelectedSuggestions([]);
+    setSelectedSuggestionObjects([]);
     setCreateChatError(null);
   };
 
@@ -1301,7 +1304,7 @@ export default function ChatPage() {
 
   // ฟังก์ชันสร้าง Direct Room (1-on-1)
   const handleCreateDirectRoom = async () => {
-    const selected = suggestions.find((s) => selectedSuggestions.includes(s.id));
+    const selected = selectedSuggestionObjects[0];
     if (!selected) return;
 
     setIsCreatingChat(true);
@@ -1325,9 +1328,7 @@ export default function ChatPage() {
   const handleCreateGroupRoom = async () => {
     if (!groupName.trim()) return;
 
-    const memberIds = suggestions
-      .filter((s) => selectedSuggestions.includes(s.id))
-      .map((s) => s.rawId);
+    const memberIds = selectedSuggestionObjects.map((s) => s.rawId);
 
     setIsCreatingChat(true);
     setCreateChatError(null);
@@ -1722,6 +1723,48 @@ export default function ChatPage() {
               />
             </div>
 
+            {/* Selected users row — แสดงเมื่อมีคนที่เลือกแล้ว */}
+            {selectedSuggestionObjects.length > 0 && (() => {
+              const MAX_SHOW = 4;
+              const shown = selectedSuggestionObjects.slice(0, MAX_SHOW);
+              const extra = selectedSuggestionObjects.length - MAX_SHOW;
+              return (
+                <div className="flex-none flex items-center gap-2 px-5 py-2.5 border-b border-gray-100 bg-slate-50">
+                  <div className="flex items-center gap-2 flex-1 flex-wrap">
+                    {shown.map((sel) => (
+                      <button
+                        key={sel.id}
+                        onClick={() => {
+                          setSelectedSuggestions((prev) => prev.filter((id) => id !== sel.id));
+                          setSelectedSuggestionObjects((prev) => prev.filter((o) => o.id !== sel.id));
+                        }}
+                        title={`ลบ ${sel.displayName}`}
+                        className="group relative flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium pl-1 pr-2 py-1 rounded-full hover:border-red-300 hover:bg-red-50 transition-colors"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={sel.avatar || "/default-avatar.svg"}
+                          alt={sel.displayName}
+                          className="w-5 h-5 rounded-full object-cover flex-none"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+                        />
+                        <span className="group-hover:hidden">{sel.displayName}</span>
+                        <span className="hidden group-hover:inline text-red-400">ลบ</span>
+                        <svg className="w-3 h-3 text-slate-300 group-hover:text-red-400 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    ))}
+                    {extra > 0 && (
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-600 text-xs font-semibold">
+                        +{extra}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Suggested / Results label */}
             <div className="flex-none px-5 pt-4 pb-2">
               <p className="text-gray-900 font-semibold text-sm">{suggestionLabel}</p>
@@ -1773,11 +1816,15 @@ export default function ChatPage() {
                     return (
                       <button
                         key={s.id}
-                        onClick={() =>
-                          setSelectedSuggestions((prev) =>
-                            isSelected ? prev.filter((id) => id !== s.id) : [...prev, s.id]
-                          )
-                        }
+                        onClick={() => {
+                          if (isSelected) {
+                            setSelectedSuggestions((prev) => prev.filter((id) => id !== s.id));
+                            setSelectedSuggestionObjects((prev) => prev.filter((o) => o.id !== s.id));
+                          } else {
+                            setSelectedSuggestions((prev) => [...prev, s.id]);
+                            setSelectedSuggestionObjects((prev) => [...prev, s]);
+                          }
+                        }}
                         className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors text-left"
                       >
                         {/* Avatar — ใช้ <img> ธรรมดาเพื่อหลีกเลี่ยง next/image domain restriction */}
@@ -1883,8 +1930,7 @@ export default function ChatPage() {
                 สมาชิก {selectedSuggestions.length} คน
               </p>
               <div className="flex flex-wrap gap-2">
-                {suggestions
-                  .filter((s) => selectedSuggestions.includes(s.id))
+                {selectedSuggestionObjects
                   .map((s) => (
                     <div
                       key={s.id}
@@ -3328,11 +3374,11 @@ export default function ChatPage() {
                                       </svg>
                                     )}
                                   </p>
-                                  <p className="text-xs text-gray-400">{m.role === "admin" ? "แอดมิน" : "สมาชิก"}</p>
+                                  <p className="text-xs text-gray-400">{m.userId === roomDetail.createdBy ? "ผู้สร้างกลุ่ม" : "สมาชิก"}</p>
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-none">
-                                  {m.role === "admin" && (
-                                    <span className="text-[10px] font-semibold bg-slate-700 text-white px-2 py-0.5 rounded-full">Admin</span>
+                                  {m.userId === roomDetail.createdBy && (
+                                    <span className="text-[10px] font-semibold bg-slate-700 text-white px-2 py-0.5 rounded-full">ผู้สร้าง</span>
                                   )}
                           {isMe ? (
                                     <span className="text-[10px] font-medium bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">You</span>

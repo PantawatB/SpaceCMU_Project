@@ -498,6 +498,8 @@ const Chatbox = () => {
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [newChatSearch, setNewChatSearch] = useState("");
   const [selectedSuggestions, setSelectedSuggestions] = useState<number[]>([]);
+  // Keep full Suggestion objects so rawId is retained even when suggestions list changes (search replaces list)
+  const [selectedSuggestionObjects, setSelectedSuggestionObjects] = useState<Suggestion[]>([]);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestionsError, setSuggestionsError] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
@@ -717,12 +719,12 @@ const Chatbox = () => {
 
   // ── create direct room ────────────────────────────────────────────────────
   const handleCreateDirectRoom = async () => {
-    const sel = suggestions.find((s) => selectedSuggestions.includes(s.id));
+    const sel = selectedSuggestionObjects[0];
     if (!sel) return;
     setIsCreatingChat(true); setCreateChatError(null);
     try {
       const r = await apiService.post<{ room: { id: string } }>("/api/chat-rooms/direct", { otherUserId: sel.rawId });
-      setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]);
+      setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]); setSelectedSuggestionObjects([]);
       await fetchRooms();
       if (r?.room?.id) { setSelectedRoomId(r.room.id); }
     } catch { setCreateChatError("ไม่สามารถสร้างแชทได้"); }
@@ -732,7 +734,7 @@ const Chatbox = () => {
   // ── create group room ─────────────────────────────────────────────────────
   const handleCreateGroupRoom = async () => {
     if (!groupName.trim()) return;
-    const memberIds = suggestions.filter((s) => selectedSuggestions.includes(s.id)).map((s) => s.rawId);
+    const memberIds = selectedSuggestionObjects.map((s) => s.rawId);
     setIsCreatingChat(true); setCreateChatError(null);
     try {
       let result: { room: { id: string } } | null = null;
@@ -746,7 +748,7 @@ const Chatbox = () => {
         result = await apiService.post<{ room: { id: string } }>("/api/chat-rooms/group", { name: groupName.trim(), memberIds });
       }
       setIsGroupNameOpen(false); setGroupName(""); setGroupAvatarFile(null); setGroupAvatarPreview(null);
-      setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]);
+      setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]); setSelectedSuggestionObjects([]);
       await fetchRooms();
       if (result?.room?.id) { setSelectedRoomId(result.room.id); }
     } catch { setCreateChatError("ไม่สามารถสร้างกลุ่มได้"); }
@@ -1510,10 +1512,10 @@ const Chatbox = () => {
       {/* ── New Chat Modal ────────────────────────────────────────────────── */}
       {isNewChatOpen && (
         <div className="fixed inset-0 z-100 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]); }} />
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => { setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]); setSelectedSuggestionObjects([]); }} />
           <div className="relative w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col h-[600px]">
             <div className="flex-none flex items-center justify-between px-5 py-4 border-b border-gray-100">
-              <button onClick={() => { setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]); }}
+              <button onClick={() => { setIsNewChatOpen(false); setNewChatSearch(""); setSelectedSuggestions([]); setSelectedSuggestionObjects([]); }}
                 className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
@@ -1525,6 +1527,36 @@ const Chatbox = () => {
               <input type="text" placeholder="Search..." value={newChatSearch} onChange={(e) => setNewChatSearch(e.target.value)} autoFocus
                 className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-300 focus:outline-none" />
             </div>
+            {/* Selected users row */}
+            {selectedSuggestionObjects.length > 0 && (() => {
+              const MAX_SHOW = 4;
+              const shown = selectedSuggestionObjects.slice(0, MAX_SHOW);
+              const extra = selectedSuggestionObjects.length - MAX_SHOW;
+              return (
+                <div className="flex-none flex items-center gap-2 px-5 py-2.5 border-b border-gray-100 bg-slate-50">
+                  <div className="flex items-center gap-2 flex-1 flex-wrap">
+                    {shown.map((sel) => (
+                      <button key={sel.id}
+                        onClick={() => { setSelectedSuggestions((p) => p.filter((id) => id !== sel.id)); setSelectedSuggestionObjects((p) => p.filter((o) => o.id !== sel.id)); }}
+                        title={`ลบ ${sel.displayName}`}
+                        className="group relative flex items-center gap-1.5 bg-white border border-slate-200 text-slate-700 text-xs font-medium pl-1 pr-2 py-1 rounded-full hover:border-red-300 hover:bg-red-50 transition-colors">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={sel.avatar || "/default-avatar.svg"} alt={sel.displayName} className="w-5 h-5 rounded-full object-cover flex-none"
+                          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }} />
+                        <span className="group-hover:hidden">{sel.displayName}</span>
+                        <span className="hidden group-hover:inline text-red-400">ลบ</span>
+                        <svg className="w-3 h-3 text-slate-300 group-hover:text-red-400 flex-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    ))}
+                    {extra > 0 && (
+                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-slate-200 text-slate-600 text-xs font-semibold">+{extra}</span>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
             <div className="flex-none px-5 pt-4 pb-2">
               <p className="text-gray-900 font-semibold text-sm">{newChatSearch.trim() === "" ? "Suggested" : "Results"}</p>
             </div>
@@ -1559,7 +1591,15 @@ const Chatbox = () => {
                   .map((s) => {
                     const isSel = selectedSuggestions.includes(s.id);
                     return (
-                      <button key={s.id} onClick={() => setSelectedSuggestions((p) => isSel ? p.filter((id) => id !== s.id) : [...p, s.id])}
+                      <button key={s.id} onClick={() => {
+                        if (isSel) {
+                          setSelectedSuggestions((p) => p.filter((id) => id !== s.id));
+                          setSelectedSuggestionObjects((p) => p.filter((o) => o.id !== s.id));
+                        } else {
+                          setSelectedSuggestions((p) => [...p, s.id]);
+                          setSelectedSuggestionObjects((p) => [...p, s]);
+                        }
+                      }}
                         className="w-full flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors text-left">
                         <div className="relative flex-none w-12 h-12">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -1609,7 +1649,7 @@ const Chatbox = () => {
             <div className="px-5 pt-4 pb-2">
               <p className="text-xs text-gray-400 mb-3">สมาชิก {selectedSuggestions.length} คน</p>
               <div className="flex flex-wrap gap-2">
-                {suggestions.filter((s) => selectedSuggestions.includes(s.id)).map((s) => (
+                {selectedSuggestionObjects.map((s) => (
                   <div key={s.id} className="flex items-center gap-1.5 bg-slate-100 rounded-full px-3 py-1">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={s.avatar || "/default-avatar.svg"} alt={s.displayName} className="w-5 h-5 rounded-full object-cover"
