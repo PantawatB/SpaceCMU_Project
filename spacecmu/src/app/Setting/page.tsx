@@ -256,44 +256,20 @@ export default function SettingPage() {
       
       {/* Main content: fixed container with internal scroll */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
-        {/* Fixed header area (Search + Title + Tabs) */}
-        <div className="flex-none pt-8 px-8 pb-4 bg-white z-10">
-          {/* Search bar */}
-          <div className="mb-6">
-            <div className="relative w-full">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-5 h-5"
-                >
-                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" />
-                </svg>
-              </span>
-              <input
-                type="text"
-                placeholder="Search"
-                className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
-              />
-            </div>
-          </div>
-
+        {/* Fixed header area (Title + Tabs) */}
+        <div className="flex-none pt-5 sm:pt-8 px-4 sm:px-8 pb-0 bg-white z-10">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold">Settings</h1>
+          <div className="mb-6 sm:mb-6 sm:ml-10 ml-12 md:ml-10 lg:ml-0.5">
+            <h1 className="text-xl sm:text-2xl font-bold">Settings</h1>
           </div>
 
-          {/* Navigation Tabs */}
-          <div className="flex gap-8 border-b border-gray-200">
+          {/* Navigation Tabs — horizontally scrollable on mobile */}
+          <div className="flex gap-4 sm:gap-8 border-b border-gray-200 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 font-semibold text-lg transition-all ${
+                className={`pb-3 font-semibold text-base sm:text-base whitespace-nowrap shrink-0 transition-all ${
                   activeTab === tab.id
                     ? "text-gray-800 border-b-2 border-black"
                     : "text-gray-400 hover:text-gray-600"
@@ -306,12 +282,12 @@ export default function SettingPage() {
         </div>
 
         {/* Scrollable content area */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
-          <div className="max-w-3xl pt-8 ">          {/* Profile Settings */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-8 pb-8 min-w-0">
+          <div className="max-w-3xl pt-5 sm:pt-8">          {/* Profile Settings */}
           {activeTab === "profile" && (
             <div className="space-y-4">
               {/* Banner Picture Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Banner Picture</h2>
                 <div className="flex flex-col gap-4">
                   <div className="relative w-full h-48 rounded-xl overflow-hidden border-2 border-gray-200">
@@ -339,7 +315,7 @@ export default function SettingPage() {
               </div>
 
               {/* Profile Picture Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Profile Picture</h2>
                 <div className="flex items-center gap-6">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -361,7 +337,7 @@ export default function SettingPage() {
               </div>
 
               {/* Username Section (Read-only) */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Username</h2>
                 <div className="relative">
                   <input
@@ -375,7 +351,7 @@ export default function SettingPage() {
               </div>
 
               {/* Name Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold text-gray-800">Name</h2>
                   {!isNameEditable && (
@@ -434,7 +410,7 @@ export default function SettingPage() {
 
               {/* Student ID Section (Read-only) */}
               {activeUser?.studentId && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                   <h2 className="text-lg font-bold text-gray-800 mb-4">Student ID</h2>
                   <div className="relative">
                     <input
@@ -449,7 +425,7 @@ export default function SettingPage() {
 
               {/* Faculty Section (Read-only) */}
               {activeUser?.faculty && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                   <h2 className="text-lg font-bold text-gray-800 mb-4">Faculty</h2>
                   <div className="relative">
                     <input
@@ -464,7 +440,7 @@ export default function SettingPage() {
 
               {/* Major Section */}
               {activeUser?.major && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                   <h2 className="text-lg font-bold text-gray-800 mb-4">Major</h2>
                   <input
                     type="text"
@@ -477,7 +453,7 @@ export default function SettingPage() {
 
               {/* Year Section */}
               {activeUser?.year && (
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                   <h2 className="text-lg font-bold text-gray-800 mb-4">Year</h2>
                   <input
                     type="number"
@@ -491,7 +467,7 @@ export default function SettingPage() {
               )}
 
               {/* Bio Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-4">Bio</h2>
                 <textarea
                   rows={4}
@@ -520,7 +496,7 @@ export default function SettingPage() {
 
           {/* Account Settings */}
           {activeTab === "account" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-4 sm:p-8">
               <div className="flex items-start gap-4 mb-6">
                 <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center shrink-0">
                   <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -542,7 +518,7 @@ export default function SettingPage() {
 
           {/* Notifications */}
           {activeTab === "notifications" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
               <h2 className="text-lg font-bold text-gray-800 mb-6">Notification Preferences</h2>
               
               <div className="space-y-1">
@@ -611,7 +587,7 @@ export default function SettingPage() {
 
           {/* Privacy */}
           {activeTab === "privacy" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
               <h2 className="text-lg font-bold text-gray-800 mb-6">Privacy Settings</h2>
               
               <div className="space-y-1">
@@ -682,7 +658,7 @@ export default function SettingPage() {
           {activeTab === "appearance" && (
             <div className="space-y-4">
               {/* Theme Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Theme</h2>
                 <div className="flex gap-4">
                   <button className={`flex-1 py-3 px-4 border-2 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors ${
@@ -699,7 +675,7 @@ export default function SettingPage() {
               </div>
 
               {/* Language Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-6">Language</h2>
                 <select 
                   defaultValue={activeUser?.language || "en"}
@@ -717,7 +693,7 @@ export default function SettingPage() {
           {/* Official Account */}
           {activeTab === "official" && (
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
                 <h2 className="text-lg font-bold text-gray-800 mb-2">Suggested Official Accounts</h2>
                 <p className="text-sm text-gray-500 mb-6">
                   Follow verified official accounts to stay updated with important announcements
@@ -784,9 +760,9 @@ export default function SettingPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-gray-200">
+            <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-800">Change Profile Photo</h2>
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Change Profile Photo</h2>
                 <button
                   onClick={handleCancelPhoto}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
@@ -806,12 +782,12 @@ export default function SettingPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-8">
-              <div className="grid grid-cols-2 gap-8">
+            <div className="p-4 sm:p-8">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8">
                 {/* Left: Current Photo */}
                 <div className="flex flex-col items-center">
                   <p className="text-sm font-semibold text-gray-600 mb-4">Current Photo</p>
-                  <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
+                  <div className="relative w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden border-4 border-gray-200 shadow-lg">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={apiService.getImageUrl(activeUser?.avatarUrl) || "/default-avatar.svg"}
@@ -824,7 +800,7 @@ export default function SettingPage() {
                 {/* Right: New Photo Upload */}
                 <div className="flex flex-col items-center">
                   <p className="text-sm font-semibold text-gray-600 mb-4">New Photo</p>
-                  <div className="relative w-48 h-48 rounded-full overflow-hidden border-4 border-dashed border-gray-300 shadow-lg bg-gray-50 flex items-center justify-center group hover:border-blue-400 transition-colors">
+                  <div className="relative w-32 h-32 sm:w-48 sm:h-48 rounded-full overflow-hidden border-4 border-dashed border-gray-300 shadow-lg bg-gray-50 flex items-center justify-center group hover:border-blue-400 transition-colors">
                     {newPhoto ? (
                       <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -886,7 +862,7 @@ export default function SettingPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-4 sm:px-8 py-4 sm:py-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={handleCancelPhoto}
                 className="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 transition-colors"
@@ -914,9 +890,9 @@ export default function SettingPage() {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full overflow-hidden animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-gray-200">
+            <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold text-gray-800">Change Banner Photo</h2>
+                <h2 className="text-lg sm:text-2xl font-bold text-gray-800">Change Banner Photo</h2>
                 <button
                   onClick={handleCancelBanner}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
@@ -936,9 +912,8 @@ export default function SettingPage() {
             </div>
 
             {/* Modal Body */}
-            <div className="p-8">
+            <div className="p-4 sm:p-8">
               <div className="space-y-6">
-                {/* Current Banner */}
                 <div className="flex flex-col">
                   <p className="text-sm font-semibold text-gray-600 mb-4">Current Banner</p>
                   <div className="relative w-full h-56 rounded-xl overflow-hidden border-4 border-gray-200 shadow-lg">
@@ -1023,7 +998,7 @@ export default function SettingPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+            <div className="px-4 sm:px-8 py-4 sm:py-6 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={handleCancelBanner}
                 className="px-6 py-2.5 rounded-full text-sm font-semibold text-gray-700 bg-white border-2 border-gray-300 hover:bg-gray-100 transition-colors"
