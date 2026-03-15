@@ -263,43 +263,37 @@ export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
         <div className="relative group/media">
           {/* Left scroll arrow */}
           {post.media.length > 1 && showLeftArrow && (
-            <div className="absolute left-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-60 group-hover/media:opacity-100 transition-opacity">
+            <button
+              className="absolute left-1 top-1/2 -translate-y-1/2 z-10 opacity-80 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                const el = scrollRef.current;
+                if (el) el.scrollBy({ left: -240, behavior: "smooth" });
+              }}
+            >
               <div className="bg-white/90 rounded-full p-1.5 shadow">
-                <svg
-                  className="w-4 h-4 text-gray-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2.5}
-                    d="M15 19l-7-7 7-7"
-                  />
+                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7" />
                 </svg>
               </div>
-            </div>
+            </button>
           )}
           {/* Right scroll arrow */}
           {post.media.length > 1 && showRightArrow && (
-            <div className="absolute right-1 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-60 group-hover/media:opacity-100 transition-opacity">
+            <button
+              className="absolute right-1 top-1/2 -translate-y-1/2 z-10 opacity-80 hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                const el = scrollRef.current;
+                if (el) el.scrollBy({ left: 240, behavior: "smooth" });
+              }}
+            >
               <div className="bg-white/90 rounded-full p-1.5 shadow">
-                <svg
-                  className="w-4 h-4 text-gray-700"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2.5}
-                    d="M9 5l7 7-7 7"
-                  />
+                <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
                 </svg>
               </div>
-            </div>
+            </button>
           )}
 
           <div
@@ -339,8 +333,8 @@ export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
                         className="rounded-xl"
                         style={{
                           width: isSingle ? "100%" : "auto",
-                          height: isSingle ? "auto" : "260px",
-                          maxHeight: isSingle ? "480px" : "260px",
+                          height: isSingle ? "auto" : "320px",
+                          maxHeight: isSingle ? "520px" : "320px",
                           objectFit: "contain",
                         }}
                         loading="lazy"
@@ -353,8 +347,8 @@ export default function PostCardReadOnly({ post }: PostCardReadOnlyProps) {
                         className="rounded-xl"
                         style={{
                           width: isSingle ? "100%" : "auto",
-                          height: isSingle ? "auto" : "260px",
-                          maxHeight: isSingle ? "480px" : "260px",
+                          height: isSingle ? "auto" : "320px",
+                          maxHeight: isSingle ? "520px" : "320px",
                           objectFit: "contain",
                         }}
                       />

@@ -1001,7 +1001,7 @@ const Chatbox = () => {
     <>
       {/* ── Floating button (collapsed) ────────────────────────────────────── */}
       {!isChatOpen && !selectedRoomId && (
-        <div className="fixed bottom-6 right-6 z-30">
+        <div className="fixed bottom-4 right-4 z-30">
           <button
             onClick={() => setIsChatOpen(true)}
             className="hidden md:flex items-center gap-4 bg-white shadow-2xl border border-gray-200 rounded-2xl px-8 py-4 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 active:scale-95"
