@@ -25,6 +25,7 @@ interface Post {
   likeCount: number;
   commentCount: number;
   repostCount: number;
+  shareCount?: number;
   createdAt: string;
   author?: {
     firstName: string | null;
@@ -124,9 +125,11 @@ interface ChatRoom {
 function SharePostModal({
   post,
   onClose,
+  onShareSent,
 }: {
   post: Post;
   onClose: () => void;
+  onShareSent?: (count: number) => void;
 }) {
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
   const [loadingRooms, setLoadingRooms] = useState(true);
@@ -194,6 +197,7 @@ function SharePostModal({
       );
       setSent(true);
       setSendError(null);
+      onShareSent?.(selected.size);
       setTimeout(onClose, 1200);
     } catch (e) {
       console.error("SharePostModal send error:", e);
@@ -489,6 +493,7 @@ export default function PostCard({
   const [isReposted, setIsReposted] = useState(false);
   // Share modal
   const [showShareModal, setShowShareModal] = useState(false);
+  const [localShareCount, setLocalShareCount] = useState(post.shareCount ?? 0);
   const [isSaved, setIsSaved] = useState(false);
 
   // Comment media upload states
@@ -1634,7 +1639,7 @@ export default function PostCard({
                 <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
               </svg>
             </div>
-            <span className="group-hover:text-gray-800">Like</span>
+            <span className="group-hover:text-gray-800 hidden sm:inline">Like</span>
             {post.likeCount > 0 && (
               <span className="text-xs text-gray-500">({post.likeCount})</span>
             )}
@@ -1658,7 +1663,7 @@ export default function PostCard({
                 d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
               />
             </svg>
-            <span>Comment</span>
+            <span className="hidden sm:inline">Comment</span>
             {localCommentCount > 0 && (
               <span className="text-xs text-gray-500">
                 ({localCommentCount})
@@ -1688,7 +1693,7 @@ export default function PostCard({
                 <path d="M21 13v1a4 4 0 0 1-4 4H3" />
               </svg>
             </div>
-            <span className="group-hover:text-gray-800">Repost</span>
+            <span className="group-hover:text-gray-800 hidden sm:inline">Repost</span>
             {post.repostCount > 0 && (
               <span className="text-xs text-gray-500">
                 ({post.repostCount})
@@ -1711,7 +1716,10 @@ export default function PostCard({
               >
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
               </svg>
-              <span>Share</span>
+              <span className="hidden sm:inline">Share</span>
+              {localShareCount > 0 && (
+                <span className="text-xs text-gray-500">({localShareCount})</span>
+              )}
             </button>
           )}
         </div>
@@ -1868,7 +1876,11 @@ export default function PostCard({
 
       {/* Share Post Modal */}
       {showShareModal && (
-        <SharePostModal post={post} onClose={() => setShowShareModal(false)} />
+        <SharePostModal
+          post={post}
+          onClose={() => setShowShareModal(false)}
+          onShareSent={(count) => setLocalShareCount((prev) => prev + count)}
+        />
       )}
 
       {/* Comment Popup */}
@@ -2471,7 +2483,7 @@ export default function PostCard({
                       value={commentText}
                       onChange={(text) => setCommentText(text)}
                       onChangeRaw={(raw) => setCommentRawText(raw)}
-                      placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : "Write a comment… (type @ to mention)"}
+                      placeholder={replyingTo ? `Reply to ${replyingTo.name}…` : "Write a comment…"}
                       rows={1}
                       className="w-full px-4 py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-slate-300 focus:bg-white text-sm transition-all resize-none overflow-hidden"
                       style={{ minHeight: "40px", maxHeight: "120px" }}

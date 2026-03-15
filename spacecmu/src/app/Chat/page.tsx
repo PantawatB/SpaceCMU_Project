@@ -1682,9 +1682,8 @@ export default function ChatPage() {
     <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
       {/* Sidebar */}
       <div className="flex-none h-screen sticky top-0 z-30">
-        <Sidebar />
+        <Sidebar hideHamburger={!!selectedRoomId} />
       </div>
-
       {/* New Message Modal */}
       {isNewChatOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -2008,8 +2007,8 @@ export default function ChatPage() {
 
       {/* Main Chat Layout */}
       <main className="flex-1 flex h-screen overflow-hidden min-w-0">
-        {/* Left Panel — Conversation Window */}
-        <div className="flex-1 flex flex-col h-full min-w-0 bg-gray-50">
+        {/* Left Panel — Conversation Window (hidden on mobile when no room selected) */}
+        <div className={`flex-1 flex flex-col h-full min-w-0 bg-gray-50 ${selectedRoomId ? "flex" : "hidden lg:flex"}`}>
 
           {/* ══════════════════════════════════════════════════════════════
               แสดงห้องแชทจริง
@@ -2023,8 +2022,18 @@ export default function ChatPage() {
             return (
               <>
                 {/* Chat Header */}
-                <div className="flex-none flex items-center justify-between px-6 py-4 bg-white border-b border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-3">
+                <div className="flex-none flex items-center justify-between px-4 lg:px-6 py-4 bg-white border-b border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    {/* Back button (mobile only) */}
+                    <button
+                      onClick={() => setSelectedRoomId(null)}
+                      className="lg:hidden flex-none w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 transition-colors"
+                      aria-label="Back"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15.75 19.5L8.25 12l7.5-7.5" />
+                      </svg>
+                    </button>
                     <div className="relative flex-none">
                       {roomAvatarUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -2087,7 +2096,7 @@ export default function ChatPage() {
                     if (seenPopupMsgId) setSeenPopupMsgId(null);
                     if (activeMessageMenu) setActiveMessageMenu(null);
                   }}
-                  className="flex-1 overflow-y-auto px-6 py-6 space-y-3"
+                  className="flex-1 overflow-y-auto px-3 lg:px-6 py-4 lg:py-6 space-y-3"
                 >
                   {/* Load More indicator */}
                   {isLoadingMore && (
@@ -2357,7 +2366,7 @@ export default function ChatPage() {
                               </div>
                             )}
 
-                            <div className={`max-w-[65%] flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+                            <div className={`max-w-[65%] min-w-0 flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                               {/* ชื่อผู้ส่ง */}
                               {showSenderName && (
                                 <span className="text-[11px] text-gray-400 mb-0.5 px-1 flex items-center gap-1">
@@ -2373,8 +2382,8 @@ export default function ChatPage() {
                               {/* ── Edit/Delete action buttons (own messages only) ─── */}
                               {isMine && activeMessageMenu === msg.id && editingMessageId !== msg.id && (
                                 <div className="flex items-center gap-1 mb-1 self-end">
-                                  {/* ซ่อนปุ่มแก้ไขถ้าเป็น market card หรือ post card */}
-                                  {!parseMarketCard(msg.content) && !parsePostCard(msg.content) && (
+                                  {/* ซ่อนปุ่มแก้ไขถ้าเป็น market card, post card หรือมีไฟล์แนบ */}
+                                  {!parseMarketCard(msg.content) && !parsePostCard(msg.content) && !msg.mediaUrls && (
                                     <button
                                       onClick={(e) => { e.stopPropagation(); handleStartEdit(msg); }}
                                       className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-[11px] font-medium transition-colors"
@@ -2442,7 +2451,7 @@ export default function ChatPage() {
                               ) : (
                               /* ── Normal Bubble ────────────────────────────────── */
                               <div
-                                className={`overflow-hidden ${
+                                className={`overflow-hidden min-w-0 ${
                                   isMine
                                     ? `bg-slate-700 text-white cursor-pointer select-none ${
                                         isFirstInGroup && isLastInGroup ? "rounded-2xl rounded-br-sm"
@@ -2565,7 +2574,7 @@ export default function ChatPage() {
                                     return <PostCardBubble card={postCard} isMine={isMine} />;
                                   }
                                   return (
-                                    <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                                    <p className="px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word min-w-0 max-w-full">
                                       {msg.content}
                                     </p>
                                   );
@@ -2802,10 +2811,10 @@ export default function ChatPage() {
           )}
         </div>
 
-        {/* Right Panel — Conversation List */}
-        <div className="w-75 min-w-[256px] max-w-[400px] flex flex-col border-l border-gray-100 bg-white h-full">
+        {/* Right Panel — Conversation List (hidden on mobile when room selected) */}
+        <div className={`w-full lg:w-75 lg:min-w-[256px] lg:max-w-[400px] flex flex-col border-l border-gray-100 bg-white h-full ${selectedRoomId ? "hidden lg:flex" : "flex"}`}>
           {/* Header */}
-          <div className="flex-none px-6 pt-8 pb-4">
+          <div className="flex-none px-4 lg:px-6 pt-14 lg:pt-8 pb-4">
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900">Chat</h1>

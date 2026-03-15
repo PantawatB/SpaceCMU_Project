@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { messagesTable, chatRoomsTable, chatRoomMembersTable, usersTable } from "../../db/schema.js";
+import { messagesTable, chatRoomsTable, chatRoomMembersTable, usersTable, postsTable } from "../../db/schema.js";
 import { eq, or, and, isNull, desc, sql, like } from "drizzle-orm";
 
 // Send a new message (room-based)
@@ -113,6 +113,20 @@ export const sendMessage = async (req: Request, res: Response) => {
                 messageType: messageType || "text",
             })
             .returning();
+
+        // If this message is a shared post_card, increment the post's shareCount
+        try {
+            const trimmed = (content ?? "").trim();
+            if (trimmed.startsWith("{") && trimmed.includes('"__type":"post_card"')) {
+                const parsed = JSON.parse(trimmed) as { __type?: string; postId?: string };
+                if (parsed.__type === "post_card" && parsed.postId) {
+                    await dbClient
+                        .update(postsTable)
+                        .set({ shareCount: sql`${postsTable.shareCount} + 1` })
+                        .where(eq(postsTable.id, parsed.postId));
+                }
+            }
+        } catch { /* ignore parse errors — don't break message sending */ }
 
         res.status(201).json(newMessage[0]);
     } catch (error) {

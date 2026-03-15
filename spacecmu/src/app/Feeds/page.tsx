@@ -30,6 +30,7 @@ interface Post {
   likeCount: number;
   commentCount: number;
   repostCount: number;
+  shareCount?: number;
   createdAt: string;
   author?: {
     firstName: string | null;
@@ -54,7 +55,6 @@ export default function FeedsMainPage() {
     }
     return "Global";
   });
-  const [showMobileSidebar, setShowMobileSidebar] = useState(false);
   const [showShareBar, setShowShareBar] = useState(true);
   const [postText, setPostText] = useState("");
   const [postRawText, setPostRawText] = useState(""); // raw with @[userId] for server
@@ -570,50 +570,14 @@ export default function FeedsMainPage() {
 
   return (
     <div className="flex h-screen bg-white text-gray-800 overflow-hidden min-w-[375px]">
-      {/* Mobile Sidebar Overlay */}
-      {showMobileSidebar && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setShowMobileSidebar(false)}
-        />
-      )}
-
-      {/* Sidebar (Left) - Hidden on mobile, slide-in on mobile when toggled */}
-      <div
-        className={`fixed lg:static inset-y-0 left-0 z-50 transform transition-transform duration-300 lg:transform-none ${
-          showMobileSidebar
-            ? "translate-x-0"
-            : "-translate-x-full lg:translate-x-0"
-        }`}
-      >
-        <Sidebar />
-      </div>
+      {/* Sidebar (Left) - Sidebar component manages its own open/close, backdrop, and hamburger button */}
+      <Sidebar />
 
       {/* Main Content (Center) */}
-      <main className="flex-1 pt-8 px-8 pb-0 flex flex-col gap-4 relative overflow-hidden">
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setShowMobileSidebar(true)}
-          className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white rounded-lg shadow-lg hover:bg-gray-50 transition"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={2}
-            stroke="currentColor"
-            className="w-6 h-6 text-gray-700"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-            />
-          </svg>
-        </button>
+      <main className="flex-1 pt-4 lg:pt-8 px-4 lg:px-8 pb-0 flex flex-col gap-4 relative overflow-hidden">
 
         {/* Search bar */}
-        <div className="mb-2">
+        <div className="mb-2 pl-14 lg:pl-0">
           <div className="relative w-full">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
               <svg
@@ -1221,7 +1185,7 @@ export default function FeedsMainPage() {
         )}
 
         {/* Share something bar - fixed bottom with toggle */}
-        <div className="fixed bottom-4 left-8 right-22 md:left-8 md:right-22 lg:left-72 lg:right-96 z-40 flex flex-col items-center">
+        <div className="fixed bottom-4 left-4 right-20 md:left-8 md:right-22 lg:left-72 lg:right-96 z-40 flex flex-col items-center">
           {/* Toggle Button */}
           <button
             className="mb-2 text-gray-500 bg-white/95 backdrop-blur-sm rounded-full p-2 hover:bg-gray-100 shadow-lg flex items-center justify-center transition-all duration-200"
@@ -1270,7 +1234,7 @@ export default function FeedsMainPage() {
                     value={postText}
                     onChange={(text) => setPostText(text.slice(0, 2000))}
                     onChangeRaw={(raw) => setPostRawText(raw.slice(0, 2000))}
-                    placeholder="What's on your mind? (type @ to mention)"
+                    placeholder="What's on your mind?"
                     rows={1}
                     className="w-full px-3 sm:px-4 py-2 sm:py-2.5 rounded-2xl bg-gray-50 text-gray-800 placeholder-gray-400 border border-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-200 focus:bg-white text-sm sm:text-base transition-all resize-none overflow-hidden"
                     style={{ minHeight: '40px', maxHeight: '120px' }}
