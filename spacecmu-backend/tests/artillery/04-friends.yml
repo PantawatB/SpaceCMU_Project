@@ -1,0 +1,103 @@
+# Artillery Test: Friends & Follows
+# Tests: GET friends, GET requests, GET suggestions, GET follow status
+# Run: artillery run --config config.yml 04-friends.yml
+
+config:
+  target: "http://localhost:3001"
+  http:
+    timeout: 10
+  variables:
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYxMjU5OTdkLWM3MTYtNDlmZi1hMDY3LWM5ZmQwYzBlNDk0NCIsInJvbGUiOiJ1c2VyIiwidXNlcm5hbWUiOiI2NTA2MTIxMDIiLCJlbWFpbCI6InNpcmFwaG9iX2x1QGNtdS5hYy50aCIsIml0YWNjb3VudF9uYW1lIjoic2lyYXBob2JfbHUiLCJwcmVuYW1lX1RIIjoiIiwiZmlyc3RuYW1lX1RIIjoi4Liq4Li04Lij4Lig4LieIiwibGFzdG5hbWVfVEgiOiLguYDguKvguKXguLfguK3guIfguJvguKPguLDguYDguKrguKPguLTguJAiLCJvcmdhbml6YXRpb25fbmFtZV9USCI6IuC4hOC4k-C4sOC4p-C4tOC4qOC4p-C4geC4o-C4o-C4oeC4qOC4suC4quC4leC4o-C5jCIsImlhdCI6MTc3MzU4OTA0MiwiZXhwIjoxNzczNjc1NDQyfQ.7a_C0TnKVkRs9lEa3ge4Odxupdn1kc6HvOXVShkDPFY"
+    myUserId: "f125997d-c716-49ff-a067-c9fd0c0e4944"
+  phases:
+    - duration: 15
+      arrivalRate: 5
+      name: "Warm Up"
+    - duration: 30
+      arrivalRate: 5
+      rampTo: 20
+      name: "Ramp Up"
+    - duration: 30
+      arrivalRate: 20
+      name: "Sustained Load"
+
+scenarios:
+  - name: "Get My Friends List"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/friends/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Pending Friend Requests"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/friends/requests/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Friend Suggestions"
+    weight: 4
+    flow:
+      - get:
+          url: "/api/friends/suggestions"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Active Friends"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/friends/active"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Check Friendship Status"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/friends/status/{{ myUserId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Friends by User ID"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/friends/user/{{ myUserId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Follow Status"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/follows/status/{{ myUserId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Posts by User ID (Profile View)"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/posts/user/{{ myUserId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200

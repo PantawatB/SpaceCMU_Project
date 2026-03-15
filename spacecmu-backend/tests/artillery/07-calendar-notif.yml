@@ -1,0 +1,132 @@
+# Artillery Test: Calendar & Notifications
+# Tests: Calendar CRUD, Notifications read, Settings
+# Run: artillery run --config config.yml 07-calendar-notif.yml
+
+config:
+  target: "http://localhost:3001"
+  http:
+    timeout: 10
+  variables:
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYxMjU5OTdkLWM3MTYtNDlmZi1hMDY3LWM5ZmQwYzBlNDk0NCIsInJvbGUiOiJ1c2VyIiwidXNlcm5hbWUiOiI2NTA2MTIxMDIiLCJlbWFpbCI6InNpcmFwaG9iX2x1QGNtdS5hYy50aCIsIml0YWNjb3VudF9uYW1lIjoic2lyYXBob2JfbHUiLCJwcmVuYW1lX1RIIjoiIiwiZmlyc3RuYW1lX1RIIjoi4Liq4Li04Lij4Lig4LieIiwibGFzdG5hbWVfVEgiOiLguYDguKvguKXguLfguK3guIfguJvguKPguLDguYDguKrguKPguLTguJAiLCJvcmdhbml6YXRpb25fbmFtZV9USCI6IuC4hOC4k-C4sOC4p-C4tOC4qOC4p-C4geC4o-C4o-C4oeC4qOC4suC4quC4leC4o-C5jCIsImlhdCI6MTc3MzU4OTA0MiwiZXhwIjoxNzczNjc1NDQyfQ.7a_C0TnKVkRs9lEa3ge4Odxupdn1kc6HvOXVShkDPFY"
+    myUserId: "f125997d-c716-49ff-a067-c9fd0c0e4944"
+  phases:
+    - duration: 15
+      arrivalRate: 5
+      name: "Warm Up"
+    - duration: 30
+      arrivalRate: 5
+      rampTo: 15
+      name: "Ramp Up"
+    - duration: 30
+      arrivalRate: 15
+      name: "Sustained Load"
+
+scenarios:
+  # ─── Calendar ─────────────────────────────────────────────────────────────
+  - name: "Get Today's Events"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/calendar/today"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get All Events"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/calendar/all"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get My Events"
+    weight: 4
+    flow:
+      - get:
+          url: "/api/calendar/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Events by Date"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/calendar/date?date=2026-03-15"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Create Event → Toggle → Delete"
+    weight: 2
+    flow:
+      # 1. Create
+      - post:
+          url: "/api/calendar"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            title: "Artillery Test Event"
+            startTime: "2026-03-20T10:00:00Z"
+            endTime: "2026-03-20T11:00:00Z"
+            eventType: "class"
+          capture:
+            - json: "$.id"
+              as: "eventId"
+          expect:
+            - statusCode: [200, 201]
+
+      # 2. Toggle status
+      - patch:
+          url: "/api/calendar/{{ eventId }}/toggle"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      # 3. Delete
+      - delete:
+          url: "/api/calendar/{{ eventId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: [200, 204]
+
+  # ─── Notifications ────────────────────────────────────────────────────────
+  - name: "Get Notifications"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/notifications/{{ myUserId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Announcements"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/announcements"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  # ─── Settings ─────────────────────────────────────────────────────────────
+  - name: "Get My Settings"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/settings/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200

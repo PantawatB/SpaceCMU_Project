@@ -410,6 +410,38 @@
                                 }
                             },
                             "response": []
+                        },
+                        {
+                            "name": "Batch Get Users",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/users/batch?ids=uuid1,uuid2,uuid3",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "users",
+                                        "batch"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "ids",
+                                            "value": "uuid1,uuid2,uuid3"
+                                        }
+                                    ]
+                                },
+                                "description": "Get multiple users by their IDs in a single request. Pass comma-separated UUIDs as query parameter."
+                            },
+                            "response": []
                         }
                     ]
                 },
@@ -982,6 +1014,124 @@
                                 "description": "Accept event attached to a post and add it to your calendar. Prevents duplicate acceptance."
                             },
                             "response": []
+                        },
+                        {
+                            "name": "Get Post By ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/:postId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        ":postId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "postId",
+                                            "value": "post_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Get a single post by its ID. Returns full post data with author info, like/comment counts."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Edit Post",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "content",
+                                            "value": "Updated post content",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "category",
+                                            "value": "Global",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "media",
+                                            "type": "file",
+                                            "src": [],
+                                            "description": "New media files (optional)"
+                                        }
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/:postId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        ":postId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "postId",
+                                            "value": "post_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Edit an existing post. Supports multipart/form-data for media updates (max 20 files)."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Event from Post",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/:postId/event",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        ":postId",
+                                        "event"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "postId",
+                                            "value": "post_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Get the event data attached to a post (eventTitle, eventStartTime, eventEndTime, eventType)."
+                            },
+                            "response": []
                         }
                     ]
                 },
@@ -1096,6 +1246,128 @@
                                         }
                                     ]
                                 }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Edit Comment",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"content\": \"Updated comment text\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/comment/:commentId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "comment",
+                                        ":commentId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "commentId",
+                                            "value": "comment_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Edit an existing comment."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Like / Unlike Comment (Toggle)",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"commentId\": \"comment_uuid_here\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/comment/like",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "comment",
+                                        "like"
+                                    ]
+                                },
+                                "description": "Toggle like on a comment. If already liked, it will unlike."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Post by Comment ID",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/posts/comment/:commentId/post",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "posts",
+                                        "comment",
+                                        ":commentId",
+                                        "post"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "commentId",
+                                            "value": "comment_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Get the parent post of a comment. Useful for navigating from comment_like notifications."
                             },
                             "response": []
                         }
@@ -1344,6 +1616,39 @@
                     "response": []
                 },
                 {
+                    "name": "Get Market Item By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/market/items/:itemId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "market",
+                                "items",
+                                ":itemId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "itemId",
+                                    "value": "item_uuid_here"
+                                }
+                            ]
+                        },
+                        "description": "Get a single market item by its ID."
+                    },
+                    "response": []
+                },
+                {
                     "name": "Get Market Items by User ID",
                     "request": {
                         "method": "GET",
@@ -1586,6 +1891,39 @@
                             ]
                         }
                     }
+                },
+                {
+                    "name": "Delete Market Item",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/market/items/:itemId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "market",
+                                "items",
+                                ":itemId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "itemId",
+                                    "value": "item_uuid_here"
+                                }
+                            ]
+                        },
+                        "description": "Delete a market item. Only the original seller can delete their item."
+                    },
+                    "response": []
                 }
             ]
         },
@@ -2656,6 +2994,56 @@
                             "response": []
                         },
                         {
+                            "name": "Send Message with Media",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "formdata",
+                                    "formdata": [
+                                        {
+                                            "key": "content",
+                                            "value": "Check this out!",
+                                            "type": "text"
+                                        },
+                                        {
+                                            "key": "media",
+                                            "type": "file",
+                                            "src": [],
+                                            "description": "Images/videos (max 15)"
+                                        }
+                                    ]
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/room/:roomId/media",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "room",
+                                        ":roomId",
+                                        "media"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Send a message with media attachments. Max 15 files per message."
+                            },
+                            "response": []
+                        },
+                        {
                             "name": "Get Room Messages",
                             "request": {
                                 "method": "GET",
@@ -2823,6 +3211,86 @@
                                         "me"
                                     ]
                                 }
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Room Readers",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/room/:roomId/readers",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        "room",
+                                        ":roomId",
+                                        "readers"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "roomId",
+                                            "value": "room_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Get the read receipt status for all members in a room."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Edit Message",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"content\": \"Edited message content\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/messages/:messageId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "messages",
+                                        ":messageId"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "messageId",
+                                            "value": "message_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Edit a sent message. Only the sender can edit their own message."
                             },
                             "response": []
                         }
@@ -3211,6 +3679,97 @@
                             ]
                         },
                         "description": "Global announcements + private announcements targeted at the current user."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Mark All Notifications as Read",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/notifications/:userId/read-all",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "notifications",
+                                ":userId",
+                                "read-all"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": "user_uuid_here"
+                                }
+                            ]
+                        },
+                        "description": "Mark all notifications for a user as read."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Notification",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/notifications/:notificationId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "notifications",
+                                ":notificationId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "notificationId",
+                                    "value": "notification_uuid_here"
+                                }
+                            ]
+                        },
+                        "description": "Delete a single notification by its ID."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete All Notifications",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/notifications/all",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "notifications",
+                                "all"
+                            ]
+                        },
+                        "description": "Delete all notifications for the authenticated user."
                     },
                     "response": []
                 }
@@ -4013,6 +4572,296 @@
                             "response": []
                         }
                     ]
+                },
+                {
+                    "name": "Search All Users (incl. Official)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/god/users/search-all?query=john",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "god",
+                                "users",
+                                "search-all"
+                            ],
+                            "query": [
+                                {
+                                    "key": "query",
+                                    "value": "john"
+                                }
+                            ]
+                        },
+                        "description": "Search all users including official_account role. Used for selecting private notification recipients."
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Notifications (God)",
+                    "item": [
+                        {
+                            "name": "Send Global Notification",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"title\": \"System Update\",\n  \"message\": \"The system will undergo maintenance at 2AM.\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/notifications/global",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "notifications",
+                                        "global"
+                                    ]
+                                },
+                                "description": "Broadcast a notification to all users on the platform."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Send Private Notifications",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"recipientIds\": [\n    \"user_uuid_1\",\n    \"user_uuid_2\"\n  ],\n  \"title\": \"Important Notice\",\n  \"message\": \"You have been selected for review.\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/notifications/private",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "notifications",
+                                        "private"
+                                    ]
+                                },
+                                "description": "Send a notification to specific users by their IDs."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Get Sent Notifications",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/notifications/sent",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "notifications",
+                                        "sent"
+                                    ]
+                                },
+                                "description": "Get a list of all notifications sent by the god user (both global and private)."
+                            },
+                            "response": []
+                        }
+                    ]
+                },
+                {
+                    "name": "Reports (God)",
+                    "item": [
+                        {
+                            "name": "Get All Reports",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/reports",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "reports"
+                                    ]
+                                },
+                                "description": "Get all user-submitted reports. Supports filtering and pagination."
+                            },
+                            "response": []
+                        },
+                        {
+                            "name": "Update Report Status",
+                            "request": {
+                                "method": "PATCH",
+                                "header": [
+                                    {
+                                        "key": "Authorization",
+                                        "value": "Bearer {{token}}",
+                                        "type": "text"
+                                    },
+                                    {
+                                        "key": "Content-Type",
+                                        "value": "application/json",
+                                        "type": "text"
+                                    }
+                                ],
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n  \"status\": \"resolved\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                },
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/god/reports/:id/status",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "god",
+                                        "reports",
+                                        ":id",
+                                        "status"
+                                    ],
+                                    "variable": [
+                                        {
+                                            "key": "id",
+                                            "value": "report_uuid_here"
+                                        }
+                                    ]
+                                },
+                                "description": "Update the status of a report (e.g. pending → reviewing → resolved → dismissed)."
+                            },
+                            "response": []
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "11. Reports",
+            "description": "User-facing report submission for posts, users, and bugs",
+            "item": [
+                {
+                    "name": "Submit Report",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{token}}",
+                                "type": "text"
+                            }
+                        ],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "type",
+                                    "value": "post",
+                                    "type": "text",
+                                    "description": "post | user | bug | other"
+                                },
+                                {
+                                    "key": "targetId",
+                                    "value": "target_uuid_here",
+                                    "type": "text",
+                                    "description": "ID of the reported post/user (optional for bug)"
+                                },
+                                {
+                                    "key": "reason",
+                                    "value": "Inappropriate content",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "details",
+                                    "value": "This post contains offensive language.",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "media",
+                                    "type": "file",
+                                    "src": [],
+                                    "description": "Supporting evidence images/videos (max 10, 50MB each)"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/reports",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "reports"
+                            ]
+                        },
+                        "description": "Submit a report about a post, user, or bug. Supports media attachments via multipart/form-data. Max 10 files, 50MB each. Accepted formats: jpg, png, gif, webp, mp4, mov, avi, mkv, webm, m4v."
+                    },
+                    "response": []
                 }
             ]
         }
