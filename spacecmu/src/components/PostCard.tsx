@@ -70,6 +70,7 @@ interface PostCardProps {
   onRepostUpdate?: (postId: string, newRepostCount: number) => void;
   onSaveUpdate?: (postId: string) => void;
   onPostDelete?: (postId: string) => void;
+  onShareUpdate?: (postId: string, newShareCount: number) => void;
   /** ซ่อนปุ่ม Share — ใช้ใน Friends feed เพื่อป้องกันการแชร์โพสต์ส่วนตัวออกไป */
   disableShare?: boolean;
 }
@@ -389,6 +390,7 @@ export default function PostCard({
   onRepostUpdate,
   onSaveUpdate,
   onPostDelete,
+  onShareUpdate,
   disableShare = false,
 }: PostCardProps) {
   const { activeUser } = useUser();
@@ -494,6 +496,10 @@ export default function PostCard({
   // Share modal
   const [showShareModal, setShowShareModal] = useState(false);
   const [localShareCount, setLocalShareCount] = useState(post.shareCount ?? 0);
+  // Sync shareCount when post prop changes (e.g. after data refresh)
+  useEffect(() => {
+    setLocalShareCount(post.shareCount ?? 0);
+  }, [post.shareCount]);
   const [isSaved, setIsSaved] = useState(false);
 
   // Comment media upload states
@@ -1879,7 +1885,11 @@ export default function PostCard({
         <SharePostModal
           post={post}
           onClose={() => setShowShareModal(false)}
-          onShareSent={(count) => setLocalShareCount((prev) => prev + count)}
+          onShareSent={(count) => {
+            const newCount = localShareCount + count;
+            setLocalShareCount(newCount);
+            onShareUpdate?.(post.id, newCount);
+          }}
         />
       )}
 

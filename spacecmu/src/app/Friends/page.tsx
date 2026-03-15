@@ -32,6 +32,7 @@ interface Post {
   likeCount: number;
   commentCount: number;
   repostCount: number;
+  shareCount?: number;
   createdAt: string;
   author?: {
     firstName: string | null;
@@ -1176,6 +1177,25 @@ export default function FriendsMainPage() {
     console.log("Post save status updated");
   };
 
+  // Handle share count update
+  const handleShareUpdate = (postId: string, newShareCount: number) => {
+    setUserPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId ? { ...post, shareCount: newShareCount } : post
+      )
+    );
+    setUserRepostedPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId ? { ...post, shareCount: newShareCount } : post
+      )
+    );
+    setUserLikedPosts(prevPosts =>
+      prevPosts.map(post =>
+        post.id === postId ? { ...post, shareCount: newShareCount } : post
+      )
+    );
+  };
+
   // ── Send market chat to seller ────────────────────────────────────────────
   // Load friend suggestions from API
   useEffect(() => {
@@ -1282,14 +1302,14 @@ export default function FriendsMainPage() {
       {/* Sidebar */}
       <Sidebar />
       {/* Main Content */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">
         {selectedUser ? (
           /* User Profile View */
           <>
 
 
             {/* Search bar */}
-            <div className="mb-6" ref={searchRef}>
+            <div className="mb-6 pl-14 lg:pl-0" ref={searchRef}>
               <div className="relative w-full">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                   <svg
@@ -1462,9 +1482,9 @@ export default function FriendsMainPage() {
 
             {/* Profile Section */}
             <section className="flex-1 overflow-y-auto flex flex-col gap-6">
-              <div className="bg-white rounded-2xl shadow relative overflow-hidden">
+              <div className="bg-white rounded-2xl shadow">
                 {/* Cover Image */}
-                <div className="h-40 w-full relative">
+                <div className="h-40 w-full rounded-t-2xl overflow-hidden">
                   {selectedUser.bannerUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -1477,341 +1497,231 @@ export default function FriendsMainPage() {
                   )}
                 </div>
 
-                {/* Profile Avatar - left aligned */}
-                <div className="absolute left-10 top-28 flex items-center">
-                  <div className="rounded-full border-4 border-white p-1 bg-white">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={apiService.getImageUrl(selectedUser.avatarUrl) || "/default-avatar.svg"}
-                      alt="Profile Avatar"
-                      className="w-[90px] h-[90px] rounded-full object-cover"
-                    />
-                  </div>
-                  {/* Stats - right of avatar */}
-                  <div
-                    className="flex flex-col justify-center ml-6 relative"
-                    style={{ top: "25px" }}
-                  >
-                    <div className="flex gap-8">
-                      <div className="text-center">
-                        <span className="text-xl font-semibold">
-                          {selectedUser.friendsCount}
-                        </span>
-                        <span className="text-gray-500 ml-1">Friends</span>
-                        <span className="text-gray-500 ml-4">|</span>
-                        <span className="text-black-500 ml-4 font-semibold">
-                          {selectedUser.faculty || "Unknown"}
-                        </span>
-                      </div>
+                {/* Profile info — responsive left-aligned */}
+                <div className="relative">
+                  {/* Avatar — overlapping banner, left-aligned */}
+                  <div className="absolute left-6 sm:left-12 -top-10 sm:-top-11 z-10">
+                    <div className="rounded-full border-4 border-white bg-white">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={apiService.getImageUrl(selectedUser.avatarUrl) || "/default-avatar.svg"}
+                        alt="Profile Avatar"
+                        className="w-20 h-20 sm:w-[90px] sm:h-[90px] rounded-full object-cover"
+                        onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }}
+                      />
                     </div>
                   </div>
-                </div>
 
-                {/* Name & Verified */}
-                <div className="flex items-center justify-between mt-19 ml-8 mr-8">
-                  <div className="flex items-center">
-                    <span className="text-2xl font-bold">
-                      {selectedUser.firstName} {selectedUser.lastName}
-                    </span>
-                    <svg
-                      className="w-6 h-6 text-blue-500 ml-2"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path d="M10 2a8 8 0 100 16 8 8 0 000-16zm3.93 6.36l-4.24 4.24a1 1 0 01-1.41 0l-2.12-2.12a1 1 0 111.41-1.41l1.41 1.41 3.54-3.54a1 1 0 111.41 1.41z" />
-                    </svg>
+                  {/* Stats row — to the right of avatar */}
+                  <div className="flex items-center ml-32 sm:ml-44 pt-2 sm:pt-3 gap-2 sm:gap-8 flex-wrap">
+                    <div className="flex items-center gap-1 sm:gap-0 min-w-0">
+                      <span className="text-sm sm:text-xl font-semibold shrink-0">{selectedUser.friendsCount}</span>
+                      <span className="text-gray-500 text-sm sm:text-base ml-1 shrink-0">Friends</span>
+                      <span className="text-gray-500 ml-2 sm:ml-4 shrink-0">|</span>
+                      <span className="text-black font-semibold text-sm sm:text-base ml-2 sm:ml-4 truncate max-w-[120px] sm:max-w-xs" title={selectedUser.faculty || "Unknown"}>
+                        {selectedUser.faculty || "Unknown"}
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Friend/Unfriend Button + Chat Button */}
-                  <div className="flex items-center gap-2">
-                  {/* Follow / Unfollow Button */}
-                  {selectedUser.id !== activeUser?.id && (
-                    <button
-                      onClick={handleFollowAction}
-                      disabled={isFollowLoading}
-                      className={`group relative flex items-center gap-2 px-5 py-2.5 rounded-full font-medium text-sm transition-all duration-300 border-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
-                        isFollowing
-                          ? "bg-slate-50 text-slate-600 border-slate-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
-                          : "bg-slate-600 text-white border-slate-600 hover:bg-slate-700 hover:border-slate-700"
-                      }`}
-                    >
-                      {isFollowLoading ? (
-                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  {/* Name, verified badge, and action buttons */}
+                  <div className="flex items-center justify-between mt-6 ml-6 sm:ml-10 mr-4 sm:mr-8 gap-x-2">
+                    {/* Left: name + badge */}
+                    <div className="flex items-center gap-1.5 min-w-0 shrink">
+                      <span className="text-lg sm:text-2xl font-bold">
+                        {selectedUser.firstName} {selectedUser.lastName}
+                      </span>
+                      {selectedUser.role === "official_account" && (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="currentColor"
+                          className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0"
+                          aria-label="Verified official account"
+                        >
+                          <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                         </svg>
-                      ) : isFollowing ? (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span className="group-hover:hidden">Following</span>
-                          <span className="hidden group-hover:inline">Unfollow</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          <span>Follow</span>
-                        </>
                       )}
-                    </button>
-                  )}
-                  {/* Chat Button */}
-                  {selectedUser.id !== activeUser?.id && (
-                    <button
-                      onClick={() => openDirectChatEvent(selectedUser.id)}
-                      title="Chat"
-                      className="flex items-center gap-2 px-4 py-2.5 rounded-full font-medium text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900 border-2 border-slate-200 transition-all duration-200"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                      </svg>
-                      <span>Chat</span>
-                    </button>
-                  )}
-                  {/* Friend/Unfriend Button */}
-                  {selectedUser.id !== activeUser?.id && <button
-                    onClick={handleFriendAction}
-                    disabled={isAddingFriend}
-                    className={`
-                      group relative flex items-center gap-2 px-6 py-2.5 rounded-full font-medium text-sm
-                      transition-all duration-300 ease-in-out
-                      ${isFriend 
-                        ? showUnfriendConfirm
-                          ? 'bg-red-500 text-white hover:bg-red-600 border-2 border-red-500 hover:border-red-600'
-                          : 'bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-2 border-gray-200'
-                        : isPending
-                          ? isPendingFromMe
-                            ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:text-red-600 border-2 border-yellow-300 hover:border-red-300'
-                            : 'bg-green-50 text-green-700 hover:bg-green-100 border-2 border-green-300 hover:border-green-400'
-                          : 'bg-slate-600 text-white hover:bg-slate-700 hover:shadow-lg hover:shadow-slate-200 border-2 border-slate-600'
-                      }
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                      transform hover:scale-105 active:scale-95
-                    `}
-                  >
-                    {isAddingFriend ? (
-                      <>
-                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        <span>{isFriend ? 'Removing...' : isPending ? 'Cancelling...' : 'Adding...'}</span>
-                      </>
-                    ) : (
-                      <>
-                        {isFriend ? (
-                          showUnfriendConfirm ? (
-                            <>
-                              <svg 
-                                className="w-4 h-4 transition-transform group-hover:scale-110" 
-                                fill="none" 
-                                stroke="currentColor" 
-                                viewBox="0 0 24 24"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                              <span>Click to Confirm</span>
-                            </>
+                    </div>
+                    {/* Action buttons — pushed to right on sm+, hidden on xs */}
+                    {selectedUser.id !== activeUser?.id && (
+                      <div className="hidden sm:flex items-center gap-2 shrink-0">
+                        {/* Follow / Unfollow */}
+                        <button
+                          onClick={handleFollowAction}
+                          disabled={isFollowLoading}
+                          className={`group relative flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm transition-all duration-300 border-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
+                            isFollowing
+                              ? "bg-slate-50 text-slate-600 border-slate-300 hover:bg-red-50 hover:text-red-600 hover:border-red-300"
+                              : "bg-slate-600 text-white border-slate-600 hover:bg-slate-700 hover:border-slate-700"
+                          }`}
+                        >
+                          {isFollowLoading ? (
+                            <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>
+                          ) : isFollowing ? (
+                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg><span className="group-hover:hidden">Following</span><span className="hidden group-hover:inline">Unfollow</span></>
                           ) : (
-                            <>
-                              <svg 
-                                className="w-4 h-4 transition-transform group-hover:scale-110" 
-                                fill="currentColor" 
-                                viewBox="0 0 20 20"
-                              >
-                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                              <span className="group-hover:hidden">Friends</span>
-                              <span className="hidden group-hover:inline">Unfriend</span>
-                            </>
-                          )
-                        ) : isPending ? (
-                          <>
-                            <svg
-                              className="w-4 h-4 transition-transform group-hover:scale-110"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            {isPendingFromMe ? (
-                              <>
-                                <span className="group-hover:hidden">Pending</span>
-                                <span className="hidden group-hover:inline">Cancel Request</span>
-                              </>
-                            ) : (
-                              <span>Accept Request</span>
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            <svg 
-                              className="w-4 h-4 transition-transform group-hover:scale-110" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                            </svg>
-                            <span>Add Friend</span>
-                          </>
-                        )}
-                      </>
+                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg><span>Follow</span></>
+                          )}
+                        </button>
+                        {/* Chat */}
+                        <button onClick={() => openDirectChatEvent(selectedUser.id)} title="Chat" className="flex items-center gap-1.5 px-3 py-2 rounded-full font-medium text-sm bg-slate-100 text-slate-700 hover:bg-slate-200 border-2 border-slate-200 transition-all duration-200">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                          <span>Chat</span>
+                        </button>
+                        {/* Friend */}
+                        <button
+                          onClick={handleFriendAction}
+                          disabled={isAddingFriend}
+                          className={`group relative flex items-center gap-1.5 px-4 py-2 rounded-full font-medium text-sm transition-all duration-300 ease-in-out border-2 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95 ${
+                            isFriend
+                              ? showUnfriendConfirm ? 'bg-red-500 text-white border-red-500 hover:bg-red-600 hover:border-red-600' : 'bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 border-gray-200'
+                              : isPending
+                                ? isPendingFromMe ? 'bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:text-red-600 border-yellow-300 hover:border-red-300' : 'bg-green-50 text-green-700 hover:bg-green-100 border-green-300 hover:border-green-400'
+                                : 'bg-slate-600 text-white hover:bg-slate-700 border-slate-600'
+                          }`}
+                        >
+                          {isAddingFriend ? (
+                            <><svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg><span>{isFriend ? 'Removing...' : isPending ? 'Cancelling...' : 'Adding...'}</span></>
+                          ) : isFriend ? (
+                            showUnfriendConfirm ? <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg><span>Confirm</span></> : <><svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg><span className="group-hover:hidden">Friends</span><span className="hidden group-hover:inline">Unfriend</span></>
+                          ) : isPending ? (
+                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{isPendingFromMe ? <><span className="group-hover:hidden">Pending</span><span className="hidden group-hover:inline">Cancel</span></> : <span>Accept</span>}</>
+                          ) : (
+                            <><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg><span>Add Friend</span></>
+                          )}
+                        </button>
+                      </div>
                     )}
-                  </button>}
                   </div>
-                </div>
 
-                {/* Bio */}
-                <div className="text-left text-gray-600 mt-2 px-8">
-                  {selectedUser.bio || "This user has no bio yet."}
-                </div>
+                  {/* Bio */}
+                  <div className="text-left text-gray-600 text-sm sm:text-base mt-2 ml-2 px-4 sm:px-8 pb-2">
+                    {selectedUser.bio || "This user has no bio yet."}
+                  </div>
 
-                {/* Tabs */}
-                <div className="flex justify-center mt-6 border-b border-gray-200">
+                  {/* Action buttons — below bio on xs only (< sm) */}
+                  {selectedUser.id !== activeUser?.id && (
+                    <div className="flex sm:hidden items-center gap-2 px-4 pt-2 pb-5">
+                      {/* Follow */}
+                      <button
+                        onClick={handleFollowAction}
+                        disabled={isFollowLoading}
+                        className={`group w-0 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full font-medium text-sm transition-all duration-300 border-2 disabled:opacity-50 active:scale-95 ${
+                          isFollowing
+                            ? "bg-slate-50 text-slate-600 border-slate-300"
+                            : "bg-slate-600 text-white border-slate-600"
+                        }`}
+                      >
+                        {isFollowLoading ? (
+                          <svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        ) : isFollowing ? (
+                          <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7"/></svg><span className="truncate group-hover:hidden">Following</span><span className="truncate hidden group-hover:inline">Unfollow</span></>
+                        ) : (
+                          <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4"/></svg><span className="truncate">Follow</span></>
+                        )}
+                      </button>
+                      {/* Chat */}
+                      <button onClick={() => openDirectChatEvent(selectedUser.id)} title="Chat" className="w-0 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full font-medium text-sm bg-slate-100 text-slate-700 border-2 border-slate-200 transition-all">
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                        <span className="truncate">Chat</span>
+                      </button>
+                      {/* Friend */}
+                      <button
+                        onClick={handleFriendAction}
+                        disabled={isAddingFriend}
+                        className={`group w-0 flex-1 flex items-center justify-center gap-1.5 py-2 rounded-full font-medium text-sm transition-all duration-300 border-2 disabled:opacity-50 active:scale-95 ${
+                          isFriend
+                            ? showUnfriendConfirm ? 'bg-red-500 text-white border-red-500' : 'bg-gray-100 text-gray-700 border-gray-200'
+                            : isPending
+                              ? isPendingFromMe ? 'bg-yellow-50 text-yellow-700 border-yellow-300' : 'bg-green-50 text-green-700 border-green-300'
+                              : 'bg-slate-600 text-white border-slate-600'
+                        }`}
+                      >
+                        {isAddingFriend ? (
+                          <><svg className="animate-spin w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg><span className="truncate">{isFriend ? 'Removing...' : isPending ? 'Cancelling...' : 'Adding...'}</span></>
+                        ) : isFriend ? (
+                          showUnfriendConfirm
+                            ? <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg><span className="truncate">Confirm</span></>
+                            : <><svg className="w-3.5 h-3.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg><span className="truncate group-hover:hidden">Friends</span><span className="truncate hidden group-hover:inline">Unfriend</span></>
+                        ) : isPending ? (
+                          <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>{isPendingFromMe ? <><span className="truncate group-hover:hidden">Pending</span><span className="truncate hidden group-hover:inline">Cancel</span></> : <span className="truncate">Accept</span>}</>
+                        ) : (
+                          <><svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4"/></svg><span className="truncate"><span className="hidden min-[420px]:inline">Add </span>Friend</span></>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>{/* end .relative */}
+
+                {/* Tabs — scrollable on mobile, centered on desktop */}
+                <div className="flex sm:justify-center border-b border-gray-200 overflow-x-auto scrollbar-hide">
                   <button
                     onClick={() => setActiveTab("Posts")}
-                    className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                    className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                       activeTab === "Posts"
                         ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                         : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                     }`}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="w-6 h-6"
-                    >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
                       <path d="M6 3h9a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-                      <path d="M8 7h5" />
-                      <path d="M8 10h5" />
-                      <path d="M8 13h5" />
-                      <path d="M8 17h8" />
+                      <path d="M8 7h5" /><path d="M8 10h5" /><path d="M8 13h5" /><path d="M8 17h8" />
                     </svg>
                     Posts
                   </button>
                   <button
                     onClick={() => setActiveTab("Your Market Items")}
-                    className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                    className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                       activeTab === "Your Market Items"
                         ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                         : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                     }`}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                      />
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
                     Market Items
                   </button>
                   <button
                     onClick={() => setActiveTab("Friends")}
-                    className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                    className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                       activeTab === "Friends"
                         ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                         : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                     }`}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      strokeWidth={2}
-                      stroke="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <circle
-                        cx="8"
-                        cy="8"
-                        r="3"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        fill="none"
-                      />
-                      <circle
-                        cx="16"
-                        cy="8"
-                        r="3"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        fill="none"
-                      />
-                      <path
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        d="M2 20c0-3 3-5 6-5s6 2 6 5"
-                        fill="none"
-                      />
-                      <path
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        d="M12 20c0-3 3-5 6-5s6 2 6 5"
-                        fill="none"
-                      />
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                      <circle cx="16" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
+                      <path stroke="currentColor" strokeWidth="2" d="M2 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
+                      <path stroke="currentColor" strokeWidth="2" d="M12 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
                     </svg>
                     Friends
                   </button>
                   <button
                     onClick={() => setActiveTab("Reposts")}
-                    className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                    className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                       activeTab === "Reposts"
                         ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                         : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                     }`}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                      />
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
                     Reposts
                   </button>
                   <button
                     onClick={() => setActiveTab("Liked")}
-                    className={`px-6 py-3 font-medium flex items-center gap-2 ${
+                    className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                       activeTab === "Liked"
                         ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
                         : "text-gray-700 hover:text-blue-600 hover:bg-gray-50"
                     }`}
                   >
-                    <svg
-                      className="w-4 h-4"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                      />
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
                     </svg>
                     Liked
                   </button>
@@ -1833,6 +1743,7 @@ export default function FriendsMainPage() {
                             onLikeUpdate={handleLikeUpdate}
                             onRepostUpdate={handleRepostUpdate}
                             onSaveUpdate={handleSaveUpdate}
+                            onShareUpdate={handleShareUpdate}
                           />
                         ))
                       ) : (
@@ -1997,6 +1908,7 @@ export default function FriendsMainPage() {
                             onLikeUpdate={handleLikeUpdate}
                             onRepostUpdate={handleRepostUpdate}
                             onSaveUpdate={handleSaveUpdate}
+                            onShareUpdate={handleShareUpdate}
                           />
                         ))
                       ) : (
@@ -2035,6 +1947,7 @@ export default function FriendsMainPage() {
                             onLikeUpdate={handleLikeUpdate}
                             onRepostUpdate={handleRepostUpdate}
                             onSaveUpdate={handleSaveUpdate}
+                            onShareUpdate={handleShareUpdate}
                           />
                         ))
                       ) : (
@@ -2070,7 +1983,7 @@ export default function FriendsMainPage() {
           /* Friends List View */
           <>
             {/* Search bar */}
-            <div className="mb-6" ref={searchRef}>
+            <div className="mb-6 pl-14 lg:pl-0" ref={searchRef}>
               <div className="relative w-full">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                   <svg

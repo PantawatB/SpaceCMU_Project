@@ -29,6 +29,7 @@ interface Post {
   likeCount: number;
   commentCount: number;
   repostCount: number;
+  shareCount?: number;
   createdAt: string;
   author?: {
     firstName: string | null;
@@ -680,6 +681,18 @@ export default function ProfileMainPage() {
     );
   };
 
+  // Handle share count update
+  const handleShareUpdate = (postId: string, newShareCount: number) => {
+    const updater = (prevPosts: Post[]) =>
+      prevPosts.map(post =>
+        post.id === postId ? { ...post, shareCount: newShareCount } : post
+      );
+    setMyPosts(updater);
+    setLikedPosts(updater);
+    setRepostedPosts(updater);
+    setSavedPosts(updater);
+  };
+
   // Handle save update (refresh saved posts list)
   const handleSaveUpdate = () => {
     // Optionally refresh the saved posts list
@@ -1029,6 +1042,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}
@@ -1228,6 +1242,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}
@@ -1287,6 +1302,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}
@@ -1346,6 +1362,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}

@@ -1185,7 +1185,7 @@ export default function FeedsMainPage() {
         )}
 
         {/* Share something bar - fixed bottom with toggle */}
-        <div className="fixed bottom-4 left-4 right-20 md:left-8 md:right-22 lg:left-72 lg:right-96 z-40 flex flex-col items-center">
+        <div className="fixed bottom-4 left-4 right-20 md:left-8 md:right-22 lg:left-72 lg:right-96 z-20 flex flex-col items-center">
           {/* Toggle Button */}
           <button
             className="mb-2 text-gray-500 bg-white/95 backdrop-blur-sm rounded-full p-2 hover:bg-gray-100 shadow-lg flex items-center justify-center transition-all duration-200"

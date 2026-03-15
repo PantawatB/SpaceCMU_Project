@@ -1777,6 +1777,7 @@ export const getUserPosts = async (req: Request, res: Response) => {
             likeCount: post.likeCount,
             commentCount: post.commentCount,
             repostCount: post.repostCount,
+            shareCount: post.shareCount,
             createdAt: post.createdAt,
             updatedAt: post.updatedAt,
             author: {
@@ -1880,6 +1881,7 @@ export const getPostsByUserId = async (req: Request, res: Response) => {
             likeCount: post.likeCount,
             commentCount: post.commentCount,
             repostCount: post.repostCount,
+            shareCount: post.shareCount,
             createdAt: post.createdAt,
             updatedAt: post.updatedAt,
             author: {
