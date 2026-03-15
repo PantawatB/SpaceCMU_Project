@@ -525,25 +525,25 @@ export default function GodPage() {
       <main className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
 
         {/* Fixed header + tabs */}
-        <div className="flex-none pt-8 px-8 pb-0 bg-white z-10">
+        <div className="flex-none pt-4 lg:pt-8 px-4 lg:px-8 pb-0 bg-white z-10">
           {/* Title row */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4 lg:mb-6 pl-14 lg:pl-0">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">God Control - SuperAdmin</h1>
-              <p className="text-sm text-slate-400 mt-0.5">Platform-wide control — root access only</p>
+              <h1 className="text-xl lg:text-2xl font-bold text-slate-900">God Control - SuperAdmin</h1>
+              <p className="text-xs lg:text-sm text-slate-400 mt-0.5">Platform-wide control — root access only</p>
             </div>
-            <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-600 text-xs font-bold tracking-widest">
+            <span className="px-3 py-1 rounded-full bg-slate-200 text-slate-600 text-xs font-bold tracking-widest shrink-0">
               ROOT
             </span>
           </div>
 
-          {/* Tabs */}
-          <div className="flex gap-8 border-b border-slate-200">
+          {/* Tabs — scrollable on mobile */}
+          <div className="flex gap-4 lg:gap-8 border-b border-slate-200 overflow-x-auto scrollbar-hide">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`pb-3 font-semibold text-base transition-all whitespace-nowrap ${
+                className={`pb-3 font-semibold text-sm lg:text-base transition-all whitespace-nowrap shrink-0 ${
                   activeTab === tab.id
                     ? "text-slate-900 border-b-2 border-slate-900"
                     : "text-slate-400 hover:text-slate-600"
@@ -556,8 +556,8 @@ export default function GodPage() {
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-8 pb-8 min-w-0">
-          <div className="max-w-6xl pt-8 space-y-6">
+        <div className="flex-1 overflow-y-auto px-4 lg:px-8 pb-8 min-w-0">
+          <div className="max-w-6xl pt-6 lg:pt-8 space-y-6">
 
             {/* ══════════════════════════════
                  DASHBOARD

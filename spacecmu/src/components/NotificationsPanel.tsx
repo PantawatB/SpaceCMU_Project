@@ -298,7 +298,7 @@ function NotifDetailModal({
   // Close on backdrop click
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-300 flex items-center justify-center p-4"
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -306,7 +306,7 @@ function NotifDetailModal({
 
       {/* Card */}
       <div
-        className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden"
+        className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Modal header */}
@@ -360,7 +360,7 @@ function NotifDetailModal({
         </div>
 
         {/* Scrollable body */}
-        <div className="overflow-y-auto max-h-[70vh] px-5 py-4">
+        <div className="overflow-y-auto flex-1 px-5 py-4">
           {admin ? (
             notif.message ? (
               <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word">

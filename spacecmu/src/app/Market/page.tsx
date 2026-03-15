@@ -405,7 +405,7 @@ export default function MarketMainPage() {
         {/* Fixed header area (Search + Title) */}
         <div className="flex-none pt-4 lg:pt-8 px-4 lg:px-8 pb-4 bg-white z-10">
           {/* Search bar */}
-          <div className="mb-4 lg:mb-6">
+          <div className="mb-4 lg:mb-6 pl-14 lg:pl-0">
             <div className="relative w-full">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5">

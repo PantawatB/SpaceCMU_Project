@@ -1380,8 +1380,8 @@ export default function PostCard({
   };
 
   return (
-    <div className="bg-gray-50 rounded-2xl p-6 shadow relative">
-      <div className="flex items-center gap-3 mb-2">
+    <div className="bg-gray-50 rounded-2xl pt-5 pb-5 shadow relative">
+      <div className="flex items-center gap-3 mb-2 px-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={apiService.getImageUrl(post.author?.avatarUrl) || "/default-avatar.svg"}
@@ -1404,14 +1404,14 @@ export default function PostCard({
 
       {/* Post Content */}
       {localPostContent && (
-        <div className="mb-3 text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
+        <div className="mb-3 px-5 text-gray-800 leading-relaxed whitespace-pre-wrap wrap-break-word overflow-wrap-anywhere">
           <MentionText text={localPostContent} />
         </div>
       )}
 
       {/* Link Preview Card */}
       {(linkPreview || loadingLinkPreview) && !localPostMedia?.length && (
-        <div className="mb-3">
+        <div className="mb-3 px-5">
           {loadingLinkPreview ? (
             /* Skeleton */
             <div className="animate-pulse border border-gray-200 rounded-xl overflow-hidden bg-gray-50">
@@ -1480,7 +1480,7 @@ export default function PostCard({
 
       {/* Post Media - Threads-style Horizontal Layout */}
       {localPostMedia && localPostMedia.length > 0 && (
-        <div className={`mb-3 ${localPostMedia.length <= 2 ? "" : "-mx-6"} relative group/media max-w-full`}>
+        <div className={`mb-3 relative group/media max-w-full overflow-hidden`}>
           {/* Left Arrow Indicator - Show only when scrolled right and has multiple images */}
           {localPostMedia.length > 1 && showLeftArrow && (
             <div className="absolute left-2 top-1/2 -translate-y-1/2 z-10 pointer-events-none opacity-30 group-hover/media:opacity-100 transition-opacity duration-300">
@@ -1524,7 +1524,7 @@ export default function PostCard({
           )}
 
           <div
-            className={`overflow-x-auto overflow-y-hidden scrollbar-hide ${localPostMedia.length <= 2 ? "" : "px-6"}`}
+            className={`overflow-x-auto overflow-y-hidden scrollbar-hide px-5`}
             onScroll={handleMediaScroll}
           >
             <div className={`flex items-center gap-2 ${localPostMedia.length === 1 ? "w-full" : "w-max min-w-full"} justify-center`}>
@@ -1614,7 +1614,7 @@ export default function PostCard({
       )}
 
       {/* Post actions */}
-      <div className="flex items-center justify-between mt-6">
+      <div className="flex items-center justify-between mt-6 px-5">
         <div className="flex gap-4 text-gray-600 text-sm items-center">
           {/* Like Button */}
           <button
@@ -2581,7 +2581,7 @@ export default function PostCard({
       )}
 
       {/* Three-dot Menu Button */}
-      <div className="absolute top-6 right-6 flex items-center gap-2" style={{ zIndex: 30 }}>
+      <div className="absolute top-5 right-5 flex items-center gap-2" style={{ zIndex: 30 }}>
         {/* Add to Calendar — only for Events posts */}
         {post.category === "Events" && (
           <button
