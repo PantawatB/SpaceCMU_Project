@@ -1,0 +1,136 @@
+# Artillery Test: Messaging & Chat Rooms
+# Tests: GET rooms, GET messages, POST send message, Mark as read
+# Run: artillery run --config config.yml 06-messaging.yml
+#
+# NOTE: To test write flows, first run the app, manually create a chat room,
+# and paste the roomId below as "testRoomId".
+
+config:
+  target: "http://localhost:3001"
+  http:
+    timeout: 15
+  variables:
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYxMjU5OTdkLWM3MTYtNDlmZi1hMDY3LWM5ZmQwYzBlNDk0NCIsInJvbGUiOiJ1c2VyIiwidXNlcm5hbWUiOiI2NTA2MTIxMDIiLCJlbWFpbCI6InNpcmFwaG9iX2x1QGNtdS5hYy50aCIsIml0YWNjb3VudF9uYW1lIjoic2lyYXBob2JfbHUiLCJwcmVuYW1lX1RIIjoiIiwiZmlyc3RuYW1lX1RIIjoi4Liq4Li04Lij4Lig4LieIiwibGFzdG5hbWVfVEgiOiLguYDguKvguKXguLfguK3guIfguJvguKPguLDguYDguKrguKPguLTguJAiLCJvcmdhbml6YXRpb25fbmFtZV9USCI6IuC4hOC4k-C4sOC4p-C4tOC4qOC4p-C4geC4o-C4o-C4oeC4qOC4suC4quC4leC4o-C5jCIsImlhdCI6MTc3MzU4OTA0MiwiZXhwIjoxNzczNjc1NDQyfQ.7a_C0TnKVkRs9lEa3ge4Odxupdn1kc6HvOXVShkDPFY"
+    myUserId: "f125997d-c716-49ff-a067-c9fd0c0e4944"
+    # ⚠️  IMPORTANT: Replace with a real room ID that user is a member of
+    testRoomId: "068ff747-48a5-4e0d-b646-f5a4a2e8ec97"
+  phases:
+    - duration: 15
+      arrivalRate: 3
+      name: "Warm Up"
+    - duration: 30
+      arrivalRate: 3
+      rampTo: 12
+      name: "Ramp Up"
+    - duration: 30
+      arrivalRate: 12
+      name: "Sustained Load"
+
+scenarios:
+  - name: "Get My Rooms"
+    weight: 6
+    flow:
+      - get:
+          url: "/api/chat-rooms/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Room Details"
+    weight: 4
+    flow:
+      - get:
+          url: "/api/chat-rooms/{{ testRoomId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: [200, 404]  # 404 if testRoomId is placeholder
+
+  - name: "Get Room Messages"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/messages/room/{{ testRoomId }}?limit=50&offset=0"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: [200, 403, 404]
+
+  - name: "Get Unread Count"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/messages/unread/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Search Messages"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/messages/search?query=hello"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  # Write flow: Create group room → send message → mark read → leave
+  - name: "Create Group Room → Send Message → Mark Read → Leave"
+    weight: 2
+    flow:
+      # 1. Create a group room
+      - post:
+          url: "/api/chat-rooms/group"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            name: "Artillery Test Room {{ $randomString() }}"
+            memberIds: []
+          capture:
+            - json: "$.id"
+              as: "roomId"
+          expect:
+            - statusCode: [200, 201]
+
+      # 2. Send a message to the room
+      - post:
+          url: "/api/messages"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            roomId: "{{ roomId }}"
+            content: "Hello from Artillery test! 🎯"
+          capture:
+            - json: "$.id"
+              as: "messageId"
+          expect:
+            - statusCode: [200, 201]
+
+      # 3. Mark room as read
+      - patch:
+          url: "/api/messages/room/{{ roomId }}/read"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: [200, 204]
+
+      # 4. Get room readers
+      - get:
+          url: "/api/messages/room/{{ roomId }}/readers"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      # 5. Leave room (cleanup)
+      - post:
+          url: "/api/chat-rooms/{{ roomId }}/leave"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: [200, 204]

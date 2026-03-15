@@ -1,0 +1,170 @@
+# Artillery Test: Posts
+# Tests: GET feed, GET post, POST create, Like, Comment, Repost, Save
+# Run: artillery run --config config.yml 03-posts.yml
+#
+# NOTE: Create/Like/Comment use "capture" to grab IDs for chained requests.
+
+config:
+  target: "http://localhost:3001"
+  http:
+    timeout: 15
+  variables:
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYxMjU5OTdkLWM3MTYtNDlmZi1hMDY3LWM5ZmQwYzBlNDk0NCIsInJvbGUiOiJ1c2VyIiwidXNlcm5hbWUiOiI2NTA2MTIxMDIiLCJlbWFpbCI6InNpcmFwaG9iX2x1QGNtdS5hYy50aCIsIml0YWNjb3VudF9uYW1lIjoic2lyYXBob2JfbHUiLCJwcmVuYW1lX1RIIjoiIiwiZmlyc3RuYW1lX1RIIjoi4Liq4Li04Lij4Lig4LieIiwibGFzdG5hbWVfVEgiOiLguYDguKvguKXguLfguK3guIfguJvguKPguLDguYDguKrguKPguLTguJAiLCJvcmdhbml6YXRpb25fbmFtZV9USCI6IuC4hOC4k-C4sOC4p-C4tOC4qOC4p-C4geC4o-C4o-C4oeC4qOC4suC4quC4leC4o-C5jCIsImlhdCI6MTc3MzU4OTA0MiwiZXhwIjoxNzczNjc1NDQyfQ.7a_C0TnKVkRs9lEa3ge4Odxupdn1kc6HvOXVShkDPFY"
+    myUserId: "f125997d-c716-49ff-a067-c9fd0c0e4944"
+  phases:
+    - duration: 15
+      arrivalRate: 3
+      name: "Warm Up"
+    - duration: 30
+      arrivalRate: 3
+      rampTo: 15
+      name: "Ramp Up"
+    - duration: 30
+      arrivalRate: 15
+      name: "Sustained Load"
+
+scenarios:
+  # ─── Read-heavy scenarios (high weight) ───────────────────────────────────
+  - name: "Browse Global Feed"
+    weight: 8
+    flow:
+      - get:
+          url: "/api/posts?category=Global"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Browse Friends Feed"
+    weight: 4
+    flow:
+      - get:
+          url: "/api/posts?category=Friends"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get My Posts"
+    weight: 3
+    flow:
+      - get:
+          url: "/api/posts/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Saved Posts"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/posts/saved/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get Liked Posts"
+    weight: 2
+    flow:
+      - get:
+          url: "/api/posts/liked/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  - name: "Get My Reposts"
+    weight: 1
+    flow:
+      - get:
+          url: "/api/posts/reposted/me"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+  # ─── Write scenario: Create post → like it → comment → delete ─────────────
+  - name: "Create Post → Like → Comment → Cleanup"
+    weight: 3
+    flow:
+      # 1. Create post
+      - post:
+          url: "/api/posts"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            content: "🚀 Artillery load test post — {{ $randomString() }}"
+            category: "Global"
+          capture:
+            - json: "$.id"
+              as: "postId"
+          expect:
+            - statusCode: 201
+
+      # 2. Like the post
+      - post:
+          url: "/api/posts/like"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            postId: "{{ postId }}"
+          expect:
+            - statusCode: 200
+
+      # 3. Get post details
+      - get:
+          url: "/api/posts/{{ postId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      # 4. Add comment
+      - post:
+          url: "/api/posts/comment"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            postId: "{{ postId }}"
+            content: "Artillery comment test 💬"
+          capture:
+            - json: "$.id"
+              as: "commentId"
+          expect:
+            - statusCode: 201
+
+      # 5. Get comments
+      - get:
+          url: "/api/posts/{{ postId }}/comments"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200
+
+      # 6. Unlike the post (toggle)
+      - post:
+          url: "/api/posts/like"
+          headers:
+            Authorization: "Bearer {{ token }}"
+            Content-Type: "application/json"
+          json:
+            postId: "{{ postId }}"
+
+      # 7. Delete comment
+      - delete:
+          url: "/api/posts/comment/{{ commentId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+
+      # 8. Delete post
+      - delete:
+          url: "/api/posts/{{ postId }}"
+          headers:
+            Authorization: "Bearer {{ token }}"
+          expect:
+            - statusCode: 200

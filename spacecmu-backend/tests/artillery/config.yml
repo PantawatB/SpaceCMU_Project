@@ -1,0 +1,29 @@
+# Shared config — imported by all test scripts via "config.yml"
+# Usage: artillery run --config config.yml <test-file>.yml
+
+config:
+  target: "http://localhost:3001"
+  http:
+    timeout: 15
+  variables:
+    token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImYxMjU5OTdkLWM3MTYtNDlmZi1hMDY3LWM5ZmQwYzBlNDk0NCIsInJvbGUiOiJ1c2VyIiwidXNlcm5hbWUiOiI2NTA2MTIxMDIiLCJlbWFpbCI6InNpcmFwaG9iX2x1QGNtdS5hYy50aCIsIml0YWNjb3VudF9uYW1lIjoic2lyYXBob2JfbHUiLCJwcmVuYW1lX1RIIjoiIiwiZmlyc3RuYW1lX1RIIjoi4Liq4Li04Lij4Lig4LieIiwibGFzdG5hbWVfVEgiOiLguYDguKvguKXguLfguK3guIfguJvguKPguLDguYDguKrguKPguLTguJAiLCJvcmdhbml6YXRpb25fbmFtZV9USCI6IuC4hOC4k-C4sOC4p-C4tOC4qOC4p-C4geC4o-C4o-C4oeC4qOC4suC4quC4leC4o-C5jCIsImlhdCI6MTc3MzU4OTA0MiwiZXhwIjoxNzczNjc1NDQyfQ.7a_C0TnKVkRs9lEa3ge4Odxupdn1kc6HvOXVShkDPFY"
+  phases:
+    # Warm-up: 5 vusers for 15s
+    - duration: 15
+      arrivalRate: 5
+      name: "Warm Up"
+    # Ramp up: 5 → 20 vusers over 30s
+    - duration: 30
+      arrivalRate: 5
+      rampTo: 20
+      name: "Ramp Up"
+    # Sustained load: 20 vusers for 30s
+    - duration: 30
+      arrivalRate: 20
+      name: "Sustained Load"
+  ensure:
+    thresholds:
+      - http.response_time.p95: 2000   # 95th percentile < 2s
+      - http.response_time.p99: 5000   # 99th percentile < 5s
+  plugins:
+    ensure: {}
