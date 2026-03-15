@@ -29,6 +29,7 @@ interface Post {
   likeCount: number;
   commentCount: number;
   repostCount: number;
+  shareCount?: number;
   createdAt: string;
   author?: {
     firstName: string | null;
@@ -680,6 +681,18 @@ export default function ProfileMainPage() {
     );
   };
 
+  // Handle share count update
+  const handleShareUpdate = (postId: string, newShareCount: number) => {
+    const updater = (prevPosts: Post[]) =>
+      prevPosts.map(post =>
+        post.id === postId ? { ...post, shareCount: newShareCount } : post
+      );
+    setMyPosts(updater);
+    setLikedPosts(updater);
+    setRepostedPosts(updater);
+    setSavedPosts(updater);
+  };
+
   // Handle save update (refresh saved posts list)
   const handleSaveUpdate = () => {
     // Optionally refresh the saved posts list
@@ -702,9 +715,9 @@ export default function ProfileMainPage() {
         {/* Sidebar */}
         <Sidebar />
         {/* Main Content */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8">
+        <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">
           {/* Search bar */}
-          <div className="mb-6">
+          <div className="mb-6 pl-14 lg:pl-0">
             <div className="relative w-full">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                 <svg
@@ -740,10 +753,10 @@ export default function ProfileMainPage() {
               />
             </div>
           </div>
-          <section className="flex-1 overflow-y-auto flex flex-col gap-6">
-            <div className="bg-white rounded-2xl shadow relative overflow-hidden">
+          <section className="flex flex-col gap-6 pb-8">
+            <div className="bg-white rounded-2xl shadow">
               {/* Cover Image */}
-              <div className="h-40 w-full relative">
+              <div className="h-40 w-full rounded-t-2xl overflow-hidden">
                 {bannerUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -755,62 +768,46 @@ export default function ProfileMainPage() {
                   <div className="h-full w-full bg-linear-to-r from-pink-200 via-yellow-200 to-green-200" />
                 )}
               </div>
-              {/* Profile Avatar - left aligned */}
-              <div className="absolute left-4 sm:left-10 top-24 sm:top-28 flex items-center">
-                <div className="rounded-full border-4 border-white p-1 bg-white">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={avatarUrl}
-                    alt="Profile Avatar"
-                    className="w-16 h-16 sm:w-[90px] sm:h-[90px] rounded-full object-cover"
-                  />
-                </div>
-                {/* Stats - right of avatar */}
-                <div
-                  className="flex flex-col justify-center ml-3 sm:ml-6 relative"
-                  style={{ top: "25px" }}
-                >
-                  <div className="flex gap-2 sm:gap-8 flex-wrap">
-                    <div className="text-center flex items-center gap-1 sm:gap-0 flex-wrap">
-                      <span className="text-base sm:text-xl font-semibold">{activeUser.friendsCount}</span>
-                      <span className="text-gray-500 text-sm sm:text-base ml-1">Friends</span>
-                      <span className="text-gray-500 ml-2 sm:ml-4 hidden sm:inline">|</span>
-                      <span className="text-black font-semibold text-sm sm:text-base ml-2 sm:ml-4 hidden sm:inline">
-                        {facultyDisplay}
-                      </span>
-                    </div>
+              {/* Profile info — left-aligned at all screen sizes */}
+              <div className="relative">
+                {/* Avatar — overlapping banner, left-aligned */}
+                <div className="absolute left-6 sm:left-12 -top-10 sm:-top-11 z-10">
+                  <div className="rounded-full border-4 border-white bg-white">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={avatarUrl}
+                      alt="Profile Avatar"
+                      className="w-20 h-20 sm:w-[90px] sm:h-[90px] rounded-full object-cover"
+                    />
                   </div>
                 </div>
-              </div>
-              {/* Name & Verified */}
-              <div className="flex items-center mt-16 sm:mt-19 ml-4 sm:ml-8 flex-wrap gap-x-2">
-                <span className="text-lg sm:text-2xl font-bold wrap-break-word">{displayName}</span>
-                {activeUser.role === 'official_account' && (
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0"
-                    aria-label="Verified official account"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                )}
-              </div>
-              {/* Faculty on mobile (shown below name) */}
-              <div className="ml-4 sm:hidden mt-0.5">
-                <span className="text-gray-500 text-xs">{facultyDisplay}</span>
-              </div>
-              {/* Bio */}
-              <div className="text-left text-gray-600 mt-2 px-4 sm:px-8">
-                {bio}
+                {/* Stats row — to the right of avatar */}
+                <div className="flex items-center ml-32 sm:ml-44 pt-2 sm:pt-3 gap-2 sm:gap-8 flex-wrap">
+                  <div className="flex items-center gap-1 sm:gap-0">
+                    <span className="text-sm sm:text-xl font-semibold">{activeUser.friendsCount}</span>
+                    <span className="text-gray-500 text-sm sm:text-base ml-1">Friends</span>
+                    <span className="text-gray-500 ml-2 sm:ml-4">|</span>
+                    <span className="text-black font-semibold text-sm sm:text-base ml-2 sm:ml-4">
+                      {facultyDisplay}
+                    </span>
+                  </div>
+                </div>
+                {/* Name & Verified */}
+                <div className="flex items-center mt-8 sm:mt-8 ml-6 sm:ml-10 flex-wrap gap-x-2">
+                  <span className="text-lg sm:text-2xl font-bold wrap-break-word">{displayName}</span>
+                  {activeUser.role === 'official_account' && (
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" aria-label="Verified official account">
+                      <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                {/* Bio */}
+                <div className="text-left text-gray-600 text-sm sm:text-base mt-2 ml-2 px-4 sm:px-8 pb-4">
+                  {bio}
+                </div>
               </div>
               {/* Tabs */}
-              <div className="flex justify-center mt-6 border-b border-gray-200 overflow-x-auto scrollbar-hide">
+              <div className="flex sm:justify-center mt-2  border-gray-200 overflow-x-auto scrollbar-hide">
                 <button
                   onClick={() => setActiveTab("Posts")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
@@ -983,7 +980,7 @@ export default function ProfileMainPage() {
             </div>
 
             {/* Tab Content */}
-            <div className="bg-white rounded-2xl shadow p-4 sm:p-6 min-w-0 overflow-hidden">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 min-w-0 overflow-hidden">
               {activeTab === "Posts" && (
                 <div className="w-full min-w-0">
                   {/* Loading State */}
@@ -1045,6 +1042,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}
@@ -1244,6 +1242,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}
@@ -1303,6 +1302,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}
@@ -1362,6 +1362,7 @@ export default function ProfileMainPage() {
                           onLikeUpdate={handleLikeUpdate}
                           onRepostUpdate={handleRepostUpdate}
                           onSaveUpdate={handleSaveUpdate}
+                          onShareUpdate={handleShareUpdate}
                           onPostDelete={handlePostDelete}
                         />
                       ))}

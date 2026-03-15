@@ -34,6 +34,7 @@ export interface SidebarMenuItem {
 
 interface SidebarProps {
   menuItems?: SidebarMenuItem[]; // ทำให้เป็น optional
+  hideHamburger?: boolean; // ซ่อนปุ่ม hamburger บน mobile (เช่น เมื่ออยู่ในหน้าแชทและเลือกห้องแล้ว)
 }
 
 const DEFAULT_AVATAR = "/default-avatar.svg";
@@ -55,7 +56,7 @@ const profiles = [
   },
 ];
 
-export default function Sidebar({ menuItems }: SidebarProps) {
+export default function Sidebar({ menuItems, hideHamburger = false }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { user, activeUser, activeMode, anonymousAccount, logout: logoutFromContext, officialMode, exitOfficialMode, isSwitchingToOfficial } = useUser();
@@ -530,11 +531,11 @@ export default function Sidebar({ menuItems }: SidebarProps) {
 
   return (
     <>
-      {/* Hamburger Menu Button for Mobile - Only shown when sidebar is closed */}
-      {!isSidebarOpen && (
+      {/* Hamburger Menu Button for Mobile - Only shown when sidebar is closed and not hidden by parent */}
+      {!isSidebarOpen && !hideHamburger && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-all"
+          className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-all"
           aria-label="Open menu"
         >
           <svg
@@ -566,7 +567,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
         className={`
           fixed lg:sticky top-0 left-0 h-screen
           w-64 min-w-[256px] max-w-[256px]
-          p-6 flex flex-col justify-between
+          p-6 flex flex-col
           bg-white
           transition-transform duration-300 ease-in-out
           z-40
@@ -607,7 +608,8 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           </button>
         )}
 
-        <div>
+        {/* ── TOP: Logo + Profile (fixed, ไม่ scroll) ── */}
+        <div className="shrink-0">
         {/* Logo */}
         <div className="flex items-center gap-2 mb-7">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -621,7 +623,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           <span className="text-xl font-bold text-gray-800">SpaceCMU</span>
           <button
             onClick={() => setShowTutorial(true)}
-            className="ml-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center border border-black/60 shadow-sm hover:shadow active:shadow-inner transition-all duration-200 group"
+            className="ml-1 sm:ml-2 w-5 h-5 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center border border-black/60 shadow-sm hover:shadow active:shadow-inner transition-all duration-200 group"
             title="Tutorial & Help"
           >
             <span className="text-gray-600 group-hover:text-gray-800 text-sm font-bold">
@@ -630,7 +632,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           </button>
         </div>
         {/* Profile Section */}
-        <div className="flex gap-6 items-start justify-center mb-8 relative min-h-[100px]">
+        <div className="flex gap-4 sm:gap-6 items-start justify-center mb-6 sm:mb-8 relative min-h-[90px] sm:min-h-[100px]">
           {/* ── Official Mode: single merged avatar ── */}
           {officialMode && !isSwitchingToOfficial ? (
             <div className="flex flex-col items-center w-full">
@@ -755,7 +757,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
             })
           )}
         </div>
+        </div>{/* end TOP */}
 
+        {/* ── MIDDLE: Menu (scroll ได้เฉพาะตรงนี้) ── */}
+        <div className="flex-1 overflow-y-auto min-h-0 py-1">
         {/* Menu */}
         <nav className="space-y-3">
           {currentMenuItems.map((item) => {
@@ -774,12 +779,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                       : "text-gray-500 hover:text-black hover:bg-gray-100"
                   }`}
                 >
-                  <span className="w-5 h-5 flex items-center justify-center">
+                  <span className="w-5 h-5 flex items-center justify-center shrink-0">
                     {item.icon}
                   </span>
-                  <span
-                    className={pathname === item.link ? "text-base" : "text-sm"}
-                  >
+                  <span className={pathname === item.link ? "text-base" : "text-sm"}>
                     {item.name}
                   </span>
                 </button>
@@ -794,12 +797,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                       : "text-gray-500 hover:text-black hover:bg-gray-100"
                   }`}
                 >
-                  <span className="w-5 h-5 flex items-center justify-center">
+                  <span className="w-5 h-5 flex items-center justify-center shrink-0">
                     {item.icon}
                   </span>
-                  <span
-                    className={pathname === item.link ? "text-base" : "text-sm"}
-                  >
+                  <span className={pathname === item.link ? "text-base" : "text-sm"}>
                     {item.name}
                   </span>
                 </Link>
@@ -809,7 +810,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
                 key={item.name}
                 className="flex items-center gap-3 w-full rounded-lg px-3 py-2 transition font-medium text-left text-gray-500 hover:text-black hover:bg-gray-100"
               >
-                <span className="w-5 h-5 flex items-center justify-center">
+                <span className="w-5 h-5 flex items-center justify-center shrink-0">
                   {item.icon}
                 </span>
                 <span className="text-sm">{item.name}</span>
@@ -817,8 +818,10 @@ export default function Sidebar({ menuItems }: SidebarProps) {
             );
           })}
         </nav>
-      </div>
-      <div className="pt-6">
+        </div>{/* end MIDDLE */}
+
+        {/* ── BOTTOM: Toggle + Logout (fixed, ไม่ scroll) ── */}
+        <div className="shrink-0 pt-4">
         {/* Official mode: big "Return to main account" button */}
         {officialMode ? (
           <button
@@ -835,7 +838,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           /* Toggle Profile Button */
           <div className="flex mb-6 rounded-lg overflow-hidden border border-gray-200">
             <button
-              className={`flex-1 py-2 text-center font-semibold transition-all duration-300 ${
+              className={`flex-1 py-2 text-center font-semibold transition-all duration-300 text-sm ${
                 activeProfile === 0
                   ? "bg-white text-black"
                   : "bg-gray-200 text-gray-500"
@@ -892,7 +895,7 @@ export default function Sidebar({ menuItems }: SidebarProps) {
           </span>
           <span className="text-base">Logout</span>
         </button>
-      </div>
+        </div>{/* end BOTTOM */}
 
     </aside>
 

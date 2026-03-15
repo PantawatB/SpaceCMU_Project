@@ -84,6 +84,7 @@ export const postsTable = pgTable("posts", {
   likeCount: integer("like_count").default(0),
   commentCount: integer("comment_count").default(0),
   repostCount: integer("repost_count").default(0),
+  shareCount: integer("share_count").default(0),
 
   status: postStatusEnum("status").default("active"), // For Admin ban
 

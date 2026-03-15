@@ -108,6 +108,19 @@ interface MarketCardPayload {
   sellerAvatarUrl?: string | null;
 }
 
+interface PostCardPayload {
+  __type: "post_card";
+  postId: string;
+  content: string;
+  category: string;
+  authorName: string;
+  authorAvatarUrl: string | null;
+  imageUrl: string | null;
+  likeCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function parseMarketCard(content: string): MarketCardPayload | null {
@@ -115,6 +128,15 @@ function parseMarketCard(content: string): MarketCardPayload | null {
   try {
     const parsed = JSON.parse(content);
     if (parsed.__type === "market_card") return parsed as MarketCardPayload;
+  } catch { /* not JSON */ }
+  return null;
+}
+
+function parsePostCard(content: string): PostCardPayload | null {
+  if (!content.startsWith("{")) return null;
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.__type === "post_card") return parsed as PostCardPayload;
   } catch { /* not JSON */ }
   return null;
 }
@@ -135,8 +157,7 @@ function formatRoomTime(isoString: string): string {
   return date.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
 }
 
-function DefaultGroupAvatar({ size = 40 }: { size?: number }) {
-  return (
+function DefaultGroupAvatar({ size = 40 }: { size?: number }) {  return (
     <div
       className="flex items-center justify-center rounded-full bg-linear-to-br from-slate-500 to-slate-700 flex-none"
       style={{ width: size, height: size, minWidth: size, minHeight: size }}
@@ -148,6 +169,88 @@ function DefaultGroupAvatar({ size = 40 }: { size?: number }) {
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
     </div>
+  );
+}
+
+// ─── Mini Post Card (compact for chatbox) ──────────────────────────────────
+
+function MiniPostCard({ card, isMine }: { card: PostCardPayload; isMine: boolean }) {
+  const handleView = () => {
+    window.location.href = `/Feeds?postId=${card.postId}&source=chat`;
+  };
+
+  const timeAgo = () => {
+    const diff = Math.floor((new Date().getTime() - new Date(card.createdAt).getTime()) / 1000);
+    if (diff < 60) return "เมื่อกี้";
+    if (diff < 3600) return `${Math.floor(diff / 60)} นาทีที่แล้ว`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ชม.ที่แล้ว`;
+    return `${Math.floor(diff / 86400)} วันที่แล้ว`;
+  };
+
+  return (
+    <article className={`w-52 select-none overflow-hidden rounded-xl border ${
+      isMine ? "border-slate-500 bg-slate-600" : "border-gray-200 bg-white"
+    }`}>
+      {/* Header: author */}
+      <div className={`flex items-center gap-2 px-2.5 py-2 border-b ${isMine ? "border-slate-500" : "border-gray-100"}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={card.authorAvatarUrl ? (apiService.getImageUrl(card.authorAvatarUrl) ?? "/default-avatar.svg") : "/default-avatar.svg"}
+          alt={card.authorName}
+          className="w-6 h-6 rounded-full object-cover flex-none"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).src = "/default-avatar.svg"; }}
+        />
+        <div className="min-w-0 flex-1">
+          <p className={`text-[11px] font-semibold truncate ${isMine ? "text-white" : "text-gray-800"}`}>{card.authorName}</p>
+          <p className={`text-[10px] ${isMine ? "text-slate-300" : "text-gray-400"}`}>{card.category} · {timeAgo()}</p>
+        </div>
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-none ${isMine ? "bg-slate-500 text-slate-200" : "bg-gray-100 text-gray-500"}`}>POST</span>
+      </div>
+
+      {/* Thumbnail */}
+      {card.imageUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={apiService.getImageUrl(card.imageUrl) ?? card.imageUrl}
+          alt=""
+          className="w-full h-24 object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+        />
+      )}
+
+      {/* Content preview */}
+      <div className="px-2.5 py-2">
+        <p className={`text-[11px] leading-relaxed line-clamp-2 ${isMine ? "text-slate-100" : "text-gray-700"}`}>
+          {card.content || "(ไม่มีเนื้อหา)"}
+        </p>
+      </div>
+
+      {/* Stats + View button */}
+      <div className={`flex items-center justify-between px-2.5 py-2 border-t ${isMine ? "border-slate-500" : "border-gray-100"}`}>
+        <div className={`flex items-center gap-2 text-[10px] ${isMine ? "text-slate-300" : "text-gray-400"}`}>
+          <span className="flex items-center gap-0.5">
+            <svg className="w-3 h-3 text-red-400" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            {card.likeCount}
+          </span>
+          <span className="flex items-center gap-0.5">
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            {card.commentCount}
+          </span>
+        </div>
+        <button
+          onClick={handleView}
+          className={`text-[10px] font-semibold px-2 py-1 rounded-lg flex-none transition-colors ${
+            isMine ? "bg-white/15 hover:bg-white/25 text-white" : "bg-gray-900 hover:bg-gray-700 text-white"
+          }`}
+        >
+          ดูโพสต์
+        </button>
+      </div>
+    </article>
   );
 }
 
@@ -896,8 +999,7 @@ const Chatbox = () => {
     <>
       {/* ── Floating button (collapsed) ────────────────────────────────────── */}
       {!isChatOpen && !selectedRoomId && (
-        <div className="fixed bottom-6 right-6 z-50">
-          {/* Large screen: Messages pill bar */}
+        <div className="fixed bottom-6 right-6 z-30">
           <button
             onClick={() => setIsChatOpen(true)}
             className="hidden md:flex items-center gap-4 bg-white shadow-2xl border border-gray-200 rounded-2xl px-8 py-4 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 active:scale-95"
@@ -928,7 +1030,7 @@ const Chatbox = () => {
 
       {/* ── Chat List panel ────────────────────────────────────────────────── */}
       {isChatOpen && !selectedRoomId && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 h-[480px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 right-6 z-30 w-80 h-[480px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
@@ -978,7 +1080,7 @@ const Chatbox = () => {
                 let lastText = "ยังไม่มีข้อความ";
                 if (room.lastMessage) {
                   const isMe = room.lastMessage.senderId === currentUserId;
-                  const content = parseMarketCard(room.lastMessage.content) ? "🛍️ สินค้า" : room.lastMessage.content;
+                  const content = parseMarketCard(room.lastMessage.content) ? "🛍️ สินค้า" : parsePostCard(room.lastMessage.content) ? "📬 โพสต์" : room.lastMessage.content;
                   lastText = isMe ? `คุณ: ${content}` : content;
                 }
                 const timeLabel = room.lastMessage ? formatRoomTime(room.lastMessage.createdAt) : formatRoomTime(room.updatedAt);
@@ -1020,7 +1122,7 @@ const Chatbox = () => {
 
       {/* ── Individual Chat View ──────────────────────────────────────────── */}
       {(selectedRoomId || pendingDmUser) && (
-        <div className="fixed bottom-6 right-6 z-50 w-80 h-[520px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 right-6 z-30 w-80 h-[520px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-3 py-2.5 border-b border-gray-100 bg-white">
             <div className="flex items-center gap-2 min-w-0">
@@ -1164,7 +1266,7 @@ const Chatbox = () => {
                 const showSent = lastMsgIsMe && isLastMine && seenReaders.length === 0;
                 const marginTop = isFirst ? "mt-2.5" : "mt-0.5";
                 const isEditing = editingMessageId === msg.id;
-                const canEdit = isMine && !parseMarketCard(msg.content) && !msg.mediaUrls;
+                const canEdit = isMine && !parseMarketCard(msg.content) && !parsePostCard(msg.content) && !msg.mediaUrls;
 
                 return (
                   <React.Fragment key={msg.id}>
@@ -1194,7 +1296,7 @@ const Chatbox = () => {
                       )}
 
                       {/* Bubble + menu */}
-                      <div className={`max-w-[75%] flex flex-col ${isMine ? "items-end" : "items-start"}`}>
+                      <div className={`max-w-[75%] min-w-0 flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                         {showSenderName && (
                           <span className="text-[10px] text-gray-400 mb-0.5 px-1">{senderName}</span>
                         )}
@@ -1248,7 +1350,7 @@ const Chatbox = () => {
                           </div>
                         ) : (
                           <div
-                            className={`overflow-hidden ${isMine
+                            className={`overflow-hidden min-w-0 ${isMine
                               ? `bg-slate-700 text-white cursor-pointer select-none ${isFirst && isLast ? "rounded-2xl rounded-br-sm" : isFirst ? "rounded-2xl rounded-br-md" : isLast ? "rounded-2xl rounded-tr-md rounded-br-sm" : "rounded-xl rounded-r-md"}`
                               : `bg-white text-gray-800 shadow-sm border border-gray-100 ${isFirst && isLast ? "rounded-2xl rounded-bl-sm" : isFirst ? "rounded-2xl rounded-bl-md" : isLast ? "rounded-2xl rounded-tl-md rounded-bl-sm" : "rounded-xl rounded-l-md"}`
                             }`}
@@ -1296,8 +1398,12 @@ const Chatbox = () => {
                                 const snAv = msg.senderAvatarUrl ? (apiService.getImageUrl(msg.senderAvatarUrl) ?? msg.senderAvatarUrl) : null;
                                 return <MiniMarketCard card={card} isMine={isMine} senderName={snFull} senderAvatarUrl={snAv} />;
                               }
+                              const postCard = parsePostCard(msg.content);
+                              if (postCard) {
+                                return <MiniPostCard card={postCard} isMine={isMine} />;
+                              }
                               return (
-                                <p className="px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word">
+                                <p className="px-3 py-2 text-sm leading-relaxed whitespace-pre-wrap wrap-break-word min-w-0 max-w-full">
                                   {msg.content}
                                 </p>
                               );

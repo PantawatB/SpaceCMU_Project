@@ -140,6 +140,12 @@ body {
   display: none;  /* Chrome, Safari and Opera */
 }
 
+/* ── Word break utility for long text (e.g. long URLs in chat bubbles) ── */
+.wrap-break-word {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
 /* ── Official Account Switch Animation ── */
 /* Public avatar เริ่มซ้าย (-44px จากกลาง), ลอยเข้ากลาง พร้อม scale ลดลง แล้ว fade */
 @keyframes mergeLeft {
