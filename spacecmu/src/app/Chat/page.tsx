@@ -2728,7 +2728,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="flex-none bg-white border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
+                <div className="flex-none bg-white border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
                   {/* ── Attachment previews strip ──────────────────────────────── */}
                   {attachmentPreviews.length > 0 && (
                     <div className="px-4 pt-3 pb-1">
@@ -2777,10 +2777,7 @@ export default function ChatPage() {
                   )}
 
                   {/* ── Input row ─────────────────────────────────────────────── */}
-                  <div
-                    className="flex items-end gap-2 px-4 pt-3"
-                    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
-                  >
+                  <div className="flex items-center gap-2 px-4 py-3">
                     {/* Hidden file input */}
                     <input
                       ref={fileInputRef}
@@ -2795,7 +2792,7 @@ export default function ChatPage() {
                     <button
                       ref={attachBtnRef}
                       onClick={() => fileInputRef.current?.click()}
-                      className="flex-none w-9 h-9 mb-0.5 flex items-center justify-center rounded-full text-gray-400 hover:text-slate-600 hover:bg-gray-100 transition-colors"
+                      className="flex-none w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-slate-600 hover:bg-gray-100 transition-colors"
                       title="แนบรูปภาพ / วิดีโอ"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2829,7 +2826,7 @@ export default function ChatPage() {
                     <button
                       onClick={handleSendMessage}
                       disabled={(chatMessage.trim() === "" && attachmentFiles.length === 0) || isSendingMessage}
-                      className={`flex-none w-9 h-9 mb-0.5 flex items-center justify-center rounded-full transition-all ${
+                      className={`flex-none w-9 h-9 flex items-center justify-center rounded-full transition-all ${
                         (chatMessage.trim() || attachmentFiles.length > 0) && !isSendingMessage
                           ? "bg-slate-700 hover:bg-slate-800 text-white shadow-sm"
                           : "bg-gray-100 text-gray-300 cursor-not-allowed"
