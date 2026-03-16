@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     secure: true,
     sameSite: "lax",
     path: "/",
-    maxAge: 24 * 60 * 60, // 1 day in seconds
+    maxAge: 7 * 24 * 60 * 60, // 7 days in seconds
   });
 
   return response;

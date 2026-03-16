@@ -219,7 +219,7 @@ export const callback = async (req: Request, res: Response) => {
                 organization_name_TH: userData.organization_name_TH,
             },
             jwtSecret,
-            { expiresIn: "1d" }
+            { expiresIn: "7d" }
         );
 
         // 4. Set Cookie and Redirect to Frontend
@@ -232,7 +232,7 @@ export const callback = async (req: Request, res: Response) => {
                 secure: false,
                 sameSite: "lax",
                 path: "/",
-                maxAge: 24 * 60 * 60 * 1000, // 1 day
+                maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
             });
         }
 
