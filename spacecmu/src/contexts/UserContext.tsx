@@ -1,7 +1,7 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import React, { createContext, useContext, useState, useEffect, useRef, ReactNode, Suspense } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { User, UserMeResponse, AnonymousAccount } from '@/types/user';
 import { apiService, type MyOfficialAccount } from '@/lib/api';
 
@@ -34,23 +34,23 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-export const UserProvider = ({ children }: { children: ReactNode }) => {
-  const pathname = usePathname();
-  const router = useRouter();
+// ── Captures ?token= from URL after CMU login redirect (cross-domain) ──────
+function TokenCapture() {
   const searchParams = useSearchParams();
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
-
-  // ── Capture token from URL (cross-domain redirect from backend) ──────────
   useEffect(() => {
     const urlToken = searchParams.get('token');
     if (urlToken) {
       localStorage.setItem('auth_token', urlToken);
-      // Clean the token from the URL so it's not visible or bookmarked
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, '', cleanUrl);
+      window.history.replaceState({}, '', window.location.pathname);
     }
   }, [searchParams]);
-  // ─────────────────────────────────────────────────────────────────────────
+  return null;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const UserProvider = ({ children }: { children: ReactNode }) => {
+  const pathname = usePathname();
+  const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
 
   const [user, setUser] = useState<User | null>(null);
   const [activeUser, setActiveUser] = useState<User | null>(null);
@@ -270,7 +270,14 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     isSwitchingToOfficial,
   };
 
-  return <UserContext.Provider value={value}>{children}</UserContext.Provider>;
+  return (
+    <UserContext.Provider value={value}>
+      <Suspense fallback={null}>
+        <TokenCapture />
+      </Suspense>
+      {children}
+    </UserContext.Provider>
+  );
 };
 
 export const useUser = (): UserContextType => {
