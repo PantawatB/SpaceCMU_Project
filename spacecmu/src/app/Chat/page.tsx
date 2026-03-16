@@ -1680,7 +1680,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex h-dvh bg-white text-gray-800 overflow-hidden" style={{ height: '100dvh' }}>
+    <div className="flex bg-white text-gray-800 overflow-hidden" style={{ height: '100dvh' }}>
       {/* Sidebar */}
       <div className="flex-none h-screen sticky top-0 z-30">
         <Sidebar hideHamburger={!!selectedRoomId} />
@@ -2068,7 +2068,7 @@ export default function ChatPage() {
             return (
               <>
                 {/* Chat Header */}
-                <div className="flex-none flex items-center justify-between px-4 lg:px-6 py-4 bg-white border-b border-gray-100 shadow-sm min-w-0 gap-2">                    <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
+                <div className="flex-none flex items-center justify-between px-4 lg:px-6 py-4 bg-white border-b border-gray-100 shadow-sm min-w-0 gap-2 lg:pt-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>                    <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
                     {/* Back button (mobile only) */}
                     <button
                       onClick={() => setSelectedRoomId(null)}
@@ -2528,7 +2528,9 @@ export default function ChatPage() {
                                   const videoFilenames = allFilenames.filter((f) => IS_VIDEO.test(f));
 
                                   // Build full URLs for images (for lightbox)
+                                  // Supabase stores full HTTPS URLs; legacy rows may store filenames only
                                   const imageUrls = imageFilenames.map((f) => {
+                                    if (f.startsWith("http://") || f.startsWith("https://")) return f;
                                     const withPrefix = f.startsWith("/uploads/") ? f : `/uploads/${f}`;
                                     return apiService.getImageUrl(withPrefix) ?? "";
                                   });
@@ -2580,8 +2582,9 @@ export default function ChatPage() {
 
                                       {/* ── Videos (each fullwidth) ── */}
                                       {videoFilenames.map((f, vi) => {
-                                        const withPrefix = f.startsWith("/uploads/") ? f : `/uploads/${f}`;
-                                        const vUrl = apiService.getImageUrl(withPrefix) ?? "";
+                                        const vUrl = (f.startsWith("http://") || f.startsWith("https://"))
+                                          ? f
+                                          : (apiService.getImageUrl(f.startsWith("/uploads/") ? f : `/uploads/${f}`) ?? "");
                                         return (
                                           <div key={vi} className={imgCount > 0 || vi > 0 ? "mt-0.5" : ""}>
                                             <video
@@ -2718,7 +2721,7 @@ export default function ChatPage() {
                 </div>
 
                 {/* Message Input */}
-                <div className="flex-none bg-white border-t border-gray-100">
+                <div className="flex-none bg-white border-t border-gray-100" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
                   {/* ── Attachment previews strip ──────────────────────────────── */}
                   {attachmentPreviews.length > 0 && (
                     <div className="px-4 pt-3 pb-1">
@@ -2859,7 +2862,7 @@ export default function ChatPage() {
         {/* Right Panel — Conversation List (hidden on mobile when room selected) */}
         <div className={`w-full lg:w-75 lg:min-w-[256px] lg:max-w-[400px] flex flex-col border-l border-gray-100 bg-white h-full ${selectedRoomId ? "hidden lg:flex" : "flex"}`}>
           {/* Header */}
-          <div className="flex-none px-4 lg:px-6 pt-14 lg:pt-8 pb-4">
+          <div className="flex-none px-4 lg:px-6 pb-4 lg:pt-8" style={{ paddingTop: 'max(3.5rem, calc(env(safe-area-inset-top) + 1rem))' }}>
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900">Chat</h1>
