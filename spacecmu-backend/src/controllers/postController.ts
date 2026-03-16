@@ -4,6 +4,7 @@ import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesT
 import { eq, desc, asc, and, sql, lt, ne, inArray, gt, ilike, or } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 import { createNotificationIfNotDuplicate, sendMentionNotifications, resolveMentionsInText } from "../utils/notificationUtils.js";
+import { uploadToSupabase } from "../utils/supabaseStorage.js";
 
 // --- Post Management ---
 
@@ -484,16 +485,17 @@ export const createPostWithMedia = async (req: Request, res: Response) => {
 
         // 2. Insert media if files were uploaded
         if (files && files.length > 0) {
-            const mediaValues = files.map((file, index) => {
+            const mediaValues = await Promise.all(files.map(async (file, index) => {
                 const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+                const mediaUrl = await uploadToSupabase("uploads", file);
                 return {
                     postId: newPost.id,
-                    mediaUrl: `/uploads/${file.filename}`,
+                    mediaUrl,
                     mediaType,
                     order: index,
                     fileSize: file.size,
                 };
-            });
+            }));
 
             await dbClient.insert(postMediaTable).values(mediaValues);
         }
@@ -649,16 +651,17 @@ export const editPost = async (req: Request, res: Response) => {
 
             let nextOrder = existing.length > 0 ? (existing[0].order + 1) : 0;
 
-            const mediaValues = files.map((file) => {
+            const mediaValues = await Promise.all(files.map(async (file) => {
                 const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
+                const mediaUrl = await uploadToSupabase("uploads", file);
                 return {
                     postId,
-                    mediaUrl: `/uploads/${file.filename}`,
+                    mediaUrl,
                     mediaType,
                     order: nextOrder++,
                     fileSize: file.size,
                 };
-            });
+            }));
 
             await dbClient.insert(postMediaTable).values(mediaValues);
         }
@@ -832,16 +835,16 @@ export const addComment = async (req: Request, res: Response) => {
         // Handle media uploads if present
         const files = req.files as Express.Multer.File[];
         if (files && files.length > 0) {
-            const mediaValues = files.map((file, index) => {
+            const mediaValues = await Promise.all(files.map(async (file, index) => {
                 const mediaType = file.mimetype.startsWith("video/") ? "video" : "image";
-                const mediaUrl = `/uploads/${file.filename}`;
+                const mediaUrl = await uploadToSupabase("uploads", file);
                 return {
                     commentId,
                     mediaUrl,
                     mediaType,
                     order: index,
                 };
-            });
+            }));
 
             // Insert all media entries
             await dbClient.insert(commentMediaTable).values(mediaValues);

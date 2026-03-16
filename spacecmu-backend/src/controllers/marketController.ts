@@ -3,6 +3,7 @@ import { dbClient } from "../../db/client.js";
 import { marketItemsTable, marketCategoriesTable, usersTable, messagesTable, chatRoomsTable, chatRoomMembersTable } from "../../db/schema.js";
 import { eq, desc, and, or, lt } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
+import { uploadToSupabase } from "../utils/supabaseStorage.js";
 
 // Get all market items with filters + cursor-based pagination
 export const getMarketItems = async (req: Request, res: Response) => {
@@ -220,11 +221,13 @@ export const createMarketItemWithImage = async (req: Request, res: Response) => 
         }
 
         // Get image URLs if files were uploaded (store first image in imageUrl for backward compatibility)
-        const imageUrl = files && files.length > 0 ? `/uploads/${files[0].filename}` : null;
-        // Store all image URLs as JSON string
-        const imageUrls = files && files.length > 0
-            ? JSON.stringify(files.map(f => `/uploads/${f.filename}`))
-            : null;
+        let imageUrl: string | null = null;
+        let imageUrls: string | null = null;
+        if (files && files.length > 0) {
+            const uploadedUrls = await Promise.all(files.map(f => uploadToSupabase("uploads", f)));
+            imageUrl = uploadedUrls[0];
+            imageUrls = JSON.stringify(uploadedUrls);
+        }
 
         const [insertedItem] = await dbClient
             .insert(marketItemsTable)

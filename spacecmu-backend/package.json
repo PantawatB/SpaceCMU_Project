@@ -31,6 +31,7 @@
     "db:prototype": "tsx ./db/prototype.ts"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.99.2",
     "axios": "^1.13.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
