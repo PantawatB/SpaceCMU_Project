@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
-import { usersTable, friendshipsTable } from "../../db/schema.js";
+import { usersTable, friendshipsTable, officialAccountsTable } from "../../db/schema.js";
 import { eq, sql, or, and, inArray } from "drizzle-orm";
 import jwt from "jsonwebtoken";
 import fs from "fs";
@@ -730,5 +730,31 @@ export const batchGetUsers = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error fetching users" });
+    }
+};
+
+// Get public official accounts — returns all official accounts with their user avatars
+export const getPublicOfficialAccounts = async (req: Request, res: Response) => {
+    try {
+        const accounts = await dbClient
+            .select({
+                id: officialAccountsTable.id,
+                name: officialAccountsTable.name,
+                username: officialAccountsTable.username,
+                faculty: officialAccountsTable.faculty,
+                createdAt: officialAccountsTable.createdAt,
+                userId: officialAccountsTable.userId,
+                avatarUrl: usersTable.avatarUrl,
+                bio: usersTable.bio,
+            })
+            .from(officialAccountsTable)
+            .leftJoin(usersTable, eq(officialAccountsTable.userId, usersTable.id))
+            .orderBy(officialAccountsTable.createdAt)
+            .limit(100);
+
+        res.json(accounts);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error fetching official accounts" });
     }
 };

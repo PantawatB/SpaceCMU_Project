@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
 import NotificationsPanel from "../../components/NotificationsPanel";
@@ -22,16 +22,19 @@ export default function SettingPage() {
   const [bio, setBio] = useState(activeUser?.bio || "");
   const [name, setName] = useState(`${activeUser?.firstName || ""} ${activeUser?.lastName || ""}`.trim());
   const [isSavingName, setIsSavingName] = useState(false);
-  const [notifications, setNotifications] = useState({
-    email: true,
-    push: true,
-    sms: false,
-  });
-  const [privacy, setPrivacy] = useState({
-    profileVisible: true,
-    showEmail: false,
-    allowMessages: true,
-  });
+
+  // Official accounts from API
+  type OfficialAccount = {
+    id: string;
+    name: string;
+    username: string;
+    faculty: string;
+    avatarUrl: string | null;
+    bio: string | null;
+    userId: string;
+  };
+  const [officialAccounts, setOfficialAccounts] = useState<OfficialAccount[]>([]);
+  const [officialLoading, setOfficialLoading] = useState(false);
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -191,65 +194,19 @@ export default function SettingPage() {
 
   const tabs = [
     { id: "profile", name: "Profile" },
-    { id: "account", name: "Account" },
-    { id: "notifications", name: "Notifications" },
-    { id: "privacy", name: "Privacy" },
     { id: "appearance", name: "Appearance" },
     { id: "official", name: "Official Account" },
   ];
 
-  const officialAccounts = [
-    {
-      id: 1,
-      name: "CMU Official",
-      username: "@cmu_official",
-      avatar: "/cmulogo.png",
-      bio: "Official account of Chiang Mai University",
-      followers: "500K",
-      isFollowing: false,
-    },
-    {
-      id: 2,
-      name: "CMU Library",
-      username: "@cmu_library",
-      avatar: "/cmu.png",
-      bio: "Central Library - Chiang Mai University",
-      followers: "12K",
-      isFollowing: true,
-    },
-    {
-      id: 3,
-      name: "CMU Engineering",
-      username: "@cmu_engineering",
-      avatar: "/cmulogo.png",
-      bio: "Faculty of Engineering, CMU",
-      followers: "25K",
-      isFollowing: false,
-    },
-    {
-      id: 4,
-      name: "CMU Student Affairs",
-      username: "@cmu_student",
-      avatar: "/cmu.png",
-      bio: "Student Affairs Division - CMU",
-      followers: "18K",
-      isFollowing: true,
-    },
-  ];
-
-  const [followingState, setFollowingState] = useState(
-    officialAccounts.reduce((acc, account) => {
-      acc[account.id] = account.isFollowing;
-      return acc;
-    }, {} as Record<number, boolean>)
-  );
-
-  const toggleFollow = (accountId: number) => {
-    setFollowingState((prev) => ({
-      ...prev,
-      [accountId]: !prev[accountId],
-    }));
-  };
+  // Fetch official accounts from API when tab is opened
+  useEffect(() => {
+    if (activeTab !== "official") return;
+    setOfficialLoading(true);
+    apiService.get<OfficialAccount[]>("/api/users/official-accounts")
+      .then((data) => setOfficialAccounts(data))
+      .catch(() => setOfficialAccounts([]))
+      .finally(() => setOfficialLoading(false));
+  }, [activeTab]);
 
   return (
     <div className="flex h-dvh bg-white text-gray-800 overflow-hidden" style={{ height: '100dvh' }}>
@@ -499,196 +456,48 @@ export default function SettingPage() {
           )}
 
           {/* Account Settings */}
-          {activeTab === "account" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-4 sm:p-8">
-              <div className="flex items-start gap-4 mb-6">
-                <div className="w-12 h-12 bg-red-50 rounded-full flex items-center justify-center shrink-0">
-                  <svg className="w-6 h-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <div className="flex-1">
-                  <h2 className="text-lg font-bold text-red-600 mb-2">Delete Account</h2>
-                  <p className="text-sm text-gray-600 mb-6">
-                    Once you delete your account, there is no going back. Please be certain. All your data, posts, and connections will be permanently removed.
-                  </p>
-                  <button className="px-6 py-2.5 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors">
-                    Delete my account
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === "account" && null}
 
           {/* Notifications */}
-          {activeTab === "notifications" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
-              <h2 className="text-lg font-bold text-gray-800 mb-6">Notification Preferences</h2>
-              
-              <div className="space-y-1">
-                {/* Email Notifications */}
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Email notifications</h3>
-                    <p className="text-sm text-gray-500">Receive email about your activity</p>
-                  </div>
-                  <button
-                    onClick={() => setNotifications({ ...notifications, email: !notifications.email })}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      (activeUser?.notificationSettings?.email ?? notifications.email) ? "bg-black" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        (activeUser?.notificationSettings?.email ?? notifications.email) ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Push Notifications */}
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Push notifications</h3>
-                    <p className="text-sm text-gray-500">Receive push notifications on your device</p>
-                  </div>
-                  <button
-                    onClick={() => setNotifications({ ...notifications, push: !notifications.push })}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      (activeUser?.notificationSettings?.push ?? notifications.push) ? "bg-black" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        (activeUser?.notificationSettings?.push ?? notifications.push) ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* SMS Notifications */}
-                <div className="flex items-center justify-between py-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">SMS notifications</h3>
-                    <p className="text-sm text-gray-500">Receive SMS about important updates</p>
-                  </div>
-                  <button
-                    onClick={() => setNotifications({ ...notifications, sms: !notifications.sms })}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      (activeUser?.notificationSettings?.sms ?? notifications.sms) ? "bg-black" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        (activeUser?.notificationSettings?.sms ?? notifications.sms) ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === "notifications" && null}
 
           {/* Privacy */}
-          {activeTab === "privacy" && (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
-              <h2 className="text-lg font-bold text-gray-800 mb-6">Privacy Settings</h2>
-              
-              <div className="space-y-1">
-                {/* Profile Visibility */}
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Profile visible</h3>
-                    <p className="text-sm text-gray-500">Make your profile visible to others</p>
-                  </div>
-                  <button
-                    onClick={() => setPrivacy({ ...privacy, profileVisible: !privacy.profileVisible })}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      (activeUser?.privacySettings?.profileVisible ?? privacy.profileVisible) ? "bg-black" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        (activeUser?.privacySettings?.profileVisible ?? privacy.profileVisible) ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Show Email */}
-                <div className="flex items-center justify-between py-4 border-b border-gray-200">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Show email</h3>
-                    <p className="text-sm text-gray-500">Display email on your profile</p>
-                  </div>
-                  <button
-                    onClick={() => setPrivacy({ ...privacy, showEmail: !privacy.showEmail })}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      (activeUser?.privacySettings?.showEmail ?? privacy.showEmail) ? "bg-black" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        (activeUser?.privacySettings?.showEmail ?? privacy.showEmail) ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-
-                {/* Allow Messages */}
-                <div className="flex items-center justify-between py-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-800">Allow messages</h3>
-                    <p className="text-sm text-gray-500">Let others send you messages</p>
-                  </div>
-                  <button
-                    onClick={() => setPrivacy({ ...privacy, allowMessages: !privacy.allowMessages })}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${
-                      (activeUser?.privacySettings?.allowMessages ?? privacy.allowMessages) ? "bg-black" : "bg-gray-300"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
-                        (activeUser?.privacySettings?.allowMessages ?? privacy.allowMessages) ? "translate-x-5" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          {activeTab === "privacy" && null}
 
           {/* Appearance */}
           {activeTab === "appearance" && (
             <div className="space-y-4">
-              {/* Theme Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
-                <h2 className="text-lg font-bold text-gray-800 mb-6">Theme</h2>
+              {/* Coming Soon banner */}
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-700 font-medium">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                </svg>
+                ฟีเจอร์นี้ยังไม่เปิดใช้งาน — Coming soon
+              </div>
+
+              {/* Theme Section — locked */}
+              <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8 select-none">
+                <div className="absolute inset-0 bg-white/60 rounded-2xl z-10 cursor-not-allowed" />
+                <h2 className="text-lg font-bold text-gray-400 mb-6">Theme</h2>
                 <div className="flex gap-4">
-                  <button className={`flex-1 py-3 px-4 border-2 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors ${
-                    (activeUser?.theme || "light") === "light" ? "border-black" : "border-gray-200"
-                  }`}>
+                  <button disabled className="flex-1 py-3 px-4 border-2 border-gray-200 rounded-lg text-center font-semibold text-gray-300 cursor-not-allowed">
                     Light
                   </button>
-                  <button className={`flex-1 py-3 px-4 border-2 rounded-lg text-center font-semibold text-gray-800 hover:bg-gray-50 transition-colors ${
-                    activeUser?.theme === "dark" ? "border-black" : "border-gray-200"
-                  }`}>
+                  <button disabled className="flex-1 py-3 px-4 border-2 border-gray-200 rounded-lg text-center font-semibold text-gray-300 cursor-not-allowed">
                     Dark
                   </button>
                 </div>
               </div>
 
-              {/* Language Section */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
-                <h2 className="text-lg font-bold text-gray-800 mb-6">Language</h2>
-                <select 
-                  defaultValue={activeUser?.language || "en"}
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-200 rounded-lg focus:outline-none focus:border-black transition-colors bg-white"
+              {/* Language Section — locked */}
+              <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8 select-none">
+                <div className="absolute inset-0 bg-white/60 rounded-2xl z-10 cursor-not-allowed" />
+                <h2 className="text-lg font-bold text-gray-400 mb-6">Language</h2>
+                <select
+                  disabled
+                  className="w-full px-4 py-3 text-gray-300 border border-gray-200 rounded-lg bg-white cursor-not-allowed"
                 >
-                  <option value="th">ไทย (Thai)</option>
-                  <option value="en">English</option>
-                  <option value="ja">日本語 (Japanese)</option>
-                  <option value="zh">中文 (Chinese)</option>
+                  <option>English</option>
                 </select>
               </div>
             </div>
@@ -698,57 +507,66 @@ export default function SettingPage() {
           {activeTab === "official" && (
             <div className="space-y-4">
               <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 sm:p-8">
-                <h2 className="text-lg font-bold text-gray-800 mb-2">Suggested Official Accounts</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-2">Official Accounts</h2>
                 <p className="text-sm text-gray-500 mb-6">
-                  Follow verified official accounts to stay updated with important announcements
+                  Official accounts registered in the SpaceCMU system
                 </p>
 
-                <div className="space-y-4">
-                  {officialAccounts.map((account) => (
-                    <div
-                      key={account.id}
-                      className="flex items-start gap-4 p-5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={account.avatar}
-                        alt={account.name}
-                        className="w-14 h-14 rounded-full object-cover"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-gray-800">{account.name}</h3>
-                          {/* Verified Badge */}
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                            className="w-5 h-5 text-blue-500"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                        </div>
-                        <p className="text-sm text-gray-500 mb-1">{account.username}</p>
-                        <p className="text-sm text-gray-600 mb-2">{account.bio}</p>
-                        <p className="text-xs text-gray-400">{account.followers} followers</p>
-                      </div>
-                      <button
-                        onClick={() => toggleFollow(account.id)}
-                        className={`px-6 py-2 rounded-full text-sm font-semibold transition-all ${
-                          followingState[account.id]
-                            ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                            : "bg-black text-white hover:bg-gray-800"
-                        }`}
+                {/* Loading */}
+                {officialLoading && (
+                  <div className="flex justify-center py-12">
+                    <div className="w-8 h-8 border-2 border-gray-200 border-t-black rounded-full animate-spin" />
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {!officialLoading && officialAccounts.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <svg className="w-20 h-20 text-gray-200 mb-4" fill="none" stroke="currentColor" strokeWidth={1} viewBox="0 0 24 24">
+                      <circle cx="12" cy="8" r="4" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20c0-4 3.58-7 8-7s8 3 8 7" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 3.5a4 4 0 010 9" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M18 14c2.21.9 4 2.87 4 5" />
+                    </svg>
+                    <p className="text-gray-400 font-semibold text-base">ยังไม่มี Official Account ในระบบ</p>
+                    <p className="text-gray-300 text-sm mt-1">Official accounts will appear here once they are created</p>
+                  </div>
+                )}
+
+                {/* Account list */}
+                {!officialLoading && officialAccounts.length > 0 && (
+                  <div className="space-y-4">
+                    {officialAccounts.map((account) => (
+                      <div
+                        key={account.id}
+                        className="flex items-start gap-4 p-5 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors"
                       >
-                        {followingState[account.id] ? "Following" : "Follow"}
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={apiService.getImageUrl(account.avatarUrl) || "/default-avatar.svg"}
+                          alt={account.name}
+                          className="w-14 h-14 rounded-full object-cover shrink-0"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-bold text-gray-800 truncate">{account.name}</h3>
+                            {/* Verified Badge */}
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-blue-500 shrink-0">
+                              <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                          <p className="text-sm text-gray-500 mb-1">@{account.username}</p>
+                          {account.faculty && (
+                            <p className="text-xs text-blue-600 font-medium mb-1">{account.faculty}</p>
+                          )}
+                          {account.bio && (
+                            <p className="text-sm text-gray-600 line-clamp-2">{account.bio}</p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
