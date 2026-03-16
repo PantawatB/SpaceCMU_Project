@@ -25,6 +25,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import godRoutes from "./routes/godRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import { callback as cmuCallback } from "./controllers/authController.js";
 
 const app: Express = express();
 
@@ -70,6 +71,9 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/announcements", announcementRoutes);
 app.use("/api/god", godRoutes);
 app.use("/api/reports", reportRoutes);
+
+// Custom CMU Entra ID Callback Route
+app.get("/cmuEntraIDCallback", cmuCallback);
 
 // Global Error Handler
 app.use((err: any, req: Request, res: Response, next: NextFunction) => {
