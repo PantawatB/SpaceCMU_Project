@@ -199,9 +199,11 @@ const COMMENT_REF_TYPES: Notification["type"][] = ["comment_like"];
 function NotifDetailModal({
   notif,
   onClose,
+  onNotifRemoved,
 }: {
   notif: Notification;
   onClose: () => void;
+  onNotifRemoved?: (id: string) => void;
 }) {
   const router = useRouter();
   const admin = isAdminNotification(notif);
@@ -211,6 +213,13 @@ function NotifDetailModal({
     ? `${notif.sender.firstName ?? ""} ${notif.sender.lastName ?? ""}`.trim() || "Someone"
     : "Someone";
   const avatarUrl = notif.sender?.avatarUrl;
+
+  // Friend request action state
+  type FriendRequestState = "loading" | "pending" | "accepted" | "rejected" | "not_found" | "already_friend" | null;
+  const [friendReqState, setFriendReqState] = useState<FriendRequestState>(
+    notif.type === "friend_request" ? "loading" : null
+  );
+  const [friendReqActing, setFriendReqActing] = useState(false);
 
   // Resolved postId for "View Post" button
   const [resolvedPostId, setResolvedPostId] = useState<string | null>(null);
@@ -290,6 +299,56 @@ function NotifDetailModal({
     }
   }, [notif.referenceId, notif.type]);
 
+  // Check friendship status for friend_request notifications
+  useEffect(() => {
+    if (notif.type !== "friend_request" || !notif.senderId) return;
+    const check = async () => {
+      try {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/status/${notif.senderId}`, {
+          credentials: "include",
+        });
+        if (!res.ok) { setFriendReqState("not_found"); return; }
+        const data = await res.json();
+        if (data.status === "friend") {
+          setFriendReqState("already_friend");
+        } else if (data.status === "pending" && data.pendingDirection === "received") {
+          setFriendReqState("pending");
+        } else {
+          // sent / not_friend / other — request no longer actionable from our side
+          setFriendReqState("not_found");
+        }
+      } catch { setFriendReqState("not_found"); }
+    };
+    check();
+  }, [notif.type, notif.senderId]);
+
+  const handleFriendAction = async (action: "accepted" | "rejected") => {
+    if (!notif.referenceId || friendReqActing) return;
+    setFriendReqActing(true);
+    try {
+      const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId: notif.referenceId, status: action }),
+      });
+      if (res.ok) {
+        setFriendReqState(action === "accepted" ? "accepted" : "rejected");
+        // Remove the notification from the list after acting
+        if (action === "rejected") {
+          // Give brief moment to show "Rejected" feedback then dismiss
+          setTimeout(() => {
+            onNotifRemoved?.(notif.id);
+            onClose();
+          }, 800);
+        }
+      } else {
+        setFriendReqState("not_found");
+      }
+    } catch { setFriendReqState("not_found"); }
+    setFriendReqActing(false);
+  };
+
   const handleViewPost = () => {
     if (!resolvedPostId) return;
     onClose();
@@ -327,10 +386,14 @@ function NotifDetailModal({
                 alt={senderName}
                 width={40}
                 height={40}
-                className="w-10 h-10 rounded-full object-cover"
+                onClick={() => { if (notif.senderId) { onClose(); router.push(`/Friends?userId=${notif.senderId}`); } }}
+                className="w-10 h-10 rounded-full object-cover cursor-pointer hover:opacity-80 transition-opacity"
               />
             ) : (
-              <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500">
+              <div
+                onClick={() => { if (notif.senderId) { onClose(); router.push(`/Friends?userId=${notif.senderId}`); } }}
+                className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-sm font-semibold text-gray-500 cursor-pointer hover:opacity-80 transition-opacity"
+              >
                 {senderName.charAt(0).toUpperCase()}
               </div>
             )}
@@ -341,7 +404,10 @@ function NotifDetailModal({
             {admin ? (
               <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">From Admin</p>
             ) : (
-              <p className="text-sm font-semibold text-gray-800 truncate flex items-center gap-1">
+              <p
+                className="text-sm font-semibold text-gray-800 truncate flex items-center gap-1 cursor-pointer hover:underline"
+                onClick={() => { if (notif.senderId) { onClose(); router.push(`/Friends?userId=${notif.senderId}`); } }}
+              >
                 {senderName}
                 {notif.sender?.role === "official_account" && <VerifiedBadge />}
               </p>
@@ -379,6 +445,84 @@ function NotifDetailModal({
                 <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap wrap-break-word border-l-2 border-slate-300 pl-3 italic">
                   {notif.message.replace(/^\[src:(post|comment)\]/, "")}
                 </p>
+              )}
+
+              {/* Friend request action buttons */}
+              {notif.type === "friend_request" && (
+                <div className="mt-3">
+                  {friendReqState === "loading" && (
+                    <div className="flex items-center gap-2 text-xs text-gray-400 py-1">
+                      <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Checking request status…
+                    </div>
+                  )}
+                  {friendReqState === "pending" && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <button
+                        onClick={() => handleFriendAction("accepted")}
+                        disabled={friendReqActing}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-semibold transition"
+                      >
+                        {friendReqActing ? (
+                          <svg className="animate-spin w-3.5 h-3.5" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                        ) : (
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleFriendAction("rejected")}
+                        disabled={friendReqActing}
+                        className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-600 text-xs font-semibold transition"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  {friendReqState === "accepted" && (
+                    <div className="flex items-center gap-2 mt-1 text-green-600 text-xs font-semibold">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Friend request accepted!
+                    </div>
+                  )}
+                  {friendReqState === "rejected" && (
+                    <div className="flex items-center gap-2 mt-1 text-gray-400 text-xs font-medium">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      Request rejected
+                    </div>
+                  )}
+                  {friendReqState === "already_friend" && (
+                    <div className="flex items-center gap-2 mt-1 text-teal-600 text-xs font-semibold">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      You are already friends
+                    </div>
+                  )}
+                  {friendReqState === "not_found" && (
+                    <div className="flex items-center gap-2 mt-1 text-gray-400 text-xs italic">
+                      <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      This request is no longer valid
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Full post card (read-only) */}
@@ -589,6 +733,10 @@ export default function NotificationsPanel({ userId, mobileOpen = false, onMobil
         <NotifDetailModal
           notif={detailNotif}
           onClose={() => setDetailNotif(null)}
+          onNotifRemoved={(id) => {
+            setNotifications((prev) => prev.filter((n) => n.id !== id));
+            setDetailNotif(null);
+          }}
         />
       )}
 

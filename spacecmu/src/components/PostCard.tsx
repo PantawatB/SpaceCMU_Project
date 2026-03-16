@@ -2,6 +2,7 @@
 import { fetchWithToken } from '@/lib/api';
 
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { API_CONFIG } from "@/lib/config";
 import { apiService } from "@/lib/api";
 import { useUser } from "@/contexts/UserContext";
@@ -395,6 +396,14 @@ export default function PostCard({
   disableShare = false,
 }: PostCardProps) {
   const { activeUser } = useUser();
+  const router = useRouter();
+
+  // Navigate to a user's profile page on the Friends page
+  const handleNavigateToProfile = (userId: string | undefined) => {
+    if (!userId) return;
+    router.push(`/Friends?userId=${userId}`);
+  };
+
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 0 });
   const [showCommentPopup, setShowCommentPopup] = useState(false);
@@ -1425,11 +1434,15 @@ export default function PostCard({
         <img
           src={apiService.getImageUrl(post.author?.avatarUrl) || "/default-avatar.svg"}
           alt="avatar"
-          className="w-10 h-10 rounded-full object-cover shrink-0"
+          onClick={() => handleNavigateToProfile(post.userId)}
+          className="w-10 h-10 rounded-full object-cover shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
         />
         <div className="min-w-0 flex-1">
           <div className="font-bold flex items-center gap-1 flex-wrap min-w-0">
-            <span className="break-all min-w-0">
+            <span
+              className="break-all min-w-0 cursor-pointer hover:underline"
+              onClick={() => handleNavigateToProfile(post.userId)}
+            >
               {post.author?.firstName || post.author?.lastName
                 ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
                 : "Anonymous"}
@@ -2029,12 +2042,16 @@ export default function PostCard({
                       <img
                         src={apiService.getImageUrl(comment.author?.avatarUrl) || "/default-avatar.svg"}
                         alt="avatar"
-                        className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5"
+                        onClick={() => handleNavigateToProfile(comment.userId)}
+                        className="w-9 h-9 rounded-full object-cover shrink-0 mt-0.5 cursor-pointer hover:opacity-80 transition-opacity"
                       />
                       <div className="flex-1 min-w-0">
                         <div className="bg-gray-50 rounded-2xl px-4 py-3 relative">
                           <p className="text-sm font-semibold text-gray-800 pr-7 flex items-center gap-1 flex-wrap min-w-0">
-                            <span className="break-all min-w-0">{comment.author?.firstName} {comment.author?.lastName}</span>
+                            <span
+                              className="break-all min-w-0 cursor-pointer hover:underline"
+                              onClick={() => handleNavigateToProfile(comment.userId)}
+                            >{comment.author?.firstName} {comment.author?.lastName}</span>
                             {comment.author?.role === 'official_account' && <VerifiedBadge className="w-3.5 h-3.5" />}
                             {comment.updatedAt && (new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 5000) && (
                               <span className="ml-1.5 text-xs font-normal text-gray-400">(edited)</span>
@@ -2263,12 +2280,16 @@ export default function PostCard({
                                 <img
                                   src={apiService.getImageUrl(reply.author?.avatarUrl) || "/default-avatar.svg"}
                                   alt="avatar"
-                                  className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5"
+                                  onClick={() => handleNavigateToProfile(reply.userId)}
+                                  className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5 cursor-pointer hover:opacity-80 transition-opacity"
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="bg-gray-50 rounded-xl px-3 py-2 relative">
                                     <p className="text-xs font-semibold text-gray-800 pr-6 flex items-center gap-1 flex-wrap min-w-0">
-                                      <span className="break-all min-w-0">{reply.author?.firstName} {reply.author?.lastName}</span>
+                                      <span
+                                        className="break-all min-w-0 cursor-pointer hover:underline"
+                                        onClick={() => handleNavigateToProfile(reply.userId)}
+                                      >{reply.author?.firstName} {reply.author?.lastName}</span>
                                       {reply.author?.role === 'official_account' && <VerifiedBadge className="w-3 h-3" />}
                                       {reply.updatedAt && (new Date(reply.updatedAt).getTime() - new Date(reply.createdAt).getTime() > 5000) && (
                                         <span className="ml-1 text-[10px] font-normal text-gray-400">(edited)</span>
