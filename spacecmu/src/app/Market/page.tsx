@@ -659,13 +659,12 @@ export default function MarketMainPage() {
                       if (uploadedFiles.length > 0) {
                         // Append all images (up to 10)
                         const filesToUpload = uploadedFiles.slice(0, 10);
-                        filesToUpload.forEach((file, index) => {
+                        filesToUpload.forEach((file) => {
                           formData.append('images', file);
                         });
-                      } else {
                       }
 
-                      for (const [key, value] of formData.entries()) {
+                      for (const [, value] of formData.entries()) {
                         if (value instanceof File) {
                         } else {
                         }

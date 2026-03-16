@@ -91,10 +91,11 @@ export default function SettingPage() {
       const formData = new FormData();
       formData.append('avatar', newPhotoFile);
 
-      const response = await apiService.patchFormData<{ message: string; user: { id: string; avatarUrl: string } }>(
+      await apiService.patchFormData<{ message: string; user: { id: string; avatarUrl: string } }>(
         '/api/users/profile/avatar',
         formData
       );
+
 
       showSuccess('Profile photo updated successfully!');
       
@@ -120,7 +121,7 @@ export default function SettingPage() {
       const formData = new FormData();
       formData.append('banner', newBannerFile);
 
-      const response = await apiService.patchFormData<{ message: string; bannerUrl: string }>(
+      await apiService.patchFormData<{ message: string; bannerUrl: string }>(
         '/api/settings/banner',
         formData
       );
