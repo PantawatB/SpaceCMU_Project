@@ -74,19 +74,26 @@ interface FriendCardProps {
 }
 function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, role, onAccept, onReject, onChat }: FriendCardProps) {
   const [loading, setLoading] = React.useState<"accept" | "reject" | null>(null);
+  const inFlight = React.useRef(false);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) || null : null;
 
   const handleAccept = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setLoading("accept");
     await onAccept(requestId);
     setLoading(null);
+    inFlight.current = false;
   };
 
   const handleReject = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setLoading("reject");
     await onReject(requestId);
     setLoading(null);
+    inFlight.current = false;
   };
 
   return (
@@ -343,26 +350,35 @@ interface SuggestedPersonCardProps {
 }
 function SuggestedPersonCard({ id, name, username, bio, avatarUrl, bannerUrl, role, mutualFriendsCount, initialStatus = "idle", onAddFriend, onCancelRequest, onViewProfile, onChat }: SuggestedPersonCardProps) {
   const [status, setStatus] = React.useState<"idle" | "loading" | "requested" | "cancelling">(initialStatus);
+  const inFlight = React.useRef(false);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
   const bannerSrc = bannerUrl ? apiService.getImageUrl(bannerUrl) || null : null;
 
   const handleAddFriend = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setStatus("loading");
     try {
       await onAddFriend(id);
       setStatus("requested");
     } catch {
       setStatus("idle");
+    } finally {
+      inFlight.current = false;
     }
   };
 
   const handleCancel = async () => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setStatus("cancelling");
     try {
       await onCancelRequest(id);
       setStatus("idle");
     } catch {
       setStatus("requested");
+    } finally {
+      inFlight.current = false;
     }
   };
 
