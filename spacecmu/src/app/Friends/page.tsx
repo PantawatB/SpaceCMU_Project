@@ -786,11 +786,8 @@ export default function FriendsMainPage() {
         // Fetch user's posts
         setLoadingPosts(true);
         try {
-          const postsResponse = await fetch(
+          const postsResponse = await fetchWithToken(
             `${API_CONFIG.BASE_URL}/api/posts/user/${userId}`,
-            {
-              credentials: "include",
-            }
           );
 
           if (postsResponse.ok) {
@@ -808,11 +805,8 @@ export default function FriendsMainPage() {
 
         // Fetch user's reposts
         try {
-          const repostsResponse = await fetch(
+          const repostsResponse = await fetchWithToken(
             `${API_CONFIG.BASE_URL}/api/posts/user/${userId}/reposts`,
-            {
-              credentials: "include",
-            }
           );
 
           if (repostsResponse.ok) {
@@ -830,11 +824,8 @@ export default function FriendsMainPage() {
 
         // Fetch user's liked posts
         try {
-          const likedResponse = await fetch(
+          const likedResponse = await fetchWithToken(
             `${API_CONFIG.BASE_URL}/api/posts/user/${userId}/liked`,
-            {
-              credentials: "include",
-            }
           );
 
           if (likedResponse.ok) {
@@ -882,11 +873,10 @@ export default function FriendsMainPage() {
 
     setIsSearching(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/users/search?query=${encodeURIComponent(query)}`,
         {
           method: "GET",
-          credentials: "include", // Include cookies (token)
           headers: {
             "Content-Type": "application/json",
           },
@@ -1042,11 +1032,10 @@ export default function FriendsMainPage() {
     setIsManagingItem(true);
     try {
       const newStatus = selectedMarketItem.status === "sold" ? "available" : "sold";
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items/${selectedMarketItem.id}/status`,
         {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         }
@@ -1069,9 +1058,9 @@ export default function FriendsMainPage() {
     if (!selectedMarketItem) return;
     setIsManagingItem(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items/${selectedMarketItem.id}`,
-        { method: "DELETE", credentials: "include" }
+        { method: "DELETE" }
       );
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       setSelectedUserMarketItems((prev) => prev.filter((item) => item.id !== selectedMarketItem.id));
@@ -1141,9 +1130,8 @@ export default function FriendsMainPage() {
       setMarketItemsLoading(true);
       setMarketItemsError(null);
       try {
-        const res = await fetch(
+        const res = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/market/user/${selectedUser.id}/items`,
-          { credentials: "include" }
         );
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();

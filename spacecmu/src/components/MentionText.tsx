@@ -15,6 +15,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { API_CONFIG } from "@/lib/config";
+import { fetchWithToken } from "@/lib/api";
 
 interface MentionUser {
   id: string;
@@ -36,9 +37,8 @@ async function fetchUsers(ids: string[]): Promise<void> {
 
   const promise = (async () => {
     try {
-      const res = await fetch(
+      const res = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/users/batch?ids=${encodeURIComponent(uncached.join(","))}`,
-        { credentials: "include" }
       );
       if (!res.ok) { uncached.forEach((id) => userCache.set(id, null)); return; }
       const data: MentionUser[] = await res.json();

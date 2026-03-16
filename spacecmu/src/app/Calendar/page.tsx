@@ -51,9 +51,8 @@ export default function CalendarPage() {
     async (d: number, m: number, y: number) => {
       const key = dateKey(d, m, y);
       try {
-        const res = await fetch(
+        const res = await fetchWithToken(
           `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.BY_DATE(key)}`,
-          { credentials: "include" }
         );
         if (!res.ok) return;
         const events: Array<{
@@ -524,9 +523,9 @@ export default function CalendarPage() {
                               completed={task.completed}
                               dotStatus={getTaskDotStatus(task, key)}
                               onSuccess={async () => {
-                                await fetch(
+                                await fetchWithToken(
                                   `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
-                                  { method: "PATCH", credentials: "include" }
+                                  { method: "PATCH" }
                                 );
                                 setTasks(prev => ({
                                   ...prev,
@@ -536,9 +535,9 @@ export default function CalendarPage() {
                                 }));
                               }}
                               onDelete={async () => {
-                                await fetch(
+                                await fetchWithToken(
                                   `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
-                                  { method: "DELETE", credentials: "include" }
+                                  { method: "DELETE" }
                                 );
                                 setTasks(prev => ({
                                   ...prev,
@@ -566,9 +565,9 @@ export default function CalendarPage() {
                               completed={task.completed}
                               dotStatus={getTaskDotStatus(task, key)}
                               onSuccess={async () => {
-                                await fetch(
+                                await fetchWithToken(
                                   `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`,
-                                  { method: "PATCH", credentials: "include" }
+                                  { method: "PATCH" }
                                 );
                                 setTasks(prev => ({
                                   ...prev,
@@ -578,9 +577,9 @@ export default function CalendarPage() {
                                 }));
                               }}
                               onDelete={async () => {
-                                await fetch(
+                                await fetchWithToken(
                                   `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`,
-                                  { method: "DELETE", credentials: "include" }
+                                  { method: "DELETE" }
                                 );
                                 setTasks(prev => ({
                                   ...prev,
@@ -942,11 +941,10 @@ export default function CalendarPage() {
                       const startDateTime = new Date(selectedYear, selectedMonth, selectedDate, hours, minutes);
 
                       try {
-                        const res = await fetch(
+                        const res = await fetchWithToken(
                           `${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.CREATE}`,
                           {
                             method: "POST",
-                            credentials: "include",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
                               title: taskTitle,

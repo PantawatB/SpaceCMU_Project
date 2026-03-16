@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
 import { useUser } from "@/contexts/UserContext";
-import { apiService, type GodStats, type GodUser, type GodActivity, type OfficialAccount, type SentNotification, type Report } from "@/lib/api";
+import { apiService, fetchWithToken, type GodStats, type GodUser, type GodActivity, type OfficialAccount, type SentNotification, type Report } from "@/lib/api";
 import { API_CONFIG } from "@/lib/config";
 import PostCardReadOnly from "@/components/PostCardReadOnly";
 
@@ -33,7 +33,7 @@ function ReportedPostPreview({ postId }: { postId: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, { credentials: "include" })
+    fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/${postId}`)
       .then(async (res) => {
         if (cancelled) return;
         if (!res.ok) { setStatus("deleted"); return; }

@@ -578,11 +578,8 @@ export default function PostCard({
 
       try {
         // Check all user's liked posts
-        const likedResponse = await fetch(
+        const likedResponse = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/liked/me`,
-          {
-            credentials: "include",
-          },
         );
         if (likedResponse.ok) {
           const likedPosts = await likedResponse.json();
@@ -593,11 +590,8 @@ export default function PostCard({
         }
 
         // Check all user's reposted posts
-        const repostedResponse = await fetch(
+        const repostedResponse = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/reposted/me`,
-          {
-            credentials: "include",
-          },
         );
         if (repostedResponse.ok) {
           const repostedPosts = await repostedResponse.json();
@@ -608,11 +602,8 @@ export default function PostCard({
         }
 
         // Check all user's saved posts
-        const savedResponse = await fetch(
+        const savedResponse = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/saved/me`,
-          {
-            credentials: "include",
-          },
         );
         if (savedResponse.ok) {
           const savedPosts = await savedResponse.json();
@@ -852,9 +843,8 @@ export default function PostCard({
     try {
       const cursorParam = !reset && nextCursor ? `&cursor=${encodeURIComponent(nextCursor)}` : "";
       const sortParam = activeSortMode === "top" ? "&sort=top" : "";
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments?limit=20${cursorParam}${sortParam}`,
-        { credentials: "include" },
       );
 
       if (!response.ok) {
@@ -918,9 +908,8 @@ export default function PostCard({
     setLoadingReplies(prev => ({ ...prev, [parentCommentId]: true }));
     try {
       const cursorParam = !reset && repliesCursor[parentCommentId] ? `&cursor=${encodeURIComponent(repliesCursor[parentCommentId]!)}` : "";
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/posts/${post.id}/comments?parentId=${parentCommentId}&limit=10${cursorParam}`,
-        { credentials: "include" },
       );
       if (!response.ok) throw new Error("Failed to fetch replies");
       const data = await response.json();
@@ -1247,11 +1236,10 @@ export default function PostCard({
     if (!activeUser) return;
     setDeletingPost(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/posts/${post.id}`,
         {
           method: "DELETE",
-          credentials: "include",
         },
       );
       if (!response.ok) {

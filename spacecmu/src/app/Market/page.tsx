@@ -7,7 +7,7 @@ import MarketCard from "../../components/MarketCard";
 import NotificationsPanel from "../../components/NotificationsPanel";
 import { API_CONFIG } from "@/lib/config";
 import { useUser } from "@/contexts/UserContext";
-import { apiService } from "@/lib/api";
+import { apiService, fetchWithToken } from "@/lib/api";
 import { useToast } from "@/contexts/ToastContext";
 
 interface MarketItemSeller {
@@ -116,9 +116,8 @@ export default function MarketMainPage() {
       setHasMore(false);
 
       try {
-        const response = await fetch(
+        const response = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/market/items?limit=20`,
-          { credentials: 'include' }
         );
 
         if (!response.ok) {
@@ -149,9 +148,8 @@ export default function MarketMainPage() {
     setIsLoadingMore(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items?limit=20&cursor=${encodeURIComponent(nextCursor)}`,
-        { credentials: 'include' }
       );
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -316,11 +314,10 @@ export default function MarketMainPage() {
     if (!selectedProduct) return;
     setIsManaging(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items/${selectedProduct.id}/status`,
         {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: selectedProduct.status === "sold" ? "available" : "sold" }),
         }
@@ -346,9 +343,9 @@ export default function MarketMainPage() {
     if (!selectedProduct) return;
     setIsManaging(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items/${selectedProduct.id}`,
-        { method: "DELETE", credentials: "include" }
+        { method: "DELETE" }
       );
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       setApiMarketItems((prev) => prev.filter((item) => item.id !== selectedProduct.id));
@@ -671,11 +668,10 @@ export default function MarketMainPage() {
                       }
 
                       // Call the API with upload endpoint
-                      const response = await fetch(
+                      const response = await fetchWithToken(
                         `${API_CONFIG.BASE_URL}/api/market/items/upload`,
                         {
                           method: 'POST',
-                          credentials: 'include',
                           body: formData,
                           // Don't set Content-Type header - browser will set it with boundary
                         }

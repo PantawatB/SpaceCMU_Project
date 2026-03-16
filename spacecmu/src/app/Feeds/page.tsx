@@ -199,11 +199,8 @@ export default function FeedsMainPage() {
       setHasMore(false);
 
       try {
-        const response = await fetch(
+        const response = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20`,
-          {
-            credentials: "include",
-          },
         );
 
         if (!response.ok) {
@@ -253,9 +250,8 @@ export default function FeedsMainPage() {
     setIsLoadingMore(true);
 
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20&cursor=${encodeURIComponent(nextCursor)}`,
-        { credentials: "include" },
       );
 
       if (!response.ok) {
@@ -558,11 +554,8 @@ export default function FeedsMainPage() {
       setEventName("");
 
       // Refresh feed to show new post
-      const refreshResponse = await fetch(
+      const refreshResponse = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/posts?category=${selectedFilter}&limit=20`,
-        {
-          credentials: "include",
-        },
       );
       if (refreshResponse.ok) {
         const data = await refreshResponse.json();
