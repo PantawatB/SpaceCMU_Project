@@ -237,6 +237,9 @@ export default function ProfileMainPage() {
   const [isManagingItem, setIsManagingItem] = useState(false);
   const [showItemDeleteConfirm, setShowItemDeleteConfirm] = useState(false);
 
+  // Smart search
+  const [searchQuery, setSearchQuery] = useState("");
+
   // Global token error listener
   useEffect(() => {
     const handleTokenError = () => {
@@ -620,6 +623,61 @@ export default function ProfileMainPage() {
   // Get faculty display
   const facultyDisplay = activeUser.faculty || "Unknown";
 
+  // ── Smart search: derive filtered lists from searchQuery ──
+  const q = searchQuery.trim().toLowerCase();
+
+  const filteredPosts = q
+    ? myPosts.filter(
+        (p) =>
+          p.content?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q)
+      )
+    : myPosts;
+
+  const filteredLikedPosts = q
+    ? likedPosts.filter(
+        (p) =>
+          p.content?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q) ||
+          `${p.author?.firstName ?? ""} ${p.author?.lastName ?? ""}`.toLowerCase().includes(q)
+      )
+    : likedPosts;
+
+  const filteredRepostedPosts = q
+    ? repostedPosts.filter(
+        (p) =>
+          p.content?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q) ||
+          `${p.author?.firstName ?? ""} ${p.author?.lastName ?? ""}`.toLowerCase().includes(q)
+      )
+    : repostedPosts;
+
+  const filteredSavedPosts = q
+    ? savedPosts.filter(
+        (p) =>
+          p.content?.toLowerCase().includes(q) ||
+          p.category?.toLowerCase().includes(q) ||
+          `${p.author?.firstName ?? ""} ${p.author?.lastName ?? ""}`.toLowerCase().includes(q)
+      )
+    : savedPosts;
+
+  const filteredMarketItems = q
+    ? myMarketItems.filter(
+        (item) =>
+          item.title?.toLowerCase().includes(q) ||
+          item.description?.toLowerCase().includes(q) ||
+          item.category?.toLowerCase().includes(q)
+      )
+    : myMarketItems;
+
+  const filteredFriends = q
+    ? friends.filter((f) =>
+        `${f.firstName ?? ""} ${f.lastName ?? ""}`.toLowerCase().includes(q) ||
+        f.username?.toLowerCase().includes(q) ||
+        f.bio?.toLowerCase().includes(q)
+      )
+    : friends;
+
   // Handle like count update
   const handleLikeUpdate = (postId: string, newLikeCount: number) => {
     setMyPosts(prevPosts => 
@@ -713,6 +771,12 @@ export default function ProfileMainPage() {
     setSavedPosts((prev) => prev.filter((p) => p.id !== postId));
   };
 
+  // Clear search when switching tabs so stale filters don't carry over
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    setSearchQuery("");
+  };
+
   return (
     <div className="flex min-h-screen bg-white text-gray-800">
         {/* Sidebar */}
@@ -731,29 +795,36 @@ export default function ProfileMainPage() {
                   stroke="currentColor"
                   className="w-5 h-5"
                 >
-                  <circle
-                    cx="11"
-                    cy="11"
-                    r="8"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    fill="none"
-                  />
-                  <line
-                    x1="21"
-                    y1="21"
-                    x2="16.65"
-                    y2="16.65"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  />
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" />
                 </svg>
               </span>
               <input
                 type="text"
-                placeholder="Search"
-                className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                placeholder={
+                  activeTab === "Posts" ? "ค้นหาโพสต์ของฉัน..." :
+                  activeTab === "Your Market Items" ? "ค้นหาสินค้าของฉัน..." :
+                  activeTab === "Friends" ? "ค้นหาเพื่อน..." :
+                  activeTab === "Reposts" ? "ค้นหาโพสต์ที่รีโพสต์..." :
+                  activeTab === "Liked" ? "ค้นหาโพสต์ที่ถูกใจ..." :
+                  activeTab === "Saved" ? "ค้นหาโพสต์ที่บันทึก..." :
+                  "Search"
+                }
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-8 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  aria-label="Clear search"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
             </div>
           </div>
           <section className="flex flex-col gap-6 pb-8">
@@ -812,7 +883,7 @@ export default function ProfileMainPage() {
               {/* Tabs */}
               <div className="flex sm:justify-center mt-2  border-gray-200 overflow-x-auto scrollbar-hide">
                 <button
-                  onClick={() => setActiveTab("Posts")}
+                  onClick={() => handleTabChange("Posts")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Posts"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
@@ -841,7 +912,7 @@ export default function ProfileMainPage() {
                   Posts
                 </button>
                 <button
-                  onClick={() => setActiveTab("Your Market Items")}
+                  onClick={() => handleTabChange("Your Market Items")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Your Market Items"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
@@ -864,7 +935,7 @@ export default function ProfileMainPage() {
                   Market Items
                 </button>
                 <button
-                  onClick={() => setActiveTab("Friends")}
+                  onClick={() => handleTabChange("Friends")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Friends"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
@@ -911,7 +982,7 @@ export default function ProfileMainPage() {
                   Friends
                 </button>
                 <button
-                  onClick={() => setActiveTab("Reposts")}
+                  onClick={() => handleTabChange("Reposts")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Reposts"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
@@ -934,7 +1005,7 @@ export default function ProfileMainPage() {
                   Reposts
                 </button>
                 <button
-                  onClick={() => setActiveTab("Liked")}
+                  onClick={() => handleTabChange("Liked")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Liked"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
@@ -957,7 +1028,7 @@ export default function ProfileMainPage() {
                   Liked
                 </button>
                 <button
-                  onClick={() => setActiveTab("Saved")}
+                  onClick={() => handleTabChange("Saved")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${
                     activeTab === "Saved"
                       ? "text-blue-600 bg-blue-50 rounded-t-xl border-b-2 border-blue-600"
@@ -986,68 +1057,44 @@ export default function ProfileMainPage() {
             <div className="bg-white rounded-2xl p-4 sm:p-6 min-w-0 overflow-hidden">
               {activeTab === "Posts" && (
                 <div className="w-full min-w-0">
-                  {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
                       <div className="text-gray-500">Loading posts...</div>
                     </div>
                   )}
-
-                  {/* Error State */}
                   {error && (
                     <div className="text-center py-12">
                       <div className="text-red-500">{error}</div>
                     </div>
                   )}
-
-                  {/* No Posts */}
-                  {!loading && !error && myPosts.length === 0 && (
-                    <div className="text-center py-12">
-                      <svg
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        {/* กระดาษ */}
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 3h9a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z"
-                        />
-
-                        {/* เส้นข้อความ */}
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 7h5M8 10h5M8 13h5M8 17h8"
-                        />
+                  {/* Search info badge */}
+                  {!loading && !error && q && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
-
-                      <p className="text-gray-500 text-lg">
-                        คุณยังไม่ได้โพสต์อะไรเลย
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        แชร์ความคิดหรือภาพของคุณให้เพื่อนๆ ได้ดู
-                      </p>
+                      <span>ผลการค้นหา <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong> — พบ {filteredPosts.length} โพสต์</span>
                     </div>
                   )}
-
-                  {/* Display Posts */}
-                  {!loading && !error && myPosts.length > 0 && (
+                  {!loading && !error && filteredPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 3h9a2 2 0 012 2v14a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h5M8 10h5M8 13h5M8 17h8" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        {q ? `ไม่พบโพสต์ที่ตรงกับ "${searchQuery.trim()}"` : "คุณยังไม่ได้โพสต์อะไรเลย"}
+                      </p>
+                      {!q && <p className="text-gray-400 text-sm mt-2">แชร์ความคิดหรือภาพของคุณให้เพื่อนๆ ได้ดู</p>}
+                    </div>
+                  )}
+                  {!loading && !error && filteredPosts.length > 0 && (
                     <div className="space-y-4">
-                      {myPosts.map((post) => (
-                        <PostCard 
-                          key={post.id} 
-                          post={post} 
-                          onLikeUpdate={handleLikeUpdate}
-                          onRepostUpdate={handleRepostUpdate}
-                          onSaveUpdate={handleSaveUpdate}
-                          onShareUpdate={handleShareUpdate}
-                          onPostDelete={handlePostDelete}
-                        />
+                      {filteredPosts.map((post) => (
+                        <PostCard key={post.id} post={post}
+                          onLikeUpdate={handleLikeUpdate} onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate} onShareUpdate={handleShareUpdate}
+                          onPostDelete={handlePostDelete} />
                       ))}
                     </div>
                   )}
@@ -1056,64 +1103,49 @@ export default function ProfileMainPage() {
 
               {activeTab === "Your Market Items" && (
                 <div>
-                  {/* Loading */}
                   {marketLoading && (
                     <div className="text-center py-12">
                       <div className="text-gray-500">กำลังโหลดสินค้า...</div>
                     </div>
                   )}
-
-                  {/* Error */}
                   {marketError && (
                     <div className="text-center py-12">
                       <div className="text-red-500">{marketError}</div>
                     </div>
                   )}
-
-                  {/* Empty state */}
-                  {!marketLoading && !marketError && myMarketItems.length === 0 && (
-                    <div className="text-center py-12">
-                      <svg
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
-                        />
+                  {/* Search info badge */}
+                  {!marketLoading && !marketError && q && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
-                      <p className="text-gray-500 text-lg">คุณยังไม่มีสินค้าในตลาด</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        ลงขายสินค้าของคุณเพื่อให้เพื่อนๆ ได้เห็น
-                      </p>
+                      <span>ผลการค้นหา <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong> — พบ {filteredMarketItems.length} รายการ</span>
                     </div>
                   )}
-
-                  {/* Market Items Grid */}
-                  {!marketLoading && !marketError && myMarketItems.length > 0 && (
+                  {!marketLoading && !marketError && filteredMarketItems.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        {q ? `ไม่พบสินค้าที่ตรงกับ "${searchQuery.trim()}"` : "คุณยังไม่มีสินค้าในตลาด"}
+                      </p>
+                      {!q && <p className="text-gray-400 text-sm mt-2">ลงขายสินค้าของคุณเพื่อให้เพื่อนๆ ได้เห็น</p>}
+                    </div>
+                  )}
+                  {!marketLoading && !marketError && filteredMarketItems.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-8">
-                      {myMarketItems.map((item) => {
+                      {filteredMarketItems.map((item) => {
                         const imageUrl = item.imageUrl
-                          ? item.imageUrl.startsWith('http')
-                            ? item.imageUrl
-                            : `${API_CONFIG.BASE_URL}${item.imageUrl}`
+                          ? item.imageUrl.startsWith('http') ? item.imageUrl : `${API_CONFIG.BASE_URL}${item.imageUrl}`
                           : undefined;
                         const sellerAvatarUrl = item.seller.avatarUrl
-                          ? item.seller.avatarUrl.startsWith('http')
-                            ? item.seller.avatarUrl
-                            : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`
+                          ? item.seller.avatarUrl.startsWith('http') ? item.seller.avatarUrl : `${API_CONFIG.BASE_URL}${item.seller.avatarUrl}`
                           : "/default-avatar.svg";
                         return (
                           <div key={item.id} className="relative">
-                            {/* Status badge */}
                             {item.status === "sold" && (
-                              <div className="absolute top-2 left-2 z-10 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">
-                                ขายแล้ว
-                              </div>
+                              <div className="absolute top-2 left-2 z-10 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow">ขายแล้ว</div>
                             )}
                             <div className={item.status === "sold" ? "opacity-60" : ""}>
                               <MarketCard
@@ -1124,11 +1156,7 @@ export default function ProfileMainPage() {
                                 sellerName={`${item.seller.firstName} ${item.seller.lastName}`}
                                 sellerImage={sellerAvatarUrl}
                                 sellerRole={item.seller.role}
-                                onViewClick={() => {
-                                  setSelectedMarketItem(item);
-                                  setCurrentImageIndex(0);
-                                  setShowItemDeleteConfirm(false);
-                                }}
+                                onViewClick={() => { setSelectedMarketItem(item); setCurrentImageIndex(0); setShowItemDeleteConfirm(false); }}
                               />
                             </div>
                           </div>
@@ -1141,52 +1169,44 @@ export default function ProfileMainPage() {
 
               {activeTab === "Friends" && (
                 <div className="py-2">
-                  {/* Loading */}
                   {friendsLoading && (
                     <div className="flex justify-center py-16">
                       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-600" />
                     </div>
                   )}
-
-                  {/* Empty state — same style as other tabs */}
-                  {!friendsLoading && friends.length === 0 && (
+                  {/* Search info badge */}
+                  {!friendsLoading && q && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+                      </svg>
+                      <span>ผลการค้นหา <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong> — พบ {filteredFriends.length} คน</span>
+                    </div>
+                  )}
+                  {!friendsLoading && filteredFriends.length === 0 && (
                     <div className="text-center py-12">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth={2}
-                        stroke="currentColor"
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                      >
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-16 h-16 text-gray-300 mx-auto mb-4">
                         <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
                         <circle cx="16" cy="8" r="3" stroke="currentColor" strokeWidth="2" fill="none" />
                         <path stroke="currentColor" strokeWidth="2" d="M2 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
                         <path stroke="currentColor" strokeWidth="2" d="M12 20c0-3 3-5 6-5s6 2 6 5" fill="none" />
                       </svg>
-                      <p className="text-gray-500 text-lg">รายการเพื่อนของคุณ</p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        คุณมีเพื่อน {activeUser.friendsCount} คน
+                      <p className="text-gray-500 text-lg">
+                        {q ? `ไม่พบเพื่อนที่ตรงกับ "${searchQuery.trim()}"` : "รายการเพื่อนของคุณ"}
                       </p>
+                      {!q && <p className="text-gray-400 text-sm mt-2">คุณมีเพื่อน {activeUser.friendsCount} คน</p>}
                     </div>
                   )}
-
-                  {/* Friends grid — same card as FriendCard on the Friends page */}
-                  {!friendsLoading && friends.length > 0 && (
+                  {!friendsLoading && filteredFriends.length > 0 && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {friends.map((friend) => {
+                      {filteredFriends.map((friend) => {
                         const friendImgSrc = friend.avatarUrl ? apiService.getImageUrl(friend.avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
                         const friendBannerSrc = friend.bannerUrl ? apiService.getImageUrl(friend.bannerUrl) : null;
                         const friendName = `${friend.firstName ?? ''} ${friend.lastName ?? ''}`.trim() || 'Unknown';
                         return (
-                          <FriendProfileCard
-                            key={friend.id}
-                            friend={friend}
-                            friendName={friendName}
-                            friendImgSrc={friendImgSrc}
-                            friendBannerSrc={friendBannerSrc}
-                            onUnfriend={(id) => setFriends((prev) => prev.filter((f) => f.id !== id))}
-                          />
+                          <FriendProfileCard key={friend.id} friend={friend} friendName={friendName}
+                            friendImgSrc={friendImgSrc} friendBannerSrc={friendBannerSrc}
+                            onUnfriend={(id) => setFriends((prev) => prev.filter((f) => f.id !== id))} />
                         );
                       })}
                     </div>
@@ -1196,58 +1216,43 @@ export default function ProfileMainPage() {
 
               {activeTab === "Reposts" && (
                 <div className="w-full min-w-0">
-                  {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
                       <div className="text-gray-500">Loading reposted posts...</div>
                     </div>
                   )}
-
-                  {/* Error State */}
                   {error && (
                     <div className="text-center py-12">
                       <div className="text-red-500">{error}</div>
                     </div>
                   )}
-
-                  {/* No Reposted Posts */}
-                  {!loading && !error && repostedPosts.length === 0 && (
-                    <div className="text-center py-12">
-                      <svg
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                        />
+                  {/* Search info badge */}
+                  {!loading && !error && q && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
-                      <p className="text-gray-500 text-lg">
-                        คุณยังไม่ได้รีโพสต์อะไรเลย
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        แชร์โพสต์ที่คุณชอบให้เพื่อนๆ ได้เห็น
-                      </p>
+                      <span>ผลการค้นหา <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong> — พบ {filteredRepostedPosts.length} โพสต์</span>
                     </div>
                   )}
-
-                  {/* Display Reposted Posts */}
-                  {!loading && !error && repostedPosts.length > 0 && (
+                  {!loading && !error && filteredRepostedPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        {q ? `ไม่พบโพสต์ที่ตรงกับ "${searchQuery.trim()}"` : "คุณยังไม่ได้รีโพสต์อะไรเลย"}
+                      </p>
+                      {!q && <p className="text-gray-400 text-sm mt-2">แชร์โพสต์ที่คุณชอบให้เพื่อนๆ ได้เห็น</p>}
+                    </div>
+                  )}
+                  {!loading && !error && filteredRepostedPosts.length > 0 && (
                     <div className="space-y-4">
-                      {repostedPosts.map((post) => (
-                        <PostCard 
-                          key={post.id} 
-                          post={post} 
-                          onLikeUpdate={handleLikeUpdate}
-                          onRepostUpdate={handleRepostUpdate}
-                          onSaveUpdate={handleSaveUpdate}
-                          onShareUpdate={handleShareUpdate}
-                          onPostDelete={handlePostDelete}
-                        />
+                      {filteredRepostedPosts.map((post) => (
+                        <PostCard key={post.id} post={post}
+                          onLikeUpdate={handleLikeUpdate} onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate} onShareUpdate={handleShareUpdate}
+                          onPostDelete={handlePostDelete} />
                       ))}
                     </div>
                   )}
@@ -1256,58 +1261,43 @@ export default function ProfileMainPage() {
 
               {activeTab === "Liked" && (
                 <div className="w-full min-w-0">
-                  {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
                       <div className="text-gray-500">Loading liked posts...</div>
                     </div>
                   )}
-
-                  {/* Error State */}
                   {error && (
                     <div className="text-center py-12">
                       <div className="text-red-500">{error}</div>
                     </div>
                   )}
-
-                  {/* No Liked Posts */}
-                  {!loading && !error && likedPosts.length === 0 && (
-                    <div className="text-center py-12">
-                      <svg
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
-                        />
+                  {/* Search info badge */}
+                  {!loading && !error && q && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
-                      <p className="text-gray-500 text-lg">
-                        คุณยังไม่ได้ไลก์โพสต์ไหนเลย
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        กดไลก์โพสต์ที่คุณชอบเพื่อเก็บไว้ดูอีกครั้ง
-                      </p>
+                      <span>ผลการค้นหา <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong> — พบ {filteredLikedPosts.length} โพสต์</span>
                     </div>
                   )}
-
-                  {/* Display Liked Posts */}
-                  {!loading && !error && likedPosts.length > 0 && (
+                  {!loading && !error && filteredLikedPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        {q ? `ไม่พบโพสต์ที่ตรงกับ "${searchQuery.trim()}"` : "คุณยังไม่ได้ไลก์โพสต์ไหนเลย"}
+                      </p>
+                      {!q && <p className="text-gray-400 text-sm mt-2">กดไลก์โพสต์ที่คุณชอบเพื่อเก็บไว้ดูอีกครั้ง</p>}
+                    </div>
+                  )}
+                  {!loading && !error && filteredLikedPosts.length > 0 && (
                     <div className="space-y-4">
-                      {likedPosts.map((post) => (
-                        <PostCard 
-                          key={post.id} 
-                          post={post} 
-                          onLikeUpdate={handleLikeUpdate}
-                          onRepostUpdate={handleRepostUpdate}
-                          onSaveUpdate={handleSaveUpdate}
-                          onShareUpdate={handleShareUpdate}
-                          onPostDelete={handlePostDelete}
-                        />
+                      {filteredLikedPosts.map((post) => (
+                        <PostCard key={post.id} post={post}
+                          onLikeUpdate={handleLikeUpdate} onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate} onShareUpdate={handleShareUpdate}
+                          onPostDelete={handlePostDelete} />
                       ))}
                     </div>
                   )}
@@ -1316,58 +1306,43 @@ export default function ProfileMainPage() {
 
               {activeTab === "Saved" && (
                 <div className="w-full min-w-0">
-                  {/* Loading State */}
                   {loading && (
                     <div className="text-center py-12">
                       <div className="text-gray-500">Loading saved posts...</div>
                     </div>
                   )}
-
-                  {/* Error State */}
                   {error && (
                     <div className="text-center py-12">
                       <div className="text-red-500">{error}</div>
                     </div>
                   )}
-
-                  {/* No Saved Posts */}
-                  {!loading && !error && savedPosts.length === 0 && (
-                    <div className="text-center py-12">
-                      <svg
-                        className="w-16 h-16 text-gray-300 mx-auto mb-4"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                        />
+                  {/* Search info badge */}
+                  {!loading && !error && q && (
+                    <div className="flex items-center gap-2 mb-4 text-xs text-slate-500">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                        <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                       </svg>
-                      <p className="text-gray-500 text-lg">
-                        คุณยังไม่ได้บันทึกอะไรไว้
-                      </p>
-                      <p className="text-gray-400 text-sm mt-2">
-                        บันทึกโพสต์ที่สำคัญเพื่อดูอีกครั้งในภายหลัง
-                      </p>
+                      <span>ผลการค้นหา <strong>&ldquo;{searchQuery.trim()}&rdquo;</strong> — พบ {filteredSavedPosts.length} โพสต์</span>
                     </div>
                   )}
-
-                  {/* Display Saved Posts */}
-                  {!loading && !error && savedPosts.length > 0 && (
+                  {!loading && !error && filteredSavedPosts.length === 0 && (
+                    <div className="text-center py-12">
+                      <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+                      </svg>
+                      <p className="text-gray-500 text-lg">
+                        {q ? `ไม่พบโพสต์ที่ตรงกับ "${searchQuery.trim()}"` : "คุณยังไม่ได้บันทึกอะไรไว้"}
+                      </p>
+                      {!q && <p className="text-gray-400 text-sm mt-2">บันทึกโพสต์ที่สำคัญเพื่อดูอีกครั้งในภายหลัง</p>}
+                    </div>
+                  )}
+                  {!loading && !error && filteredSavedPosts.length > 0 && (
                     <div className="space-y-4">
-                      {savedPosts.map((post) => (
-                        <PostCard 
-                          key={post.id} 
-                          post={post} 
-                          onLikeUpdate={handleLikeUpdate}
-                          onRepostUpdate={handleRepostUpdate}
-                          onSaveUpdate={handleSaveUpdate}
-                          onShareUpdate={handleShareUpdate}
-                          onPostDelete={handlePostDelete}
-                        />
+                      {filteredSavedPosts.map((post) => (
+                        <PostCard key={post.id} post={post}
+                          onLikeUpdate={handleLikeUpdate} onRepostUpdate={handleRepostUpdate}
+                          onSaveUpdate={handleSaveUpdate} onShareUpdate={handleShareUpdate}
+                          onPostDelete={handlePostDelete} />
                       ))}
                     </div>
                   )}
