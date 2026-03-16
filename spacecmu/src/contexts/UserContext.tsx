@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { User, UserMeResponse, AnonymousAccount } from '@/types/user';
 import { apiService, type MyOfficialAccount } from '@/lib/api';
 
@@ -36,7 +36,21 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const isPublicRoute = PUBLIC_ROUTES.includes(pathname);
+
+  // ── Capture token from URL (cross-domain redirect from backend) ──────────
+  useEffect(() => {
+    const urlToken = searchParams.get('token');
+    if (urlToken) {
+      localStorage.setItem('auth_token', urlToken);
+      // Clean the token from the URL so it's not visible or bookmarked
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, '', cleanUrl);
+    }
+  }, [searchParams]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const [user, setUser] = useState<User | null>(null);
   const [activeUser, setActiveUser] = useState<User | null>(null);
@@ -138,6 +152,8 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
       setActiveMode(null);
       setAnonymousAccount(null);
       setOfficialMode(null);
+      // Clear stored token from localStorage
+      localStorage.removeItem('auth_token');
       window.location.href = '/';
     } catch (err) {
       console.error('Failed to logout:', err);
@@ -236,7 +252,7 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     }, 30_000); // 30 seconds
 
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!user]); // restart interval when login/logout happens
 
   const value: UserContextType = {

@@ -223,12 +223,16 @@ class ApiService {
     suppressTokenError: boolean = false
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     const config: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...options.headers,
+        // Support cross-domain auth: send token from localStorage as Bearer if available
+        ...(typeof window !== 'undefined' && localStorage.getItem('auth_token')
+          ? { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+          : {}),
       },
       credentials: 'include', // Important for cookies
     };
@@ -238,19 +242,19 @@ class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+
         // Handle token errors — only dispatch event when NOT suppressed
         if (response.status === 401 && !suppressTokenError) {
-          if (errorData.message === "No token provided" || 
-              errorData.message?.toLowerCase().includes("token") ||
-              errorData.message?.toLowerCase().includes("unauthorized")) {
+          if (errorData.message === "No token provided" ||
+            errorData.message?.toLowerCase().includes("token") ||
+            errorData.message?.toLowerCase().includes("unauthorized")) {
             // Emit custom event for token error
-            window.dispatchEvent(new CustomEvent('tokenError', { 
-              detail: { message: errorData.message } 
+            window.dispatchEvent(new CustomEvent('tokenError', {
+              detail: { message: errorData.message }
             }));
           }
         }
-        
+
         throw new Error(
           errorData.message || `HTTP error! status: ${response.status}`
         );
@@ -274,7 +278,13 @@ class ApiService {
     const url = `${this.baseURL}${endpoint}`;
     const config: RequestInit = {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+        ...(typeof window !== 'undefined' && localStorage.getItem('auth_token')
+          ? { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+          : {}),
+      },
       credentials: 'include',
     };
     const response = await fetch(url, config);
@@ -407,7 +417,7 @@ class ApiService {
     options?: RequestInit
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
-    
+
     const config: RequestInit = {
       ...options,
       method,
@@ -415,6 +425,9 @@ class ApiService {
       credentials: 'include',
       headers: {
         // Don't set Content-Type for FormData, browser will set it automatically with boundary
+        ...(typeof window !== 'undefined' && localStorage.getItem('auth_token')
+          ? { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+          : {}),
         ...options?.headers,
       },
     };
@@ -424,18 +437,18 @@ class ApiService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+
         // Handle token errors
         if (response.status === 401) {
-          if (errorData.message === "No token provided" || 
-              errorData.message?.toLowerCase().includes("token") ||
-              errorData.message?.toLowerCase().includes("unauthorized")) {
-            window.dispatchEvent(new CustomEvent('tokenError', { 
-              detail: { message: errorData.message } 
+          if (errorData.message === "No token provided" ||
+            errorData.message?.toLowerCase().includes("token") ||
+            errorData.message?.toLowerCase().includes("unauthorized")) {
+            window.dispatchEvent(new CustomEvent('tokenError', {
+              detail: { message: errorData.message }
             }));
           }
         }
-        
+
         throw new Error(
           errorData.message || `HTTP error! status: ${response.status}`
         );
