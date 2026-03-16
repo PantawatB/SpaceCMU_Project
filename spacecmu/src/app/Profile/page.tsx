@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithToken } from '@/lib/api';
 
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
@@ -102,7 +103,7 @@ function FriendProfileCard({
     }
     setLoading("unfriend");
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${friend.id}`, {
+      const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/${friend.id}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -507,7 +508,7 @@ export default function ProfileMainPage() {
       if (activeTab !== 'Friends' || !activeUser) return;
       setFriendsLoading(true);
       try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/friends/me`, {
+        const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/me`, {
           credentials: 'include',
         });
         if (response.ok) {
@@ -531,7 +532,7 @@ export default function ProfileMainPage() {
       setMarketLoading(true);
       setMarketError(null);
       try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}/api/market/items/me`, {
+        const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/market/items/me`, {
           credentials: 'include',
         });
         if (!response.ok) {

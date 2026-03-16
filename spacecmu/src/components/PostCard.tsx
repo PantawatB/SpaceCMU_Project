@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithToken } from '@/lib/api';
 
 import React, { useState, useEffect, useRef } from "react";
 import { API_CONFIG } from "@/lib/config";
@@ -530,7 +531,7 @@ export default function PostCard({
     if (addedToCalendar || addingToCalendar || fetchingEventPreview) return;
     setFetchingEventPreview(true);
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${post.id}/event`, {
+      const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/${post.id}/event`, {
         credentials: "include",
       });
       if (res.ok) {
@@ -552,7 +553,7 @@ export default function PostCard({
     if (addedToCalendar || addingToCalendar) return;
     setAddingToCalendar(true);
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${post.id}/accept-event`, {
+      const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/${post.id}/accept-event`, {
         method: "POST",
         credentials: "include",
       });
@@ -722,7 +723,7 @@ export default function PostCard({
     }
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/like`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/like`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -763,7 +764,7 @@ export default function PostCard({
     }
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/repost`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/repost`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -804,7 +805,7 @@ export default function PostCard({
     }
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/save`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/save`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -988,7 +989,7 @@ export default function PostCard({
     try {
       // Use raw text (with @[userId]) if available, else display text
       const contentToSend = editingCommentRawText.trim() || editingCommentText.trim();
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -1025,7 +1026,7 @@ export default function PostCard({
   const handleDeleteComment = async (commentId: string, isReply: boolean, parentId?: string) => {
     setDeletingCommentId(commentId);
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -1070,7 +1071,7 @@ export default function PostCard({
     });
 
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/like`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/comment/like`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -1125,7 +1126,7 @@ export default function PostCard({
         formData.append("media", file);
       });
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/comment`, {
         method: "POST",
         credentials: "include",
         body: formData,
@@ -1342,7 +1343,7 @@ export default function PostCard({
       editPostRemoveMediaIds.forEach(id => formData.append("removeMediaIds", id));
       editPostMediaFiles.forEach(file => formData.append("media", file));
 
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${post.id}`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/${post.id}`, {
         method: "PATCH",
         credentials: "include",
         body: formData,

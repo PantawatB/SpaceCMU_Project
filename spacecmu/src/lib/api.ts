@@ -1,6 +1,29 @@
 import { API_CONFIG, API_ENDPOINTS } from './config';
 import { UserMeResponse } from '@/types/user';
 
+/**
+ * Read the JWT token from cookie (works because cookie is not httpOnly)
+ */
+function getTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null;
+  const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+/**
+ * Drop-in replacement for fetch() that automatically attaches the
+ * Authorization: Bearer <token> header so requests work cross-domain.
+ * Use this everywhere instead of raw fetch() for backend API calls.
+ */
+export function fetchWithToken(url: string, options: RequestInit = {}): Promise<Response> {
+  const token = getTokenFromCookie();
+  const headers = new Headers(options.headers);
+  if (token && !headers.has('Authorization')) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(url, { credentials: 'include', ...options, headers });
+}
+
 export interface GodStats {
   totalUsers: number;
   totalAdmins: number;
@@ -218,9 +241,7 @@ class ApiService {
    * Generic fetch wrapper with error handling
    */
   private getTokenFromCookie(): string | null {
-    if (typeof document === 'undefined') return null;
-    const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
-    return match ? decodeURIComponent(match[1]) : null;
+    return getTokenFromCookie();
   }
 
   private async fetchWithAuth<T>(

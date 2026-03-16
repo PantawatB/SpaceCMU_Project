@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithToken } from '@/lib/api';
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -234,7 +235,7 @@ function NotifDetailModal({
     const fetchPost = async (postId: string) => {
       setPostLoading(true);
       try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, {
           credentials: "include",
         });
         if (!res.ok) {
@@ -255,7 +256,7 @@ function NotifDetailModal({
     const fetchPostFromComment = async (commentId: string) => {
       setPostLoading(true);
       try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}/post`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/comment/${commentId}/post`, {
           credentials: "include",
         });
         if (res.status === 404) {
@@ -503,7 +504,7 @@ export default function NotificationsPanel({ userId, mobileOpen = false, onMobil
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await fetch(`${API_CONFIG.BASE_URL}/api/notifications/read`, {
+      await fetchWithToken(`${API_CONFIG.BASE_URL}/api/notifications/read`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -530,7 +531,7 @@ export default function NotificationsPanel({ userId, mobileOpen = false, onMobil
 
   const deleteOne = async (notificationId: string) => {
     try {
-      await fetch(`${API_CONFIG.BASE_URL}/api/notifications/${notificationId}`, {
+      await fetchWithToken(`${API_CONFIG.BASE_URL}/api/notifications/${notificationId}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -551,7 +552,7 @@ export default function NotificationsPanel({ userId, mobileOpen = false, onMobil
   const deleteAll = async () => {
     setDeleting(true);
     try {
-      await fetch(`${API_CONFIG.BASE_URL}/api/notifications/all`, {
+      await fetchWithToken(`${API_CONFIG.BASE_URL}/api/notifications/all`, {
         method: "DELETE",
         credentials: "include",
       });
