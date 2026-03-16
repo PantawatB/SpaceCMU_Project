@@ -2,12 +2,13 @@
 import { fetchWithToken } from '@/lib/api';
 
 import Sidebar from "../../components/Sidebar";
+import PullToRefresh from "../../components/PullToRefresh";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import MarketCard from "../../components/MarketCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
 import NotificationsPanel from "../../components/NotificationsPanel";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import React from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@/contexts/UserContext";
@@ -218,6 +219,7 @@ function FriendProfileCard({
 
 export default function ProfileMainPage() {
   const { activeUser } = useUser();
+  const profileScrollRef = useRef<HTMLElement | null>(null);
   const [showMobileNotif, setShowMobileNotif] = useState(false);
   const [mobileNotifUnread, setMobileNotifUnread] = useState(0);
   const [activeTab, setActiveTab] = useState("Posts");
@@ -757,7 +759,8 @@ export default function ProfileMainPage() {
         {/* Sidebar */}
         <Sidebar />
         {/* Main Content */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">
+        <PullToRefresh scrollRef={profileScrollRef} onRefresh={() => window.location.reload()}>
+        <main ref={profileScrollRef} className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">
           {/* Search bar */}
           <div className="mb-6 pl-14 lg:pl-0">
             <div className="relative w-full">
@@ -1326,6 +1329,7 @@ export default function ProfileMainPage() {
             </div>
           </section>
         </main>
+        </PullToRefresh>
 
         {/* Chatbox - Bottom Right */}
         <Chatbox />

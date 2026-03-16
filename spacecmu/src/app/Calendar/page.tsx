@@ -1,8 +1,9 @@
 "use client";
 import { fetchWithToken } from '@/lib/api';
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Sidebar from "../../components/Sidebar";
+import PullToRefresh from "../../components/PullToRefresh";
 import Chatbox from "../../components/Chatbox";
 import NoteCard from "../../components/NoteCard";
 import NotificationsPanel from "../../components/NotificationsPanel";
@@ -12,6 +13,7 @@ import { useUser } from "@/contexts/UserContext";
 export default function CalendarPage() {
   const today = new Date();
   const { activeUser } = useUser();
+  const calendarScrollRef = useRef<HTMLElement | null>(null);
   const [showMobileNotif, setShowMobileNotif] = useState(false);
   const [mobileNotifUnread, setMobileNotifUnread] = useState(0);
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
@@ -182,7 +184,8 @@ export default function CalendarPage() {
       <Sidebar />
 
       {/* Main Content (Center) */}
-      <main className="flex-1 p-6 md:p-6 bg-white overflow-auto min-h-0">
+      <PullToRefresh scrollRef={calendarScrollRef} onRefresh={() => window.location.reload()}>
+      <main ref={calendarScrollRef} className="flex-1 p-6 md:p-6 bg-white overflow-auto min-h-0">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-6 md:mb-8">
@@ -608,6 +611,7 @@ export default function CalendarPage() {
           </div>
         </div>
       </main>
+      </PullToRefresh>
 
       {/* Chatbox (Right) */}
       <Chatbox />

@@ -4,6 +4,7 @@ import { fetchWithToken } from '@/lib/api';
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Sidebar from "../../components/Sidebar";
+import PullToRefresh from "../../components/PullToRefresh";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import TokenErrorPopup from "../../components/TokenErrorPopup";
@@ -105,7 +106,7 @@ export default function FeedsMainPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const feedScrollRef = useRef<HTMLElement>(null);
+  const feedScrollRef = useRef<HTMLElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false); // block scroll-jump during load
 
@@ -793,6 +794,7 @@ export default function FeedsMainPage() {
           </div>
         </div>
         {/* Feeds Section: scrollable only for posts */}
+        <PullToRefresh scrollRef={feedScrollRef} onRefresh={() => window.location.reload()}>
         <section ref={feedScrollRef} className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
 
           {/* ── Search Results ── */}
@@ -1047,6 +1049,7 @@ export default function FeedsMainPage() {
             </div>
           )}
         </section>
+        </PullToRefresh>
 
         {/* Report Popup */}
         {showReportPopup && (

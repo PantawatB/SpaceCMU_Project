@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
+import PullToRefresh from "../../components/PullToRefresh";
 import Chatbox from "../../components/Chatbox";
 import MarketCard from "../../components/MarketCard";
 import NotificationsPanel from "../../components/NotificationsPanel";
@@ -76,7 +77,7 @@ export default function MarketMainPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const marketScrollRef = useRef<HTMLDivElement>(null);
+  const marketScrollRef = useRef<HTMLDivElement | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const isLoadingMoreRef = useRef(false);
 
@@ -436,6 +437,7 @@ export default function MarketMainPage() {
         </div>
 
         {/* Scrollable content area */}
+        <PullToRefresh scrollRef={marketScrollRef} onRefresh={() => window.location.reload()}>
         <div ref={marketScrollRef} className="flex-1 overflow-y-auto px-4 lg:px-8 pb-8 min-w-0">
           <div className="max-w-9xl pt-4 lg:pt-8 mx-auto w-full">
             {/* Loading State */}
@@ -515,6 +517,7 @@ export default function MarketMainPage() {
             )}
           </div>
         </div>
+        </PullToRefresh>
       </main>
 
       {/* Chatbox - Bottom Right */}
