@@ -335,10 +335,14 @@ class ApiService {
    */
   async getOptional<T>(endpoint: string): Promise<T | null> {
     const url = `${this.baseURL}${endpoint}`;
+    const token = this.getTokenFromCookie();
     try {
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         credentials: 'include',
       });
       if (response.status === 404) return null;
@@ -441,6 +445,7 @@ class ApiService {
     options?: RequestInit
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
+    const token = this.getTokenFromCookie();
     
     const config: RequestInit = {
       ...options,
@@ -449,6 +454,7 @@ class ApiService {
       credentials: 'include',
       headers: {
         // Don't set Content-Type for FormData, browser will set it automatically with boundary
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options?.headers,
       },
     };

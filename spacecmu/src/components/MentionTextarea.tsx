@@ -30,7 +30,7 @@ import {
   useImperativeHandle,
 } from "react";
 import { API_CONFIG } from "@/lib/config";
-import { apiService } from "@/lib/api";
+import { apiService, fetchWithToken } from "@/lib/api";
 
 interface MentionUser {
   id: string;
@@ -170,9 +170,8 @@ const MentionTextarea = forwardRef<MentionTextareaHandle, MentionTextareaProps>(
 
       const fetchAndDecode = async () => {
         try {
-          const res = await fetch(
+          const res = await fetchWithToken(
             `${API_CONFIG.BASE_URL}/api/users/batch?ids=${ids.map(encodeURIComponent).join(",")}`,
-            { credentials: "include" }
           );
           if (!res.ok) return;
           const users: { id: string; firstName: string; lastName: string }[] = await res.json();
@@ -241,9 +240,8 @@ const MentionTextarea = forwardRef<MentionTextareaHandle, MentionTextareaProps>(
       if (!query) { setDropdownUsers([]); return; }
       setDropdownLoading(true);
       try {
-        const res = await fetch(
+        const res = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/users/search?query=${encodeURIComponent(query)}`,
-          { credentials: "include" }
         );
         if (!res.ok) { setDropdownUsers([]); return; }
         const data: MentionUser[] = await res.json();

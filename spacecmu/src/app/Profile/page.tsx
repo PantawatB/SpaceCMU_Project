@@ -263,11 +263,8 @@ export default function ProfileMainPage() {
       setError(null);
       
       try {
-        const response = await fetch(
+        const response = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/me`,
-          {
-            credentials: 'include',
-          }
         );
 
         if (!response.ok) {
@@ -325,11 +322,8 @@ export default function ProfileMainPage() {
       setError(null);
       
       try {
-        const response = await fetch(
+        const response = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/liked/me`,
-          {
-            credentials: 'include',
-          }
         );
 
         if (!response.ok) {
@@ -387,11 +381,8 @@ export default function ProfileMainPage() {
       setError(null);
       
       try {
-        const response = await fetch(
+        const response = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/reposted/me`,
-          {
-            credentials: 'include',
-          }
         );
 
         if (!response.ok) {
@@ -449,11 +440,8 @@ export default function ProfileMainPage() {
       setError(null);
       
       try {
-        const response = await fetch(
+        const response = await fetchWithToken(
           `${API_CONFIG.BASE_URL}/api/posts/saved/me`,
-          {
-            credentials: 'include',
-          }
         );
 
         if (!response.ok) {
@@ -557,11 +545,10 @@ export default function ProfileMainPage() {
     setIsManagingItem(true);
     try {
       const newStatus = selectedMarketItem.status === "sold" ? "available" : "sold";
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items/${selectedMarketItem.id}/status`,
         {
           method: "PATCH",
-          credentials: "include",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: newStatus }),
         }
@@ -585,9 +572,9 @@ export default function ProfileMainPage() {
     if (!selectedMarketItem) return;
     setIsManagingItem(true);
     try {
-      const response = await fetch(
+      const response = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/market/items/${selectedMarketItem.id}`,
-        { method: "DELETE", credentials: "include" }
+        { method: "DELETE" }
       );
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       setMyMarketItems((prev) => prev.filter((item) => item.id !== selectedMarketItem.id));

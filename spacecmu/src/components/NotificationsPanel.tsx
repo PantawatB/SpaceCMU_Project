@@ -454,9 +454,8 @@ export default function NotificationsPanel({ userId, mobileOpen = false, onMobil
       setLoading(true);
     }
     try {
-      const res = await fetch(
+      const res = await fetchWithToken(
         `${API_CONFIG.BASE_URL}/api/notifications/${userId}?page=${targetPage}&limit=20`,
-        { credentials: "include" }
       );
       if (!res.ok) throw new Error("Failed to fetch");
       const body = await res.json();
