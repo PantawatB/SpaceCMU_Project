@@ -96,29 +96,40 @@ export const callback = async (req: Request, res: Response) => {
         let user;
         let loginAsAnonId: string | null = null; // set if public is banned but anon is active
         try {
-            const email = userData.cmuitaccount + "@cmu.ac.th"; // Construct email if not provided directly, or use cmuitaccount_name
             // Note: CMU Basic Info might vary, usually cmuitaccount_name is the email prefix or full email.
-            // We'll use cmuitaccount_name as username and construct email.
-
             const cmuAccount = userData.cmuitaccount_name || userData.itaccount_name;
-            const studentId = userData.student_id || userData.personal_id;
+            const studentId = userData.student_id || userData.personal_id || cmuAccount;
+
+            if (!cmuAccount) {
+                throw new Error("CMU account name is missing from user data");
+            }
+
+            console.log("CMU userData fields:", JSON.stringify({
+                cmuitaccount_name: userData.cmuitaccount_name,
+                itaccount_name: userData.itaccount_name,
+                firstname_TH: userData.firstname_TH,
+                lastname_TH: userData.lastname_TH,
+                student_id: userData.student_id,
+                personal_id: userData.personal_id,
+                organization_name_TH: userData.organization_name_TH,
+            }));
 
             const [upsertedUser] = await dbClient.insert(usersTable).values({
-                firstName: userData.firstname_TH,
-                lastName: userData.lastname_TH,
+                firstName: userData.firstname_TH || "User",
+                lastName: userData.lastname_TH || "",
                 email: cmuAccount + "@cmu.ac.th",
-                username: studentId, // Use student ID as username
+                username: studentId,
                 studentId: studentId,
                 faculty: userData.organization_name_TH,
                 role: "user",
                 status: "active",
-                avatarUrl: `https://ui-avatars.com/api/?name=${userData.firstname_TH}+${userData.lastname_TH}&background=random`,
+                avatarUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.firstname_TH || "U")}+${encodeURIComponent(userData.lastname_TH || "")}&background=random`,
             }).onConflictDoUpdate({
                 target: usersTable.email,
                 set: {
-                    firstName: userData.firstname_TH,
-                    lastName: userData.lastname_TH,
-                    username: studentId, // Ensure username is updated to student ID
+                    firstName: userData.firstname_TH || "User",
+                    lastName: userData.lastname_TH || "",
+                    username: studentId,
                     studentId: studentId,
                     faculty: userData.organization_name_TH,
                     lastActiveAt: new Date(),
@@ -184,9 +195,11 @@ export const callback = async (req: Request, res: Response) => {
                 loginAsAnonId = anonUser.id;
             }
 
-        } catch (dbError) {
+        } catch (dbError: any) {
             console.error("Database save failed:", dbError);
-            return res.status(500).send("Failed to save user data");
+            const errMsg = encodeURIComponent(dbError?.message || String(dbError));
+            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+            return res.redirect(`${frontendUrl}/auth/error?message=${errMsg}`);
         }
 
         // 4. Create session JWT
