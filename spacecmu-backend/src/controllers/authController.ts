@@ -33,7 +33,9 @@ export const login = (req: Request, res: Response) => {
 
 // Callback: Exchanges code and sets cookie
 export const callback = async (req: Request, res: Response) => {
-    const isProduction = process.env.NODE_ENV === "production";
+    // Use FRONTEND_URL to detect cross-domain (production) vs same-domain (local dev)
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const isCrossDomain = !frontendUrl.includes("localhost");
     try {
         const { code } = req.query;
 
@@ -181,8 +183,6 @@ export const callback = async (req: Request, res: Response) => {
             const publicBanned = user.status === "banned";
             const anonBanned = anonUser?.status === "banned";
 
-            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-
             if (publicBanned && anonBanned) {
                 // Both identities banned → redirect to Banned page (no session created)
                 console.log("Both identities banned for user:", user.id);
@@ -198,7 +198,6 @@ export const callback = async (req: Request, res: Response) => {
         } catch (dbError: any) {
             console.error("Database save failed:", dbError);
             const errMsg = encodeURIComponent(dbError?.message || String(dbError));
-            const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
             return res.redirect(`${frontendUrl}/auth/error?message=${errMsg}`);
         }
 
@@ -227,7 +226,7 @@ export const callback = async (req: Request, res: Response) => {
         // Only set cookie directly when on same domain (local dev).
         // On production, frontend and backend are on different domains so we pass
         // the token via redirect query param and let the frontend set the cookie.
-        if (!isProduction) {
+        if (!isCrossDomain) {
             res.cookie("token", sessionToken, {
                 httpOnly: true,
                 secure: false,
@@ -268,8 +267,8 @@ export const callback = async (req: Request, res: Response) => {
         }
 
         // Redirect to frontend Feeds page
-        const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-        if (isProduction) {
+        console.log("Redirecting — isCrossDomain:", isCrossDomain, "FRONTEND_URL:", frontendUrl);
+        if (isCrossDomain) {
             // Cross-domain: pass token via query param so frontend can set its own cookie
             res.redirect(`${frontendUrl}/auth/callback?token=${sessionToken}`);
         } else {
