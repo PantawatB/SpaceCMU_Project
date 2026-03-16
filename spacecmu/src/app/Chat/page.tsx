@@ -1682,7 +1682,7 @@ export default function ChatPage() {
   return (
     <div className="flex bg-white text-gray-800 overflow-hidden" style={{ height: '100dvh' }}>
       {/* Sidebar */}
-      <div className="flex-none h-screen sticky top-0 z-30">
+      <div className="flex-none h-full sticky top-0 z-30">
         <Sidebar hideHamburger={!!selectedRoomId} />
       </div>
       {/* New Message Modal */}
@@ -2052,7 +2052,7 @@ export default function ChatPage() {
       )}
 
       {/* Main Chat Layout */}
-      <main className="flex-1 flex h-screen overflow-hidden min-w-0">
+      <main className="flex-1 flex h-full overflow-hidden min-w-0">
         {/* Left Panel — Conversation Window (hidden on mobile when no room selected) */}
         <div className={`flex-1 flex flex-col h-full min-w-0 bg-gray-50 ${selectedRoomId ? "flex" : "hidden lg:flex"}`}>
 

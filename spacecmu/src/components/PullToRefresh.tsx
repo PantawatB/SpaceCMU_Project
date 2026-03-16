@@ -131,27 +131,21 @@ export default function PullToRefresh({
               transform: `scale(${0.6 + progress * 0.4})`,
             }}
           >
-            {refreshing ? (
-              /* Spinner */
-              <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-              </svg>
-            ) : (
-              /* Arrow — rotates as user pulls */
-              <svg
-                className={`w-4 h-4 transition-colors duration-150 ${ready ? "text-white" : "text-gray-400"}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                style={{
-                  transform: `rotate(${ready ? 180 : progress * 160}deg)`,
-                  transition: "transform 0.15s ease",
-                }}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
-              </svg>
-            )}
+            {/* Spinner — วนตลอดเวลาที่กำลัง pull หรือ refreshing */}
+            <svg
+              className={`w-4 h-4 text-white ${refreshing || ready ? "animate-spin" : ""}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              style={{
+                opacity: refreshing || ready ? 1 : 0.6,
+                // ก่อน threshold ให้หมุนตามความลึกที่ดึง แทน animate-spin
+                transform: refreshing || ready ? undefined : `rotate(${progress * 270}deg)`,
+                transition: refreshing || ready ? "none" : "transform 0.05s linear",
+              }}
+            >
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
           </div>
         </div>
       )}
