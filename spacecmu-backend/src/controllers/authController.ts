@@ -248,9 +248,10 @@ export const callback = async (req: Request, res: Response) => {
             console.error("Failed to log activity:", logError);
         }
 
-        // Redirect to frontend Feeds page
+        // Redirect to frontend Feeds page — pass token in URL so frontend can store it
+        // (needed for cross-domain deployments where cookies can't be shared)
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-        res.redirect(`${frontendUrl}/Feeds`);
+        res.redirect(`${frontendUrl}/Feeds?token=${encodeURIComponent(sessionToken)}`);
 
     } catch (error: any) {
         console.error("Sign-in error:", error);
