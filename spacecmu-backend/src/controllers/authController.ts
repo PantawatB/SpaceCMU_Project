@@ -33,6 +33,7 @@ export const login = (req: Request, res: Response) => {
 
 // Callback: Exchanges code and sets cookie
 export const callback = async (req: Request, res: Response) => {
+    const isProduction = process.env.NODE_ENV === "production";
     try {
         const { code } = req.query;
 
@@ -210,13 +211,18 @@ export const callback = async (req: Request, res: Response) => {
         );
 
         // 4. Set Cookie and Redirect to Frontend
-        res.cookie("token", sessionToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 24 * 60 * 60 * 1000, // 1 day
-        });
+        // Only set cookie directly when on same domain (local dev).
+        // On production, frontend and backend are on different domains so we pass
+        // the token via redirect query param and let the frontend set the cookie.
+        if (!isProduction) {
+            res.cookie("token", sessionToken, {
+                httpOnly: true,
+                secure: false,
+                sameSite: "lax",
+                path: "/",
+                maxAge: 24 * 60 * 60 * 1000, // 1 day
+            });
+        }
 
         // 5. Record Login Session
         try {
@@ -250,7 +256,12 @@ export const callback = async (req: Request, res: Response) => {
 
         // Redirect to frontend Feeds page
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
-        res.redirect(`${frontendUrl}/Feeds`);
+        if (isProduction) {
+            // Cross-domain: pass token via query param so frontend can set its own cookie
+            res.redirect(`${frontendUrl}/auth/callback?token=${sessionToken}`);
+        } else {
+            res.redirect(`${frontendUrl}/Feeds`);
+        }
 
     } catch (error: any) {
         console.error("Sign-in error:", error);
