@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { postsTable, commentsTable, commentMediaTable, commentLikesTable, likesTable, savedPostsTable, usersTable, repostsTable, postMediaTable, friendshipsTable, eventPostsTable, calendarEventsTable, followsTable, notificationsTable } from "../../db/schema.js";
-import { eq, desc, asc, and, sql, lt, ne, inArray, gt } from "drizzle-orm";
+import { eq, desc, asc, and, sql, lt, ne, inArray, gt, ilike, or } from "drizzle-orm";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 import { createNotificationIfNotDuplicate, sendMentionNotifications, resolveMentionsInText } from "../utils/notificationUtils.js";
 
@@ -2084,7 +2084,7 @@ export const likeComment = async (req: Request, res: Response) => {
 
             await dbClient
                 .update(commentsTable)
-                .set({ likeCount: sql`GREATEST(${commentsTable.likeCount} - 1, 0)` })
+                .set({ likeCount: sql`GREATEST(${commentsTable.likeCount} -  1, 0)` })
                 .where(eq(commentsTable.id, String(commentId)));
 
             const updated = await dbClient.select({ likeCount: commentsTable.likeCount }).from(commentsTable).where(eq(commentsTable.id, String(commentId))).limit(1);
@@ -2119,5 +2119,124 @@ export const likeComment = async (req: Request, res: Response) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Error toggling comment like" });
+    }
+};
+
+// --- Search Posts ---
+// Returns posts whose content matches the query.
+// Access rules:
+//   - Posts with category "Friends" are only visible to friends of the author.
+//   - All other non-banned posts are visible to everyone (including unauthenticated users).
+export const searchPosts = async (req: Request, res: Response) => {
+    try {
+        const { q, limit: limitParam, cursor } = req.query;
+        const userId = req.session?.activeUserId ?? null;
+
+        if (!q || typeof q !== "string" || q.trim().length === 0) {
+            return res.json({ posts: [], nextCursor: null, hasMore: false });
+        }
+
+        const searchQuery = q.trim();
+        const limit = Math.min(parseInt(limitParam as string) || 20, 50);
+        const cursorDate = cursor ? new Date(cursor as string) : null;
+
+        // 1. Build base WHERE: content ilike %query% AND status != banned
+        const baseConditions = [
+            ilike(postsTable.content, `%${searchQuery}%`),
+            ne(postsTable.status, "banned"),
+            ...(cursorDate ? [lt(postsTable.createdAt, cursorDate)] : []),
+        ];
+
+        // 2. Fetch candidate posts (no Friends filter yet — we filter in JS below)
+        const candidates = await dbClient
+            .select({
+                id: postsTable.id,
+                userId: postsTable.userId,
+                content: postsTable.content,
+                imageUrl: postsTable.imageUrl,
+                mediaUrl: postsTable.mediaUrl,
+                mediaType: postsTable.mediaType,
+                category: postsTable.category,
+                likeCount: postsTable.likeCount,
+                commentCount: postsTable.commentCount,
+                repostCount: postsTable.repostCount,
+                shareCount: postsTable.shareCount,
+                status: postsTable.status,
+                createdAt: postsTable.createdAt,
+                updatedAt: postsTable.updatedAt,
+                authorFirstName: usersTable.firstName,
+                authorLastName: usersTable.lastName,
+                authorAvatarUrl: usersTable.avatarUrl,
+                authorRole: usersTable.role,
+            })
+            .from(postsTable)
+            .leftJoin(usersTable, eq(postsTable.userId, usersTable.id))
+            .where(and(...baseConditions))
+            .orderBy(desc(postsTable.createdAt))
+            .limit(limit + 1);
+
+        // 3. Determine which Friends-category authors the viewer is friends with
+        let friendIds: string[] = [];
+        if (userId) {
+            const friendships = await dbClient
+                .select()
+                .from(friendshipsTable)
+                .where(
+                    and(
+                        eq(friendshipsTable.status, "accepted"),
+                        sql`(${friendshipsTable.userId1} = ${userId} OR ${friendshipsTable.userId2} = ${userId})`
+                    )
+                );
+            friendIds = friendships.map((f) =>
+                f.userId1 === userId ? f.userId2 : f.userId1
+            );
+        }
+
+        // 4. Filter out Friends-only posts that the viewer cannot see
+        const visibleCandidates = candidates.filter((post) => {
+            if (post.category === "Friends") {
+                // Allow if viewer is the author themselves
+                if (userId && post.userId === userId) return true;
+                // Allow if viewer is a friend of the author
+                return friendIds.includes(post.userId);
+            }
+            return true;
+        });
+
+        const hasMore = visibleCandidates.length > limit;
+        const postsToReturn = hasMore ? visibleCandidates.slice(0, limit) : visibleCandidates;
+
+        // 5. Attach media
+        const postsWithMedia = await Promise.all(
+            postsToReturn.map(async (post) => {
+                const media = await dbClient
+                    .select()
+                    .from(postMediaTable)
+                    .where(eq(postMediaTable.postId, post.id))
+                    .orderBy(postMediaTable.order);
+
+                const { authorFirstName, authorLastName, authorAvatarUrl, authorRole, ...postData } = post;
+                return {
+                    ...postData,
+                    author: {
+                        firstName: authorFirstName,
+                        lastName: authorLastName,
+                        avatarUrl: authorAvatarUrl,
+                        role: authorRole,
+                    },
+                    media: media.length > 0 ? media : undefined,
+                };
+            })
+        );
+
+        const nextCursor =
+            hasMore && postsToReturn.length > 0
+                ? postsToReturn[postsToReturn.length - 1].createdAt.toISOString()
+                : null;
+
+        return res.json({ posts: postsWithMedia, nextCursor, hasMore });
+    } catch (error) {
+        console.error("searchPosts error:", error);
+        res.status(500).json({ message: "Error searching posts" });
     }
 };

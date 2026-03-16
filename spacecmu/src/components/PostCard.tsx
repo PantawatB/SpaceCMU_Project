@@ -1381,21 +1381,23 @@ export default function PostCard({
 
   return (
     <div className="bg-gray-50 rounded-2xl pt-5 pb-5 shadow relative">
-      <div className="flex items-center gap-3 mb-2 px-5">
+      <div className="flex items-start gap-3 mb-2 px-5">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={apiService.getImageUrl(post.author?.avatarUrl) || "/default-avatar.svg"}
           alt="avatar"
-          className="w-10 h-10 rounded-full object-cover"
+          className="w-10 h-10 rounded-full object-cover shrink-0"
         />
-        <div>
-          <div className="font-bold flex items-center gap-1">
-            {post.author?.firstName || post.author?.lastName
-              ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
-              : "Anonymous"}
+        <div className="min-w-0 flex-1">
+          <div className="font-bold flex items-center gap-1 flex-wrap min-w-0">
+            <span className="break-all min-w-0">
+              {post.author?.firstName || post.author?.lastName
+                ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
+                : "Anonymous"}
+            </span>
             {post.author?.role === 'official_account' && <VerifiedBadge />}
           </div>
-          <div className="text-xs text-gray-400">{post.category}</div>
+          <div className="text-xs text-gray-400 wrap-break-word">{post.category}</div>
           <div className="text-xs text-gray-400">
             {getTimeAgo(post.createdAt)}
           </div>
@@ -1733,11 +1735,11 @@ export default function PostCard({
         {/* Right side: Save */}
         <div className="flex items-center gap-2">
           {/* Save Post Button */}
-          <label
-            htmlFor={`bookmark-${post.id}`}
+          <button
+            type="button"
+            aria-label={isSaved ? "Unsave post" : "Save post"}
             className={`bookmark cursor-pointer w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaved ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-700"}`}
-            onClick={async (e) => {
-              e.preventDefault();
+            onClick={async () => {
               await handleSavePost();
             }}
           >
@@ -1759,7 +1761,7 @@ export default function PostCard({
                 }}
               />
             </svg>
-          </label>
+          </button>
         </div>
       </div>
 
@@ -1989,8 +1991,8 @@ export default function PostCard({
                       />
                       <div className="flex-1 min-w-0">
                         <div className="bg-gray-50 rounded-2xl px-4 py-3 relative">
-                          <p className="text-sm font-semibold text-gray-800 pr-7 flex items-center gap-1 flex-wrap">
-                            <span>{comment.author?.firstName} {comment.author?.lastName}</span>
+                          <p className="text-sm font-semibold text-gray-800 pr-7 flex items-center gap-1 flex-wrap min-w-0">
+                            <span className="break-all min-w-0">{comment.author?.firstName} {comment.author?.lastName}</span>
                             {comment.author?.role === 'official_account' && <VerifiedBadge className="w-3.5 h-3.5" />}
                             {comment.updatedAt && (new Date(comment.updatedAt).getTime() - new Date(comment.createdAt).getTime() > 5000) && (
                               <span className="ml-1.5 text-xs font-normal text-gray-400">(edited)</span>
@@ -2223,8 +2225,8 @@ export default function PostCard({
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div className="bg-gray-50 rounded-xl px-3 py-2 relative">
-                                    <p className="text-xs font-semibold text-gray-800 pr-6 flex items-center gap-1 flex-wrap">
-                                      <span>{reply.author?.firstName} {reply.author?.lastName}</span>
+                                    <p className="text-xs font-semibold text-gray-800 pr-6 flex items-center gap-1 flex-wrap min-w-0">
+                                      <span className="break-all min-w-0">{reply.author?.firstName} {reply.author?.lastName}</span>
                                       {reply.author?.role === 'official_account' && <VerifiedBadge className="w-3 h-3" />}
                                       {reply.updatedAt && (new Date(reply.updatedAt).getTime() - new Date(reply.createdAt).getTime() > 5000) && (
                                         <span className="ml-1 text-[10px] font-normal text-gray-400">(edited)</span>
@@ -3035,7 +3037,7 @@ export default function PostCard({
                 <div className="px-5 py-4 space-y-4">
                   {/* Post snippet */}
                   <div className="bg-slate-50 rounded-xl px-4 py-3 border border-slate-100">
-                    <p className="text-xs font-semibold text-slate-500 mb-1">
+                    <p className="text-xs font-semibold text-slate-500 mb-1 break-all">
                       {post.author?.firstName || post.author?.lastName
                         ? `${post.author.firstName || ""} ${post.author.lastName || ""}`.trim()
                         : "ไม่ระบุตัวตน"}
@@ -3200,7 +3202,6 @@ export default function PostCard({
               <div className="flex-1" />
               <button
                 onClick={() => {
-                  console.log("Submit comment report:", { commentId: showCommentReportPopup, text: commentReportText });
                   setShowCommentReportPopup(null);
                   setCommentReportText("");
                 }}

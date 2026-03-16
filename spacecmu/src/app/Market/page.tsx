@@ -659,22 +659,15 @@ export default function MarketMainPage() {
                       if (uploadedFiles.length > 0) {
                         // Append all images (up to 10)
                         const filesToUpload = uploadedFiles.slice(0, 10);
-                        console.log(`Uploading ${filesToUpload.length} images`);
                         filesToUpload.forEach((file, index) => {
                           formData.append('images', file);
-                          console.log(`Image ${index + 1}:`, file.name, file.type, file.size);
                         });
                       } else {
-                        console.log('No images to upload');
                       }
 
-                      console.log('Creating market item with FormData');
-                      console.log('FormData entries:');
                       for (const [key, value] of formData.entries()) {
                         if (value instanceof File) {
-                          console.log(`${key}:`, value.name, value.type, value.size);
                         } else {
-                          console.log(`${key}:`, value);
                         }
                       }
 
@@ -689,9 +682,7 @@ export default function MarketMainPage() {
                         }
                       );
 
-                      console.log('Response status:', response.status);
                       const responseText = await response.text();
-                      console.log('Response body:', responseText);
 
                       if (!response.ok) {
                         let errorMessage = `HTTP error! status: ${response.status}`;
@@ -705,7 +696,6 @@ export default function MarketMainPage() {
                       }
 
                       const newItem = JSON.parse(responseText);
-                      console.log('Market item created successfully:', newItem);
 
                       // Add the new item to the API items list
                       setApiMarketItems(prev => [newItem, ...prev]);

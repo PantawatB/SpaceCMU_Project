@@ -629,6 +629,17 @@ class ApiService {
     return this.patch<{ message: string }>(`/api/god/reports/${reportId}/status`, { status });
   }
 
+  /** Search posts by content query — respects Friends-only visibility */
+  async searchPosts(query: string, limit = 20, cursor?: string): Promise<{
+    posts: unknown[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  }> {
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    if (cursor) params.set('cursor', cursor);
+    return this.get(`/api/posts/search?${params.toString()}`);
+  }
+
 }
 
 // Export singleton instance //

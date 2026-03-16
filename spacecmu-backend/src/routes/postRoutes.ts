@@ -25,6 +25,7 @@ import {
     getEventFromPost,
     getRepostsByUserId,
     getLikedPostsByUserId,
+    searchPosts,
 } from "../controllers/postController.js";
 import { sessionMiddleware, optionalSessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { uploadMultiple } from "../middleware/uploadMiddleware.js";
@@ -34,6 +35,7 @@ const router = Router();
 // optionalSessionMiddleware: attaches session when token is present (needed for Friends feed),
 // but does not block unauthenticated requests.
 router.get("/", optionalSessionMiddleware, getAllPosts);
+router.get("/search", optionalSessionMiddleware, searchPosts); // Search posts with access control
 router.post("/", sessionMiddleware, createPost);
 router.post("/media", sessionMiddleware, uploadMultiple.array("media", 20), createPostWithMedia); // Max 20 files
 router.delete("/:postId", sessionMiddleware, deletePost);

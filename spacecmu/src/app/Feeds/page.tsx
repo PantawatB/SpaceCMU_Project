@@ -89,6 +89,17 @@ export default function FeedsMainPage() {
   const [spotlightHighlight, setSpotlightHighlight] = useState(false);
   const spotlightRef = useRef<HTMLDivElement>(null);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Post[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchNextCursor, setSearchNextCursor] = useState<string | null>(null);
+  const [searchHasMore, setSearchHasMore] = useState(false);
+  const [isSearchLoadingMore, setIsSearchLoadingMore] = useState(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchSentinelRef = useRef<HTMLDivElement>(null);
+
   // Infinite scroll state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -210,7 +221,6 @@ export default function FeedsMainPage() {
 
         // Handle both array response and object with posts property
         const postsArray = Array.isArray(data) ? data : data.posts || [];
-        console.log("Fetched posts:", postsArray);
         setPosts(postsArray);
         setNextCursor(data.nextCursor ?? null);
         setHasMore(data.hasMore ?? false);
@@ -302,6 +312,78 @@ export default function FeedsMainPage() {
     observer.observe(sentinel);
     return () => observer.disconnect();
   }, [hasMore, loadMorePosts]);
+
+  // ── Search: debounced fetch ──
+  useEffect(() => {
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setSearchLoading(false);
+      setSearchError(null);
+      setSearchNextCursor(null);
+      setSearchHasMore(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+
+    searchDebounceRef.current = setTimeout(async () => {
+      try {
+        const data = await apiService.searchPosts(searchQuery.trim(), 20);
+        setSearchResults(data.posts as Post[]);
+        setSearchNextCursor(data.nextCursor);
+        setSearchHasMore(data.hasMore);
+      } catch (err) {
+        console.error("Search error:", err);
+        setSearchError("ค้นหาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง");
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 400);
+
+    return () => {
+      if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    };
+  }, [searchQuery]);
+
+  // ── Search: load more ──
+  const loadMoreSearchResults = useCallback(async () => {
+    if (!searchQuery.trim() || !searchNextCursor || !searchHasMore || isSearchLoadingMore) return;
+    setIsSearchLoadingMore(true);
+    try {
+      const data = await apiService.searchPosts(searchQuery.trim(), 20, searchNextCursor);
+      setSearchResults((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        return [...prev, ...(data.posts as Post[]).filter((p) => !existingIds.has(p.id))];
+      });
+      setSearchNextCursor(data.nextCursor);
+      setSearchHasMore(data.hasMore);
+    } catch (err) {
+      console.error("Search load more error:", err);
+    } finally {
+      setIsSearchLoadingMore(false);
+    }
+  }, [searchQuery, searchNextCursor, searchHasMore, isSearchLoadingMore]);
+
+  // ── Search: IntersectionObserver for search sentinel ──
+  useEffect(() => {
+    const sentinel = searchSentinelRef.current;
+    if (!sentinel || !searchQuery.trim()) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && searchHasMore && !isSearchLoadingMore) {
+          loadMoreSearchResults();
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [searchQuery, searchHasMore, isSearchLoadingMore, loadMoreSearchResults]);
 
   const postModes = [
     { id: "Global", label: "Global" },
@@ -454,9 +536,7 @@ export default function FeedsMainPage() {
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
-      console.log("Post created successfully:", result);
-      console.log("Post media:", result.media);
+      await response.json();
       showSuccess("Post created successfully!");
 
       // Revoke blob URLs for videos before resetting
@@ -486,7 +566,6 @@ export default function FeedsMainPage() {
       if (refreshResponse.ok) {
         const data = await refreshResponse.json();
         const postsArray = Array.isArray(data) ? data : data.posts || [];
-        console.log("Refreshed posts:", postsArray);
         setPosts(postsArray);
         setNextCursor(data.nextCursor ?? null);
         setHasMore(data.hasMore ?? false);
@@ -545,7 +624,6 @@ export default function FeedsMainPage() {
 
   // Handle save update
   const handleSaveUpdate = () => {
-    console.log("Post save status updated");
   };
 
   // Handle post delete
@@ -611,8 +689,22 @@ export default function FeedsMainPage() {
             <input
               type="text"
               placeholder="Search"
-              className="w-full pl-10 pr-3 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-8 py-2 rounded-full bg-white text-sm placeholder-gray-400 border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-100"
             />
+            {/* Clear button */}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Clear search"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
         {/* Feeds Header */}
@@ -708,6 +800,107 @@ export default function FeedsMainPage() {
         </div>
         {/* Feeds Section: scrollable only for posts */}
         <section ref={feedScrollRef} className="flex-1 overflow-y-auto  flex flex-col gap-6 pb-24">
+
+          {/* ── Search Results ── */}
+          {searchQuery.trim() && (
+            <div className="flex flex-col gap-3">
+              {/* Search header */}
+              <div className="flex items-center justify-between px-1">
+                <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2" fill="none" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="2" />
+                  </svg>
+                  ผลการค้นหา: &ldquo;{searchQuery.trim()}&rdquo;
+                  {!searchLoading && (
+                    <span className="text-gray-400 font-normal">
+                      ({searchResults.length}{searchHasMore ? "+" : ""} โพสต์)
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="text-xs text-gray-400 hover:text-gray-600 transition flex items-center gap-1"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  ล้างการค้นหา
+                </button>
+              </div>
+
+              {/* Loading */}
+              {searchLoading && (
+                <div className="flex items-center justify-center py-8 gap-2 text-gray-400 text-sm">
+                  <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                  </svg>
+                  กำลังค้นหา...
+                </div>
+              )}
+
+              {/* Error */}
+              {searchError && !searchLoading && (
+                <div className="flex items-center justify-center py-6 text-red-500 text-sm">
+                  {searchError}
+                </div>
+              )}
+
+              {/* No results */}
+              {!searchLoading && !searchError && searchResults.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-10 gap-2 text-gray-400">
+                  <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="1.5" fill="none" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                  <p className="text-sm">ไม่พบโพสต์ที่ตรงกับ &ldquo;{searchQuery.trim()}&rdquo;</p>
+                </div>
+              )}
+
+              {/* Results */}
+              {!searchLoading && searchResults.map((post) => (
+                <PostCard
+                  key={post.id}
+                  post={post}
+                  onLikeUpdate={handleLikeUpdate}
+                  onRepostUpdate={handleRepostUpdate}
+                  onSaveUpdate={handleSaveUpdate}
+                  onPostDelete={handlePostDelete}
+                />
+              ))}
+
+              {/* Search load more sentinel */}
+              <div ref={searchSentinelRef} className="h-1" />
+
+              {/* Search load more indicator */}
+              {isSearchLoadingMore && (
+                <div className="flex justify-center items-center py-4">
+                  <div className="flex items-center gap-2 text-gray-400 text-sm">
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    Loading more...
+                  </div>
+                </div>
+              )}
+
+              {/* End of search results */}
+              {!searchLoading && !searchHasMore && searchResults.length > 0 && (
+                <div className="flex justify-center items-center py-3 text-gray-300 text-xs">
+                  — แสดงผลการค้นหาทั้งหมดแล้ว —
+                </div>
+              )}
+
+              {/* Divider between search results and normal feed */}
+              <div className="flex items-center gap-3 mt-1 mb-2">
+                <div className="flex-1 h-px bg-gray-100" />
+                <span className="text-xs text-gray-400 whitespace-nowrap">Feed ปกติ</span>
+                <div className="flex-1 h-px bg-gray-100" />
+              </div>
+            </div>
+          )}
 
           {/* ── Spotlight post (from notification or chat ?postId=) ── */}
           {(spotlightLoading || spotlightPost || spotlightDeleted) && (
@@ -916,10 +1109,6 @@ export default function FeedsMainPage() {
                 <button
                   onClick={() => {
                     // TODO: Submit report
-                    console.log("Submitting report:", {
-                      text: reportText,
-                      mood: reportMood,
-                    });
                     setReportText("");
                     setReportMood(null);
                     setShowReportPopup(false);
