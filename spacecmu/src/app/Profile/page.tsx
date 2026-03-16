@@ -859,7 +859,7 @@ export default function ProfileMainPage() {
                 </div>
               </div>
               {/* Tabs */}
-              <div className="w-full flex mt-2 border-b border-gray-200 overflow-x-auto scrollbar-hide"
+              <div className="flex mt-2 border-b border-gray-200 overflow-x-auto scrollbar-hide sm:justify-center"
                 style={{ WebkitOverflowScrolling: 'touch' }}
               >
                 <button
