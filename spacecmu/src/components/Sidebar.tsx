@@ -535,7 +535,7 @@ export default function Sidebar({ menuItems, hideHamburger = false }: SidebarPro
       {!isSidebarOpen && !hideHamburger && (
         <button
           onClick={() => setIsSidebarOpen(true)}
-          className="lg:hidden fixed top-4 left-4 z-30 p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-all"
+          className="lg:hidden fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-lg border border-gray-200 hover:bg-gray-50 transition-all"
           aria-label="Open menu"
         >
           <svg
@@ -557,7 +557,7 @@ export default function Sidebar({ menuItems, hideHamburger = false }: SidebarPro
       {/* Backdrop for Mobile */}
       {isSidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-40"
+          className="lg:hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-50"
           style={{ minHeight: '100dvh' }}
           onClick={() => setIsSidebarOpen(false)}
         />
@@ -571,7 +571,7 @@ export default function Sidebar({ menuItems, hideHamburger = false }: SidebarPro
           p-6 flex flex-col
           bg-white
           transition-transform duration-300 ease-in-out
-          z-40
+          z-50
           ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
         style={{ height: '100dvh' }}

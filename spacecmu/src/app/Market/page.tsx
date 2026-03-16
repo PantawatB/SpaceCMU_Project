@@ -61,6 +61,7 @@ export default function MarketMainPage() {
   const [error, setError] = useState<string | null>(null);
   const [showModeWarning, setShowModeWarning] = useState(false);
   const [addProductStep, setAddProductStep] = useState<"form" | "preview">("form");
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
 
   // ── Ban detection state ──────────────────────────────────────────────────
   const isPublicBanned = user?.status === 'banned';
@@ -640,7 +641,8 @@ export default function MarketMainPage() {
                   id="addProductForm"
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    
+                    if (isAddingProduct) return; // ป้องกัน double submit
+                    setIsAddingProduct(true);
                     try {
                       // Validate images (optional now - can upload without images)
                       if (uploadedFiles.length > 10) {
@@ -711,6 +713,8 @@ export default function MarketMainPage() {
                     } catch (err) {
                       console.error('Error creating market item:', err);
                       showError(`เกิดข้อผิดพลาดในการเพิ่มสินค้า: ${err instanceof Error ? err.message : 'กรุณาลองใหม่อีกครั้ง'}`);
+                    } finally {
+                      setIsAddingProduct(false);
                     }
                   }}
                   className="space-y-6"
@@ -874,14 +878,24 @@ export default function MarketMainPage() {
                     <button
                       type="submit"
                       form="addProductForm"
-                      className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium"
+                      disabled={isAddingProduct}
+                      className="flex-1 bg-slate-600 text-white py-3 px-6 rounded-lg hover:bg-slate-700 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                     >
-                      เพิ่มสินค้า
+                      {isAddingProduct ? (
+                        <>
+                          <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          กำลังเพิ่มสินค้า...
+                        </>
+                      ) : "เพิ่มสินค้า"}
                     </button>
                     <button
                       type="button"
+                      disabled={isAddingProduct}
                       onClick={() => { setShowAddProductPopup(false); setAddProductStep("form"); }}
-                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       ยกเลิก
                     </button>

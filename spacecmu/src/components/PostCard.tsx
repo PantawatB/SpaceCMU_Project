@@ -494,6 +494,10 @@ export default function PostCard({
   // Track user's interaction status
   const [isLiked, setIsLiked] = useState(false);
   const [isReposted, setIsReposted] = useState(false);
+  // In-flight guards to prevent duplicate requests
+  const [isLiking, setIsLiking] = useState(false);
+  const [isReposting, setIsReposting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   // Share modal
   const [showShareModal, setShowShareModal] = useState(false);
   const [localShareCount, setLocalShareCount] = useState(post.shareCount ?? 0);
@@ -712,6 +716,8 @@ export default function PostCard({
       alert("Please login to like posts");
       return;
     }
+    if (isLiking) return;
+    setIsLiking(true);
 
     try {
       const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/like`, {
@@ -745,6 +751,8 @@ export default function PostCard({
     } catch (error) {
       console.error("Error liking post:", error);
       alert("Failed to like post. Please try again.");
+    } finally {
+      setIsLiking(false);
     }
   };
 
@@ -753,6 +761,8 @@ export default function PostCard({
       alert("Please login to repost");
       return;
     }
+    if (isReposting) return;
+    setIsReposting(true);
 
     try {
       const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/repost`, {
@@ -786,6 +796,8 @@ export default function PostCard({
     } catch (error) {
       console.error("Error reposting post:", error);
       alert("Failed to repost. Please try again.");
+    } finally {
+      setIsReposting(false);
     }
   };
 
@@ -794,6 +806,8 @@ export default function PostCard({
       alert("Please login to save posts");
       return;
     }
+    if (isSaving) return;
+    setIsSaving(true);
 
     try {
       const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/save`, {
@@ -827,6 +841,8 @@ export default function PostCard({
     } catch (error) {
       console.error("Error saving post:", error);
       alert("Failed to save post. Please try again.");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1094,6 +1110,8 @@ export default function PostCard({
       alert("Please login to comment");
       return;
     }
+
+    if (postingComment) return;
 
     if (!commentText.trim() && commentMediaFiles.length === 0) {
       alert("Please write a comment or add media");
@@ -1610,7 +1628,8 @@ export default function PostCard({
           {/* Like Button */}
           <button
             onClick={handleLikePost}
-            className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
+            disabled={isLiking}
+            className={`flex items-center gap-1.5 transition-colors group ${isLiking ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:text-gray-800"}`}
           >
             <div className="con-like relative w-5 h-5">
               <svg
@@ -1671,7 +1690,8 @@ export default function PostCard({
           {/* Repost Button */}
           <button
             onClick={handleRepostPost}
-            className="flex items-center gap-1.5 cursor-pointer hover:text-gray-800 transition-colors group"
+            disabled={isReposting}
+            className={`flex items-center gap-1.5 transition-colors group ${isReposting ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:text-gray-800"}`}
           >
             <div className="relative w-5 h-5">
               <svg
@@ -1727,7 +1747,8 @@ export default function PostCard({
           <button
             type="button"
             aria-label={isSaved ? "Unsave post" : "Save post"}
-            className={`bookmark cursor-pointer w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaved ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-700"}`}
+            disabled={isSaving}
+            className={`bookmark w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaving ? "opacity-60 cursor-not-allowed" : "cursor-pointer"} ${isSaved ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-700"}`}
             onClick={async () => {
               await handleSavePost();
             }}
@@ -2708,7 +2729,7 @@ export default function PostCard({
                     d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
                   />
                 </svg>
-                รายงานโพสต์
+                Report Post
               </button>
             </div>
           </>
@@ -3005,7 +3026,7 @@ export default function PostCard({
                     <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <h2 className="text-base font-bold text-slate-900">รายงานโพสต์</h2>
+                    <h2 className="text-base font-bold text-slate-900">Report Post</h2>
                   </div>
                   <button
                     onClick={() => {
