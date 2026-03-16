@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithToken } from '@/lib/api';
 
 import Sidebar from "../../components/Sidebar";
 import Chatbox from "../../components/Chatbox";
@@ -627,7 +628,7 @@ export default function FriendsMainPage() {
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+      const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -650,7 +651,7 @@ export default function FriendsMainPage() {
 
   const handleRejectRequest = async (requestId: string) => {
     try {
-      const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+      const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
@@ -675,7 +676,7 @@ export default function FriendsMainPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/requests/me`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/requests/me`, {
           credentials: "include",
         });
         if (res.ok) {
@@ -742,7 +743,7 @@ export default function FriendsMainPage() {
   const loadUserProfile = async (userId: string) => {
     try {
       // Fetch user data
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/users/${userId}`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/users/${userId}`, {
         credentials: "include",
       });
 
@@ -758,7 +759,7 @@ export default function FriendsMainPage() {
 
         // Fetch friendship status to get requestId for accept/cancel
         try {
-          const statusRes = await fetch(`${API_CONFIG.BASE_URL}/api/friends/status/${userId}`, {
+          const statusRes = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/status/${userId}`, {
             credentials: "include",
           });
           if (statusRes.ok) {
@@ -771,7 +772,7 @@ export default function FriendsMainPage() {
 
         // Fetch follow status
         try {
-          const followRes = await fetch(`${API_CONFIG.BASE_URL}/api/follows/status/${userId}`, {
+          const followRes = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/follows/status/${userId}`, {
             credentials: "include",
           });
           if (followRes.ok) {
@@ -975,7 +976,7 @@ export default function FriendsMainPage() {
     try {
       if (isFriend && showUnfriendConfirm) {
         // Remove friend
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${selectedUser.id}`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/${selectedUser.id}`, {
           method: "DELETE",
           credentials: "include",
         });
@@ -987,7 +988,7 @@ export default function FriendsMainPage() {
         }
       } else if (isPending && isPendingFromMe) {
         // Cancel pending friend request — same DELETE endpoint, no status check on backend
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${selectedUser.id}`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/${selectedUser.id}`, {
           method: "DELETE",
           credentials: "include",
         });
@@ -1000,7 +1001,7 @@ export default function FriendsMainPage() {
       } else if (isPending && !isPendingFromMe) {
         // Incoming request — accept it
         if (!pendingRequestId) return;
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/respond`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -1015,7 +1016,7 @@ export default function FriendsMainPage() {
         }
       } else {
         // Send friend request — body field is userId2
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/request`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/request`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -1090,13 +1091,13 @@ export default function FriendsMainPage() {
     setIsFollowLoading(true);
     try {
       if (isFollowing) {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/follows/${selectedUser.id}`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/follows/${selectedUser.id}`, {
           method: "DELETE",
           credentials: "include",
         });
         if (res.ok) setIsFollowing(false);
       } else {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/follows`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/follows`, {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -1116,7 +1117,7 @@ export default function FriendsMainPage() {
     const fetchSelectedUserFriends = async () => {
       setSelectedUserFriendsLoading(true);
       try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/user/${selectedUser.id}`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/user/${selectedUser.id}`, {
           credentials: "include",
         });
         if (res.ok) {
@@ -1204,7 +1205,7 @@ export default function FriendsMainPage() {
     const loadSuggestions = async () => {
       setFriendSuggestionsLoading(true);
       try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/suggestions`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/suggestions`, {
           credentials: "include",
         });
         if (res.ok) {
@@ -1221,7 +1222,7 @@ export default function FriendsMainPage() {
   }, []);
 
   const handleAddFriendSuggestion = async (userId: string) => {
-    const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/request`, {
+    const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/request`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
@@ -1231,7 +1232,7 @@ export default function FriendsMainPage() {
   };
 
   const handleCancelFriendSuggestion = async (userId: string) => {
-    const res = await fetch(`${API_CONFIG.BASE_URL}/api/friends/${userId}`, {
+    const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/friends/${userId}`, {
       method: "DELETE",
       credentials: "include",
     });

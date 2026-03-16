@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithToken } from '@/lib/api';
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
@@ -122,7 +123,7 @@ export default function FeedsMainPage() {
       setSpotlightLoading(true);
       setSpotlightDeleted(false);
       try {
-        const res = await fetch(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, {
+        const res = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/${postId}`, {
           credentials: "include",
         });
         if (!res.ok) {
@@ -520,7 +521,7 @@ export default function FeedsMainPage() {
       });
 
       // Send to API
-      const response = await fetch(`${API_CONFIG.BASE_URL}/api/posts/media`, {
+      const response = await fetchWithToken(`${API_CONFIG.BASE_URL}/api/posts/media`, {
         method: "POST",
         credentials: "include", // Important: Include cookies for authentication
         body: formData,

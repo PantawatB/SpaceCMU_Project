@@ -1,4 +1,5 @@
 "use client";
+import { fetchWithToken } from '@/lib/api';
 
 import { useState, useEffect, useCallback } from "react";
 import Sidebar from "../../components/Sidebar";
@@ -794,11 +795,11 @@ export default function CalendarPage() {
                         completed={task.completed}
                         dotStatus={getTaskDotStatus(task, key)}
                         onSuccess={async () => {
-                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`, { method: "PATCH", credentials: "include" });
+                          await fetchWithToken(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`, { method: "PATCH", credentials: "include" });
                           setTasks(prev => ({ ...prev, [key]: prev[key].map(t => t.id === task.id ? { ...t, completed: true } : t) }));
                         }}
                         onDelete={async () => {
-                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`, { method: "DELETE", credentials: "include" });
+                          await fetchWithToken(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`, { method: "DELETE", credentials: "include" });
                           setTasks(prev => ({ ...prev, [key]: prev[key].filter(t => t.id !== task.id) }));
                         }}
                       />
@@ -816,11 +817,11 @@ export default function CalendarPage() {
                         completed={task.completed}
                         dotStatus={getTaskDotStatus(task, key)}
                         onSuccess={async () => {
-                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`, { method: "PATCH", credentials: "include" });
+                          await fetchWithToken(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.TOGGLE(task.id)}`, { method: "PATCH", credentials: "include" });
                           setTasks(prev => ({ ...prev, [key]: prev[key].map(t => t.id === task.id ? { ...t, completed: false } : t) }));
                         }}
                         onDelete={async () => {
-                          await fetch(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`, { method: "DELETE", credentials: "include" });
+                          await fetchWithToken(`${API_CONFIG.BASE_URL}${API_ENDPOINTS.CALENDAR.DELETE(task.id)}`, { method: "DELETE", credentials: "include" });
                           setTasks(prev => ({ ...prev, [key]: prev[key].filter(t => t.id !== task.id) }));
                         }}
                       />
