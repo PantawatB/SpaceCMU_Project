@@ -196,11 +196,11 @@ export default function CalendarPage() {
           </div>
 
           {/* Calendar Container */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-8 overflow-hidden" style={{ minHeight: '500px' }}>
-            {/* Calendar Layout - stacks vertically on mobile, side-by-side on desktop */}
-            <div className="flex flex-col lg:flex-row gap-4 lg:gap-8 h-full min-h-[400px] lg:min-h-[calc(100vh-300px)]">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-8 overflow-hidden" style={{ height: 'calc(100vh - 250px)', minHeight: '500px' }}>
+            {/* Calendar Layout - Flex container */}
+            <div className="flex gap-8 h-full">
               {/* Calendar Grid - Left side */}
-              <div className="flex-1 flex flex-col min-w-0 max-w-full min-h-[350px]">
+              <div className="flex-1 flex flex-col min-w-0 max-w-full">
                 {/* Month Header with Clickable Month/Year */}
                 <div className="flex items-center justify-between mb-8 shrink-0 flex-wrap gap-4">
                   <div className="flex items-center gap-8">
@@ -438,8 +438,8 @@ export default function CalendarPage() {
                 </div>
               </div>
 
-              {/* Note Area - Right side on desktop, below on mobile */}
-              <div className="w-full lg:w-80 shrink-0 lg:h-full min-h-[300px] lg:min-h-0">
+              {/* Note Area - Right side - Hidden on small screens (md and below) */}
+              <div className="w-80 shrink-0 h-full min-h-0 hidden md:block">
                 <div className="border border-gray-300 h-full flex flex-col overflow-hidden relative min-h-0">
                   {/* Note Header */}
                   <div className="border-b border-gray-300 px-4 py-3 bg-slate-100">
