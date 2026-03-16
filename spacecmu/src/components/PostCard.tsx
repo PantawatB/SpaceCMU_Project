@@ -1189,6 +1189,38 @@ export default function PostCard({
     setExpandedReplies({});
   };
 
+  // Lock body scroll (and block pull-to-refresh) when any popup is open
+  useEffect(() => {
+    const anyPopupOpen =
+      showCommentPopup ||
+      showShareModal ||
+      showCalendarConfirmPopup ||
+      showDeleteConfirm ||
+      showEditPostPopup ||
+      showReportPopup ||
+      !!commentLightbox ||
+      showImageLightbox;
+
+    if (anyPopupOpen) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      return () => {
+        document.body.style.overflow = prev;
+        document.body.style.touchAction = '';
+      };
+    }
+  }, [
+    showCommentPopup,
+    showShareModal,
+    showCalendarConfirmPopup,
+    showDeleteConfirm,
+    showEditPostPopup,
+    showReportPopup,
+    commentLightbox,
+    showImageLightbox,
+  ]);
+
   const handleCommentMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {

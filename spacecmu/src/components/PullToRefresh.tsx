@@ -39,6 +39,8 @@ export default function PullToRefresh({
   const handleTouchStart = useCallback((e: TouchEvent) => {
     const el = scrollRef.current;
     if (!el) return;
+    // Don't start a pull when any modal/popup is locking the body scroll
+    if (document.body.style.overflow === 'hidden') return;
     // Only start a pull if we're already at the very top of the scroll
     if (el.scrollTop > 0) return;
     startYRef.current = e.touches[0].clientY;
@@ -47,6 +49,12 @@ export default function PullToRefresh({
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (!isPullingRef.current || startYRef.current === null) return;
+    // Cancel pull if body is now locked (popup opened during gesture)
+    if (document.body.style.overflow === 'hidden') {
+      isPullingRef.current = false;
+      setPullY(0);
+      return;
+    }
     const el = scrollRef.current;
     if (!el || el.scrollTop > 0) {
       // Scrolled down during the move — cancel pull
