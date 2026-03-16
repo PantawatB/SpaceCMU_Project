@@ -5,9 +5,11 @@ import Chatbox from "../../components/Chatbox";
 import NotificationsPanel from "../../components/NotificationsPanel";
 import { useUser } from "@/contexts/UserContext";
 import { apiService } from "@/lib/api";
+import { useToast } from "@/contexts/ToastContext";
 
 export default function SettingPage() {
   const { activeUser, activeMode, officialMode, refreshUser } = useUser();
+  const { showSuccess, showError } = useToast();
   const [showMobileNotif, setShowMobileNotif] = useState(false);
   const [mobileNotifUnread, setMobileNotifUnread] = useState(0);
   const [activeTab, setActiveTab] = useState("profile");
@@ -36,13 +38,13 @@ export default function SettingPage() {
     if (file) {
       // Validate file size (5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
+        showError('File size must be less than 5MB');
         return;
       }
       
       // Validate file type
       if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-        alert('Only JPG, PNG, GIF, or WEBP files are allowed');
+        showError('Only JPG, PNG, GIF, or WEBP files are allowed');
         return;
       }
       
@@ -60,13 +62,13 @@ export default function SettingPage() {
     if (file) {
       // Validate file size (5MB)
       if (file.size > 5 * 1024 * 1024) {
-        alert('File size must be less than 5MB');
+        showError('File size must be less than 5MB');
         return;
       }
       
       // Validate file type
       if (!['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.type)) {
-        alert('Only JPG, PNG, GIF, or WEBP files are allowed');
+        showError('Only JPG, PNG, GIF, or WEBP files are allowed');
         return;
       }
       
@@ -81,7 +83,7 @@ export default function SettingPage() {
 
   const handleSavePhoto = async () => {
     if (!newPhotoFile) {
-      alert('Please select a photo first');
+      showError('Please select a photo first');
       return;
     }
 
@@ -95,7 +97,7 @@ export default function SettingPage() {
       );
 
       console.log('Avatar updated:', response);
-      alert('Profile photo updated successfully!');
+      showSuccess('Profile photo updated successfully!');
       
       // Refresh user data
       await refreshUser();
@@ -105,13 +107,13 @@ export default function SettingPage() {
       setNewPhotoFile(null);
     } catch (error) {
       console.error('Error updating avatar:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update profile photo. Please try again.');
+      showError(error instanceof Error ? error.message : 'Failed to update profile photo. Please try again.');
     }
   };
 
   const handleSaveBanner = async () => {
     if (!newBannerFile) {
-      alert('Please select a banner first');
+      showError('Please select a banner first');
       return;
     }
 
@@ -125,7 +127,7 @@ export default function SettingPage() {
       );
 
       console.log('Banner updated:', response);
-      alert('Banner updated successfully!');
+      showSuccess('Banner updated successfully!');
       
       // Refresh user data
       await refreshUser();
@@ -135,7 +137,7 @@ export default function SettingPage() {
       setNewBannerFile(null);
     } catch (error) {
       console.error('Error updating banner:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update banner. Please try again.');
+      showError(error instanceof Error ? error.message : 'Failed to update banner. Please try again.');
     }
   };
 
@@ -154,10 +156,10 @@ export default function SettingPage() {
   const handleSaveBio = async () => {
     try {
       await apiService.patch('/api/users/profile/bio', { bio });
-      alert('Bio updated successfully!');
+      showSuccess('Bio updated successfully!');
     } catch (error) {
       console.error('Error updating bio:', error);
-      alert('Failed to update bio. Please try again.');
+      showError('Failed to update bio. Please try again.');
     }
   };
 
@@ -168,7 +170,7 @@ export default function SettingPage() {
     if (!isNameEditable) return;
     const trimmed = name.trim();
     if (!trimmed) {
-      alert('กรุณาใส่ชื่อ');
+      showError('กรุณาใส่ชื่อ');
       return;
     }
     setIsSavingName(true);
@@ -179,10 +181,10 @@ export default function SettingPage() {
       const lastName  = spaceIdx === -1 ? ''      : trimmed.slice(spaceIdx + 1);
       await apiService.patch('/api/settings/profile', { firstName, lastName });
       await refreshUser();
-      alert('อัปเดตชื่อเรียบร้อยแล้ว!');
+      showSuccess('อัปเดตชื่อเรียบร้อยแล้ว!');
     } catch (error) {
       console.error('Error updating name:', error);
-      alert(error instanceof Error ? error.message : 'ไม่สามารถอัปเดตชื่อได้ กรุณาลองใหม่');
+      showError(error instanceof Error ? error.message : 'ไม่สามารถอัปเดตชื่อได้ กรุณาลองใหม่');
     } finally {
       setIsSavingName(false);
     }

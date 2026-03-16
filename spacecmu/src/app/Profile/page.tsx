@@ -772,9 +772,9 @@ export default function ProfileMainPage() {
                 )}
               </div>
               {/* Profile info — left-aligned at all screen sizes */}
-              <div className="relative">
+              <div className="relative px-4 sm:px-6">
                 {/* Avatar — overlapping banner, left-aligned */}
-                <div className="absolute left-6 sm:left-12 -top-10 sm:-top-11 z-10">
+                <div className="absolute left-4 sm:left-6 -top-10 sm:-top-11 z-10">
                   <div className="rounded-full border-4 border-white bg-white">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
@@ -785,27 +785,27 @@ export default function ProfileMainPage() {
                   </div>
                 </div>
                 {/* Stats row — to the right of avatar */}
-                <div className="flex items-center ml-32 sm:ml-44 pt-2 sm:pt-3 gap-2 sm:gap-8 flex-wrap">
-                  <div className="flex items-center gap-1 sm:gap-0">
+                <div className="flex items-center ml-28 sm:ml-36 pt-2 sm:pt-3 gap-2 flex-wrap min-w-0">
+                  <div className="flex items-center gap-1 flex-wrap min-w-0">
                     <span className="text-sm sm:text-xl font-semibold">{activeUser.friendsCount}</span>
                     <span className="text-gray-500 text-sm sm:text-base ml-1">Friends</span>
-                    <span className="text-gray-500 ml-2 sm:ml-4">|</span>
-                    <span className="text-black font-semibold text-sm sm:text-base ml-2 sm:ml-4">
+                    <span className="text-gray-500 ml-2">|</span>
+                    <span className="text-black font-semibold text-sm sm:text-base ml-2 truncate max-w-[140px] sm:max-w-none">
                       {facultyDisplay}
                     </span>
                   </div>
                 </div>
                 {/* Name & Verified */}
-                <div className="flex items-center mt-8 sm:mt-8 ml-6 sm:ml-10 flex-wrap gap-x-2">
-                  <span className="text-lg sm:text-2xl font-bold wrap-break-word">{displayName}</span>
+                <div className="flex items-start mt-8 sm:mt-8 flex-wrap gap-x-2 gap-y-1 min-w-0">
+                  <span className="text-lg sm:text-2xl font-bold wrap-break-word break-all min-w-0 leading-tight">{displayName}</span>
                   {activeUser.role === 'official_account' && (
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0" aria-label="Verified official account">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 sm:w-6 sm:h-6 text-blue-500 shrink-0 mt-0.5" aria-label="Verified official account">
                       <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
                     </svg>
                   )}
                 </div>
                 {/* Bio */}
-                <div className="text-left text-gray-600 text-sm sm:text-base mt-2 ml-2 px-4 sm:px-8 pb-4">
+                <div className="text-left text-gray-600 text-sm sm:text-base mt-2 pb-4 wrap-break-word">
                   {bio}
                 </div>
               </div>
