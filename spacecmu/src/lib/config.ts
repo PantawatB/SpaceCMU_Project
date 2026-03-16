@@ -1,6 +1,6 @@
 // API Configuration
 export const API_CONFIG = {
-  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',
+  BASE_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080',//เปลี่ยนที่นี่ถ้าใช้ API ที่อื่น
   TIMEOUT: 30000,
 } as const;
 
