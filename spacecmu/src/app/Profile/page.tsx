@@ -755,12 +755,12 @@ export default function ProfileMainPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-white text-gray-800">
+    <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
         {/* Sidebar */}
         <Sidebar />
         {/* Main Content */}
         <PullToRefresh scrollRef={profileScrollRef} onRefresh={() => window.location.reload()}>
-        <main ref={profileScrollRef} className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">
+        <main ref={profileScrollRef} className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto h-full">
           {/* Search bar */}
           <div className="mb-6 pl-14 lg:pl-0">
             <div className="relative w-full">

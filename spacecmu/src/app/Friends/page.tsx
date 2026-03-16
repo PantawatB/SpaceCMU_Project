@@ -62,6 +62,7 @@ interface FriendRequest {
 // Friend card component
 interface FriendCardProps {
   requestId: string;
+  senderId: string;
   name: string;
   username: string;
   bio: string;
@@ -71,8 +72,9 @@ interface FriendCardProps {
   onAccept: (requestId: string) => void;
   onReject: (requestId: string) => void;
   onChat?: (requestId: string) => void;
+  onViewProfile?: (senderId: string) => void;
 }
-function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, role, onAccept, onReject, onChat }: FriendCardProps) {
+function FriendCard({ requestId, senderId, name, username, bio, avatarUrl, bannerUrl, role, onAccept, onReject, onChat, onViewProfile }: FriendCardProps) {
   const [loading, setLoading] = React.useState<"accept" | "reject" | null>(null);
   const inFlight = React.useRef(false);
   const imgSrc = avatarUrl ? apiService.getImageUrl(avatarUrl) || "/default-avatar.svg" : "/default-avatar.svg";
@@ -119,14 +121,18 @@ function FriendCard({ requestId, name, username, bio, avatarUrl, bannerUrl, role
           <img
             src={imgSrc}
             alt={name}
-            className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover"
+            className="rounded-full border-[3px] border-white shadow-md w-16 h-16 sm:w-20 sm:h-20 object-cover cursor-pointer hover:opacity-90 transition-opacity"
+            onClick={() => onViewProfile?.(senderId)}
             onError={(e) => { (e.target as HTMLImageElement).src = "/default-avatar.svg"; }}
           />
         </div>
 
         {/* Name */}
         <p className="text-gray-900 font-semibold text-sm sm:text-base text-center w-full px-2 leading-tight mt-1 flex items-center justify-center gap-1">
-          <span className="truncate">{name}</span>
+          <span
+            className="truncate cursor-pointer hover:underline hover:text-slate-600 transition-colors"
+            onClick={() => onViewProfile?.(senderId)}
+          >{name}</span>
           {role === "official_account" && (
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
               <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
@@ -701,6 +707,7 @@ export default function FriendsMainPage() {
           const data: FriendRequest[] = await res.json();
           const mapped: FriendCardProps[] = data.map((req) => ({
             requestId: req.requestId,
+            senderId: req.senderId,
             name: `${req.firstName} ${req.lastName}`,
             username: req.username,
             bio: req.bio ?? "",
@@ -712,6 +719,7 @@ export default function FriendsMainPage() {
             onChat: () => {
               openDirectChatEvent(req.senderId);
             },
+            onViewProfile: (id: string) => router.push(`/Friends?userId=${id}`),
           }));
           setFriendRequests(mapped);
           setFriendRequestSenderIds(new Set(data.map((req) => req.senderId)));
@@ -722,6 +730,7 @@ export default function FriendsMainPage() {
       }
     };
     load();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally empty — handlers are stable
 
   // Load user from URL params on mount and when URL changes
@@ -1307,12 +1316,12 @@ export default function FriendsMainPage() {
   };
 
   return (
-    <div className="flex min-h-screen bg-white text-gray-800">
+    <div className="flex h-screen bg-white text-gray-800 overflow-hidden">
       {/* Sidebar */}
       <Sidebar />
       {/* Main Content */}
       <PullToRefresh scrollRef={friendsScrollRef} onRefresh={() => window.location.reload()}>
-      <main ref={friendsScrollRef} className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto h-screen">
+      <main ref={friendsScrollRef} className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto h-full">
         {selectedUser ? (
           /* User Profile View */
           <>

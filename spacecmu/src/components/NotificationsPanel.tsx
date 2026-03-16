@@ -892,7 +892,7 @@ export default function NotificationsPanel({ userId, mobileOpen = false, onMobil
       )}
 
       {/* ── Desktop sidebar panel ── */}
-      <aside className="hidden lg:flex w-72 pt-8 px-4 bg-white flex-col gap-0 items-start">
+      <aside className="hidden lg:flex w-72 pt-8 px-4 bg-white flex-col gap-0 items-start sticky top-0 self-start h-screen overflow-y-auto">
         <div className="w-full rounded-2xl border border-gray-100 shadow-sm bg-white overflow-hidden">
 
           {/* Header */}
