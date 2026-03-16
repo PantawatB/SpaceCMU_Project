@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { usersTable } from "../../db/schema.js";
 import { eq } from "drizzle-orm";
+import { uploadToSupabase } from "../utils/supabaseStorage.js";
 
 // Get all user settings
 export const getUserSettings = async (req: Request, res: Response) => {
@@ -115,7 +116,7 @@ export const uploadBanner = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "No file uploaded" });
         }
 
-        const bannerUrl = `/uploads/${req.file.filename}`;
+        const bannerUrl = await uploadToSupabase("uploads", req.file);
 
         const [updatedUser] = await dbClient
             .update(usersTable)
@@ -148,7 +149,7 @@ export const uploadAvatar = async (req: Request, res: Response) => {
             return res.status(400).json({ message: "No file uploaded" });
         }
 
-        const avatarUrl = `/uploads/${req.file.filename}`;
+        const avatarUrl = await uploadToSupabase("avatars", req.file);
 
         const [updatedUser] = await dbClient
             .update(usersTable)

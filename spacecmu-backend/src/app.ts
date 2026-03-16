@@ -51,7 +51,7 @@ app.use(Morgan("dev"));
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+// Note: /uploads static route removed — files are now served from Supabase Storage
 
 // Basic Route
 app.get("/", (req: Request, res: Response) => {

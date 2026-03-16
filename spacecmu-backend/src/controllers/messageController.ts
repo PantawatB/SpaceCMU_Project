@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { messagesTable, chatRoomsTable, chatRoomMembersTable, usersTable, postsTable } from "../../db/schema.js";
 import { eq, or, and, isNull, desc, sql, like } from "drizzle-orm";
+import { uploadToSupabase } from "../utils/supabaseStorage.js";
 
 // Send a new message (room-based)
 export const sendMessage = async (req: Request, res: Response) => {
@@ -165,8 +166,10 @@ export const sendMessageWithMedia = async (req: Request, res: Response) => {
             return res.status(403).json({ message: "You are not a member of this room" });
         }
 
-        // Collect uploaded file paths
-        const mediaUrls: string[] = files.map((f) => f.filename);
+        // Upload files to Supabase and collect public URLs
+        const mediaUrls: string[] = await Promise.all(
+            files.map((f) => uploadToSupabase("uploads", f))
+        );
 
         // Determine media type
         const hasImage = files.some((f) => f.mimetype.startsWith("image/"));

@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { chatRoomsTable, chatRoomMembersTable, usersTable, messagesTable } from "../../db/schema.js";
 import { eq, and, or, desc, sql, inArray } from "drizzle-orm";
+import { uploadToSupabase } from "../utils/supabaseStorage.js";
 
 // Create a direct (1-on-1) chat room
 export const createDirectRoom = async (req: Request, res: Response) => {
@@ -117,7 +118,7 @@ export const createGroupRoom = async (req: Request, res: Response) => {
         // ถ้าส่งมาเป็น FormData จะมี req.file, ถ้าส่ง JSON จะไม่มี
         const uploadedFile = (req as any).file as Express.Multer.File | undefined;
         const avatarUrl = uploadedFile
-            ? `/uploads/${uploadedFile.filename}`
+            ? await uploadToSupabase("avatars", uploadedFile)
             : (req.body.avatarUrl ?? null);
 
         if (!userId) {
@@ -442,7 +443,7 @@ export const updateRoom = async (req: Request, res: Response) => {
 
         // Handle avatar: if a file was uploaded, use the file path; otherwise use avatarUrl from body
         if (req.file) {
-            updates.avatarUrl = `/uploads/${req.file.filename}`;
+            updates.avatarUrl = await uploadToSupabase("avatars", req.file);
         } else if (avatarUrlBody !== undefined) {
             updates.avatarUrl = avatarUrlBody;
         }

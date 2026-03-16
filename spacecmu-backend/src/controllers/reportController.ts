@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { dbClient } from "../../db/client.js";
 import { reportsTable, usersTable } from "../../db/schema.js";
 import { eq, desc, count, sql } from "drizzle-orm";
-import path from "path";
+import { uploadToSupabase } from "../utils/supabaseStorage.js";
 
 // ──────────────────────────────────────────────
 // POST /api/reports  — submit a report (any authenticated user)
@@ -15,9 +15,11 @@ export const submitReport = async (req: Request, res: Response) => {
         return res.status(400).json({ message: "issue is required" });
     }
 
-    // Collect uploaded files (field name: "media")
+    // Collect uploaded files (field name: "media") and upload to Supabase
     const files = (req.files as Express.Multer.File[] | undefined) ?? [];
-    const mediaUrls: string[] = files.map((f) => `/uploads/${path.basename(f.path)}`);
+    const mediaUrls: string[] = await Promise.all(
+        files.map((f) => uploadToSupabase("uploads", f))
+    );
 
     try {
         const [report] = await dbClient

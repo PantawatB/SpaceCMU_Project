@@ -1,23 +1,12 @@
 import multer from "multer";
 import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Use memory storage — files are held in buffer and then streamed to Supabase.
+// Never write to local disk (which is ephemeral on Railway).
+const memoryStorage = multer.memoryStorage();
 
-// Configure storage
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "uploads/");
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-        cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-// File filter (optional but recommended)
-const fileFilter = (req: any, file: Express.Multer.File, cb: any) => {
+// File filter for images only
+const imageOnlyFilter = (req: any, file: Express.Multer.File, cb: any) => {
     if (file.mimetype.startsWith("image/")) {
         cb(null, true);
     } else {
@@ -26,16 +15,16 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: any) => {
 };
 
 export const upload = multer({
-    storage: storage,
-    fileFilter: fileFilter,
+    storage: memoryStorage,
+    fileFilter: imageOnlyFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024 // 5MB limit
+        fileSize: 10 * 1024 * 1024 // 10MB limit for avatars/banners
     }
 });
 
 // Multiple files upload (for posts with multiple media)
 export const uploadMultiple = multer({
-    storage: storage,
+    storage: memoryStorage,
     limits: {
         fileSize: 200 * 1024 * 1024, // 200 MB per file (covers large videos)
         files: 15,                    // max 15 files in one request

@@ -7,6 +7,7 @@ import fs from "fs";
 import path from "path";
 import { getUserIdFromRequest } from "../utils/authUtils.js";
 import { postsTable, postMediaTable, likesTable, marketItemsTable, marketCategoriesTable } from "../../db/schema.js";
+import { uploadToSupabase, deleteFromSupabase } from "../utils/supabaseStorage.js";
 
 // Get all users
 export const getAllUsers = async (req: Request, res: Response) => {
@@ -446,10 +447,13 @@ export const updateAvatar = async (req: Request, res: Response) => {
         }
 
         const oldAvatarUrl = existingUser[0].avatarUrl;
-        const newAvatarUrl = `/uploads/${file.filename}`;
+        const newAvatarUrl = await uploadToSupabase("avatars", file);
 
-        // Delete old file if it's a local upload
-        if (oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/")) {
+        // Delete old file from Supabase if it was a Supabase URL
+        if (oldAvatarUrl && oldAvatarUrl.includes("supabase")) {
+            await deleteFromSupabase(oldAvatarUrl);
+        } else if (oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/")) {
+            // Legacy: delete from disk
             const oldFilePath = path.join(process.cwd(), oldAvatarUrl);
             if (fs.existsSync(oldFilePath)) {
                 fs.unlinkSync(oldFilePath);
@@ -497,8 +501,11 @@ export const deleteAvatar = async (req: Request, res: Response) => {
 
         const oldAvatarUrl = existingUser[0].avatarUrl;
 
-        // Delete file if it's a local upload
-        if (oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/")) {
+        // Delete file from Supabase if it was a Supabase URL
+        if (oldAvatarUrl && oldAvatarUrl.includes("supabase")) {
+            await deleteFromSupabase(oldAvatarUrl);
+        } else if (oldAvatarUrl && oldAvatarUrl.startsWith("/uploads/")) {
+            // Legacy: delete from disk
             const oldFilePath = path.join(process.cwd(), oldAvatarUrl);
             if (fs.existsSync(oldFilePath)) {
                 fs.unlinkSync(oldFilePath);
@@ -546,10 +553,13 @@ export const updateBanner = async (req: Request, res: Response) => {
         }
 
         const oldBannerUrl = existingUser[0].bannerUrl;
-        const newBannerUrl = `/uploads/${file.filename}`;
+        const newBannerUrl = await uploadToSupabase("uploads", file);
 
-        // Delete old file if it's a local upload
-        if (oldBannerUrl && oldBannerUrl.startsWith("/uploads/")) {
+        // Delete old file from Supabase if it was a Supabase URL
+        if (oldBannerUrl && oldBannerUrl.includes("supabase")) {
+            await deleteFromSupabase(oldBannerUrl);
+        } else if (oldBannerUrl && oldBannerUrl.startsWith("/uploads/")) {
+            // Legacy: delete from disk
             const oldFilePath = path.join(process.cwd(), oldBannerUrl);
             if (fs.existsSync(oldFilePath)) {
                 fs.unlinkSync(oldFilePath);
@@ -597,8 +607,11 @@ export const deleteBanner = async (req: Request, res: Response) => {
 
         const oldBannerUrl = existingUser[0].bannerUrl;
 
-        // Delete file if it's a local upload
-        if (oldBannerUrl && oldBannerUrl.startsWith("/uploads/")) {
+        // Delete file from Supabase if it was a Supabase URL
+        if (oldBannerUrl && oldBannerUrl.includes("supabase")) {
+            await deleteFromSupabase(oldBannerUrl);
+        } else if (oldBannerUrl && oldBannerUrl.startsWith("/uploads/")) {
+            // Legacy: delete from disk
             const oldFilePath = path.join(process.cwd(), oldBannerUrl);
             if (fs.existsSync(oldFilePath)) {
                 fs.unlinkSync(oldFilePath);
