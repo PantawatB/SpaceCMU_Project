@@ -1001,7 +1001,7 @@ const Chatbox = () => {
     <>
       {/* ── Floating button (collapsed) ────────────────────────────────────── */}
       {!isChatOpen && !selectedRoomId && (
-        <div className="fixed bottom-4 right-4 z-30">
+        <div className="fixed bottom-4 right-4 z-40">
           <button
             onClick={() => setIsChatOpen(true)}
             className="hidden md:flex items-center gap-4 bg-white shadow-2xl border border-gray-200 rounded-2xl px-8 py-4 hover:shadow-xl hover:scale-[1.02] transition-all duration-200 active:scale-95"
@@ -1032,7 +1032,7 @@ const Chatbox = () => {
 
       {/* ── Chat List panel ────────────────────────────────────────────────── */}
       {isChatOpen && !selectedRoomId && (
-        <div className="fixed bottom-6 right-6 z-30 w-80 h-[480px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 right-6 z-40 w-80 h-[480px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-4 py-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
@@ -1124,7 +1124,7 @@ const Chatbox = () => {
 
       {/* ── Individual Chat View ──────────────────────────────────────────── */}
       {(selectedRoomId || pendingDmUser) && (
-        <div className="fixed bottom-6 right-6 z-30 w-80 h-[520px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 right-6 z-40 w-80 h-[520px] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex-none flex items-center justify-between px-3 py-2.5 border-b border-gray-100 bg-white">
             <div className="flex items-center gap-2 min-w-0">
