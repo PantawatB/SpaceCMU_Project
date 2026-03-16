@@ -35,17 +35,37 @@ interface UserContextType {
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
 // ── Captures ?token= from URL after CMU login redirect (cross-domain) ──────
+// ── Captures ?token= from URL after CMU login redirect (cross-domain) ──────
 function TokenCapture() {
   const searchParams = useSearchParams();
+  const [isCapturing, setIsCapturing] = useState(false);
+
   useEffect(() => {
     const urlToken = searchParams.get('token');
     if (urlToken) {
+      setIsCapturing(true); // Stop rendering children
       localStorage.setItem('auth_token', urlToken);
-      window.history.replaceState({}, '', window.location.pathname);
+      // We must reload the page so that all hooks and contexts reset 
+      // and read the new token from localStorage on fresh boot.
+      window.location.href = window.location.pathname;
     }
   }, [searchParams]);
+
+  if (isCapturing || searchParams.get('token')) {
+    // Show a loading screen while handling the redirect token
+    return (
+      <div className="flex items-center justify-center min-h-screen z-[9999] absolute inset-0 bg-white">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="text-gray-500 font-medium">Completing login...</p>
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
+// ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
