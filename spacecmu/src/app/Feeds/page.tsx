@@ -73,6 +73,7 @@ export default function FeedsMainPage() {
   const [reportMood, setReportMood] = useState<"happy" | "sad" | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showUploadPopup, setShowUploadPopup] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -485,7 +486,9 @@ export default function FeedsMainPage() {
 
   const handleSendPost = async () => {
     if (!postMode) return;
+    if (isPosting) return; // ป้องกัน double submit
 
+    setIsPosting(true);
     try {
       // Create FormData for multipart/form-data
       const formData = new FormData();
@@ -572,10 +575,13 @@ export default function FeedsMainPage() {
           ? error.message
           : "Failed to create post. Please try again.";
       showError(`Error: ${errorMessage}`);
+    } finally {
+      setIsPosting(false);
     }
   };
 
   const canSendPost =
+    !isPosting &&
     postMode !== null &&
     (postText.trim() !== "" ||
       selectedImages.length > 0 ||
@@ -1636,13 +1642,21 @@ export default function FeedsMainPage() {
                 <button
                   onClick={handleSendPost}
                   disabled={!canSendPost}
-                  className={`px-4 sm:px-7 py-1.5 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all whitespace-nowrap ${
+                  className={`px-4 sm:px-7 py-1.5 sm:py-2 rounded-full font-semibold text-sm sm:text-base transition-all whitespace-nowrap flex items-center gap-2 ${
                     canSendPost
                       ? "bg-blue-600 text-white hover:bg-blue-700 shadow-lg hover:shadow-xl hover:scale-105"
                       : "bg-gray-200 text-gray-400 cursor-not-allowed"
                   }`}
                 >
-                  Post
+                  {isPosting ? (
+                    <>
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      Posting...
+                    </>
+                  ) : "Post"}
                 </button>
               </div>
             </div>
