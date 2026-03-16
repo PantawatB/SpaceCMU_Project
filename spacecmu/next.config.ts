@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/cmuEntraIDCallback',
-        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'}/api/auth/cmu/callback`,
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/auth/cmu/callback`,
       },
     ];
   },
