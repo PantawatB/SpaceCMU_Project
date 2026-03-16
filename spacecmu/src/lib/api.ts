@@ -217,6 +217,12 @@ class ApiService {
   /**
    * Generic fetch wrapper with error handling
    */
+  private getTokenFromCookie(): string | null {
+    if (typeof document === 'undefined') return null;
+    const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
   private async fetchWithAuth<T>(
     endpoint: string,
     options: RequestInit = {},
@@ -224,10 +230,12 @@ class ApiService {
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
     
+    const token = this.getTokenFromCookie();
     const config: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         ...options.headers,
       },
       credentials: 'include', // Important for cookies
@@ -272,9 +280,14 @@ class ApiService {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
+    const token = this.getTokenFromCookie();
     const config: RequestInit = {
       ...options,
-      headers: { 'Content-Type': 'application/json', ...options.headers },
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
       credentials: 'include',
     };
     const response = await fetch(url, config);

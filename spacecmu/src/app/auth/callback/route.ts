@@ -23,9 +23,11 @@ export async function GET(request: NextRequest) {
 
   const response = NextResponse.redirect(`${baseUrl}/Feeds`);
 
-  // Set the cookie on the frontend domain so middleware can read it.
+  // Set the cookie on the frontend domain.
+  // NOT httpOnly so that client-side JS can read it and send as Authorization header
+  // to the backend (cross-domain — cookie cannot be sent cross-domain by browser).
   response.cookies.set("token", token, {
-    httpOnly: true,
+    httpOnly: false,
     secure: true,
     sameSite: "lax",
     path: "/",
