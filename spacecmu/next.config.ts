@@ -1,3 +1,4 @@
+// v2: use NEXT_PUBLIC_API_URL env for backend URL
 import type { NextConfig } from "next";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
