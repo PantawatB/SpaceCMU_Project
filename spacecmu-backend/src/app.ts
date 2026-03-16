@@ -41,8 +41,12 @@ app.use(Helmet({
     },
 }));
 app.use(cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"],
-    credentials: true
+    origin: [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        process.env.FRONTEND_URL,
+    ].filter(Boolean) as string[],
+    credentials: true,
 }));
 app.use(Morgan("dev"));
 app.use(cookieParser());
