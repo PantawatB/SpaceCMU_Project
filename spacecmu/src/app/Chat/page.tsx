@@ -2067,8 +2067,15 @@ export default function ChatPage() {
 
             return (
               <>
-                {/* Chat Header */}
-                <div className="flex-none flex items-center justify-between px-4 lg:px-6 py-4 bg-white border-b border-gray-100 shadow-sm min-w-0 gap-2 lg:pt-4" style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}>                    <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
+                {/* Chat Header — extra top padding on mobile to clear status bar/notch */}
+                <div
+                  className="flex-none flex items-center justify-between px-4 lg:px-6 bg-white border-b border-gray-100 shadow-sm min-w-0 gap-2"
+                  style={{
+                    paddingTop: 'calc(env(safe-area-inset-top, 0px) + 1rem)',
+                    paddingBottom: '1rem',
+                  }}
+                >
+                  <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
                     {/* Back button (mobile only) */}
                     <button
                       onClick={() => setSelectedRoomId(null)}
@@ -2770,7 +2777,10 @@ export default function ChatPage() {
                   )}
 
                   {/* ── Input row ─────────────────────────────────────────────── */}
-                  <div className="flex items-end gap-2 px-4 py-3">
+                  <div
+                    className="flex items-end gap-2 px-4 pt-3"
+                    style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)' }}
+                  >
                     {/* Hidden file input */}
                     <input
                       ref={fileInputRef}
@@ -2862,7 +2872,10 @@ export default function ChatPage() {
         {/* Right Panel — Conversation List (hidden on mobile when room selected) */}
         <div className={`w-full lg:w-75 lg:min-w-[256px] lg:max-w-[400px] flex flex-col border-l border-gray-100 bg-white h-full ${selectedRoomId ? "hidden lg:flex" : "flex"}`}>
           {/* Header */}
-          <div className="flex-none px-4 lg:px-6 pb-4 lg:pt-8" style={{ paddingTop: 'max(3.5rem, calc(env(safe-area-inset-top) + 1rem))' }}>
+          <div
+            className="flex-none px-4 lg:px-6 pb-4 lg:pt-8"
+            style={{ paddingTop: 'calc(env(safe-area-inset-top, 0px) + 3.5rem)' }}
+          >
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl font-bold text-gray-900">Chat</h1>

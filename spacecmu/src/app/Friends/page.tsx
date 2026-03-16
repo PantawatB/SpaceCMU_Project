@@ -2,6 +2,7 @@
 import { fetchWithToken } from '@/lib/api';
 
 import Sidebar from "../../components/Sidebar";
+import PullToRefresh from "../../components/PullToRefresh";
 import Chatbox from "../../components/Chatbox";
 import PostCard from "../../components/PostCard";
 import MarketCard from "../../components/MarketCard";
@@ -625,6 +626,7 @@ export default function FriendsMainPage() {
   const searchRef = useRef<HTMLDivElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const loadedUserIdRef = useRef<string | null>(null);
+  const friendsScrollRef = useRef<HTMLElement | null>(null);
 
   const handleAcceptRequest = async (requestId: string) => {
     try {
@@ -1293,7 +1295,8 @@ export default function FriendsMainPage() {
       {/* Sidebar */}
       <Sidebar />
       {/* Main Content */}
-      <main className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto">
+      <PullToRefresh scrollRef={friendsScrollRef} onRefresh={() => window.location.reload()}>
+      <main ref={friendsScrollRef} className="flex-1 min-w-0 p-4 sm:p-6 md:p-8 overflow-y-auto h-screen">
         {selectedUser ? (
           /* User Profile View */
           <>
@@ -2152,6 +2155,7 @@ export default function FriendsMainPage() {
           </>
         )}
       </main>
+      </PullToRefresh>
 
       {/* Chatbox - Bottom Right */}
       <Chatbox />
