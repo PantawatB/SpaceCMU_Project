@@ -49,7 +49,7 @@ export default function HomePage() {
       <div className="flex gap-4 items-center mb-4">
         {agreed ? (
           <Link
-            href="http://localhost:3001/api/auth/cmu/login"
+            href={`${process.env.NEXT_PUBLIC_API_URL}/api/auth/cmu/login`}
             className="px-6 py-2 rounded-lg font-semibold flex items-center gap-2 bg-purple-600 text-white hover:bg-purple-700 transition"
           >
             <Image
