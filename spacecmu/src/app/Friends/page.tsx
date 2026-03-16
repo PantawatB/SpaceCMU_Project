@@ -1177,7 +1177,6 @@ export default function FriendsMainPage() {
 
   // Handle save update
   const handleSaveUpdate = () => {
-    console.log("Post save status updated");
   };
 
   // Handle share count update

@@ -221,7 +221,6 @@ export default function FeedsMainPage() {
 
         // Handle both array response and object with posts property
         const postsArray = Array.isArray(data) ? data : data.posts || [];
-        console.log("Fetched posts:", postsArray);
         setPosts(postsArray);
         setNextCursor(data.nextCursor ?? null);
         setHasMore(data.hasMore ?? false);
@@ -537,9 +536,7 @@ export default function FeedsMainPage() {
         throw new Error(errorMessage);
       }
 
-      const result = await response.json();
-      console.log("Post created successfully:", result);
-      console.log("Post media:", result.media);
+      await response.json();
       showSuccess("Post created successfully!");
 
       // Revoke blob URLs for videos before resetting
@@ -569,7 +566,6 @@ export default function FeedsMainPage() {
       if (refreshResponse.ok) {
         const data = await refreshResponse.json();
         const postsArray = Array.isArray(data) ? data : data.posts || [];
-        console.log("Refreshed posts:", postsArray);
         setPosts(postsArray);
         setNextCursor(data.nextCursor ?? null);
         setHasMore(data.hasMore ?? false);
@@ -628,7 +624,6 @@ export default function FeedsMainPage() {
 
   // Handle save update
   const handleSaveUpdate = () => {
-    console.log("Post save status updated");
   };
 
   // Handle post delete
@@ -1114,10 +1109,6 @@ export default function FeedsMainPage() {
                 <button
                   onClick={() => {
                     // TODO: Submit report
-                    console.log("Submitting report:", {
-                      text: reportText,
-                      mood: reportMood,
-                    });
                     setReportText("");
                     setReportMood(null);
                     setShowReportPopup(false);

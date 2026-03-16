@@ -1104,7 +1104,7 @@ const Chatbox = () => {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-0.5">
-                        <span className={`text-sm truncate ${room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>{room.displayName}</span>
+                        <span className={`text-sm truncate min-w-0 ${room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>{room.displayName}</span>
                         <span className="text-[10px] text-gray-400 flex-none ml-1">{timeLabel}</span>
                       </div>
                       <div className="flex items-center justify-between">
@@ -1300,7 +1300,7 @@ const Chatbox = () => {
                       {/* Bubble + menu */}
                       <div className={`max-w-[75%] min-w-0 flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                         {showSenderName && (
-                          <span className="text-[10px] text-gray-400 mb-0.5 px-1">{senderName}</span>
+                          <span className="text-[10px] text-gray-400 mb-0.5 px-1 max-w-full truncate block">{senderName}</span>
                         )}
 
                         {/* Edit/Delete action buttons (own messages, click to toggle) */}

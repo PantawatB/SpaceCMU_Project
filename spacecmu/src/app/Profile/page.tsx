@@ -282,8 +282,6 @@ export default function ProfileMainPage() {
         }
 
         const data = await response.json();
-        console.log('My posts raw response:', data);
-        console.log('First post structure:', data[0]);
         
         // The response might be an array of posts or an object with posts property
         let postsData = Array.isArray(data) ? data : (data.posts || []);
@@ -299,7 +297,6 @@ export default function ProfileMainPage() {
           }
         }));
         
-        console.log('Processed my posts:', postsData);
         setMyPosts(postsData);
       } catch (err) {
         console.error('Error fetching my posts:', err);
@@ -347,8 +344,6 @@ export default function ProfileMainPage() {
         }
 
         const data = await response.json();
-        console.log('Liked posts raw response:', data);
-        console.log('First post structure:', data[0]);
         
         // The response might be an array of posts or an object with posts property
         let postsData = Array.isArray(data) ? data : (data.posts || []);
@@ -364,7 +359,6 @@ export default function ProfileMainPage() {
           }
         }));
         
-        console.log('Processed posts:', postsData);
         setLikedPosts(postsData);
       } catch (err) {
         console.error('Error fetching liked posts:', err);
@@ -412,8 +406,6 @@ export default function ProfileMainPage() {
         }
 
         const data = await response.json();
-        console.log('Reposted posts raw response:', data);
-        console.log('First reposted post structure:', data[0]);
         
         // The response might be an array of posts or an object with posts property
         let postsData = Array.isArray(data) ? data : (data.posts || []);
@@ -429,7 +421,6 @@ export default function ProfileMainPage() {
           }
         }));
         
-        console.log('Processed reposted posts:', postsData);
         setRepostedPosts(postsData);
       } catch (err) {
         console.error('Error fetching reposted posts:', err);
@@ -477,8 +468,6 @@ export default function ProfileMainPage() {
         }
 
         const data = await response.json();
-        console.log('Saved posts raw response:', data);
-        console.log('First saved post structure:', data[0]);
         
         // The response might be an array of posts or an object with posts property
         let postsData = Array.isArray(data) ? data : (data.posts || []);
@@ -494,7 +483,6 @@ export default function ProfileMainPage() {
           }
         }));
         
-        console.log('Processed saved posts:', postsData);
         setSavedPosts(postsData);
       } catch (err) {
         console.error('Error fetching saved posts:', err);
@@ -759,7 +747,6 @@ export default function ProfileMainPage() {
     // Optionally refresh the saved posts list
     if (activeTab === 'Saved' && activeUser) {
       // Trigger a re-fetch by toggling state or calling fetch directly
-      console.log('Post save status updated');
     }
   };
 

@@ -96,7 +96,6 @@ export default function SettingPage() {
         formData
       );
 
-      console.log('Avatar updated:', response);
       showSuccess('Profile photo updated successfully!');
       
       // Refresh user data
@@ -126,7 +125,6 @@ export default function SettingPage() {
         formData
       );
 
-      console.log('Banner updated:', response);
       showSuccess('Banner updated successfully!');
       
       // Refresh user data

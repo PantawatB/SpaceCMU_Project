@@ -1735,11 +1735,11 @@ export default function PostCard({
         {/* Right side: Save */}
         <div className="flex items-center gap-2">
           {/* Save Post Button */}
-          <label
-            htmlFor={`bookmark-${post.id}`}
+          <button
+            type="button"
+            aria-label={isSaved ? "Unsave post" : "Save post"}
             className={`bookmark cursor-pointer w-[35px] h-[35px] flex items-center justify-center rounded-lg transition-colors ${isSaved ? "bg-teal-700" : "bg-teal-600 hover:bg-teal-700"}`}
-            onClick={async (e) => {
-              e.preventDefault();
+            onClick={async () => {
               await handleSavePost();
             }}
           >
@@ -1761,7 +1761,7 @@ export default function PostCard({
                 }}
               />
             </svg>
-          </label>
+          </button>
         </div>
       </div>
 
@@ -3202,7 +3202,6 @@ export default function PostCard({
               <div className="flex-1" />
               <button
                 onClick={() => {
-                  console.log("Submit comment report:", { commentId: showCommentReportPopup, text: commentReportText });
                   setShowCommentReportPopup(null);
                   setCommentReportText("");
                 }}

@@ -2068,8 +2068,7 @@ export default function ChatPage() {
             return (
               <>
                 {/* Chat Header */}
-                <div className="flex-none flex items-center justify-between px-4 lg:px-6 py-4 bg-white border-b border-gray-100 shadow-sm">
-                  <div className="flex items-center gap-2 lg:gap-3">
+                <div className="flex-none flex items-center justify-between px-4 lg:px-6 py-4 bg-white border-b border-gray-100 shadow-sm min-w-0 gap-2">                    <div className="flex items-center gap-2 lg:gap-3 min-w-0 flex-1">
                     {/* Back button (mobile only) */}
                     <button
                       onClick={() => setSelectedRoomId(null)}
@@ -2096,9 +2095,9 @@ export default function ChatPage() {
                         <img src="/default-avatar.svg" alt="" className="w-11 h-11 rounded-full object-cover" />
                       )}
                     </div>
-                    <div>
-                      <h2 className="font-semibold text-gray-900 text-base leading-tight flex items-center gap-1">
-                        {selectedRoom?.displayName ?? "..."}
+                    <div className="min-w-0 flex-1">
+                      <h2 className="font-semibold text-gray-900 text-base leading-tight flex items-center gap-1 min-w-0">
+                        <span className="truncate min-w-0">{selectedRoom?.displayName ?? "..."}</span>
                         {(() => {
                           if (!selectedRoom?.isGroup) {
                             const otherMember = selectedRoom?.members.find((m) => m.userId !== currentUserId);
@@ -2415,8 +2414,8 @@ export default function ChatPage() {
                             <div className={`max-w-[65%] min-w-0 flex flex-col ${isMine ? "items-end" : "items-start"}`}>
                               {/* ชื่อผู้ส่ง */}
                               {showSenderName && (
-                                <span className="text-[11px] text-gray-400 mb-0.5 px-1 flex items-center gap-1">
-                                  {senderName}
+                                <span className="text-[11px] text-gray-400 mb-0.5 px-1 flex items-center gap-1 max-w-full min-w-0">
+                                  <span className="truncate min-w-0">{senderName}</span>
                                   {senderMember?.userRole === "official_account" && (
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 text-blue-500 shrink-0 flex-none" aria-label="Verified official account">
                                       <path fillRule="evenodd" d="M8.603 3.799A4.49 4.49 0 0112 2.25c1.357 0 2.573.6 3.397 1.549a4.49 4.49 0 013.498 1.307 4.491 4.491 0 011.307 3.497A4.49 4.49 0 0121.75 12a4.49 4.49 0 01-1.549 3.397 4.491 4.491 0 01-1.307 3.497 4.491 4.491 0 01-3.497 1.307A4.49 4.49 0 0112 21.75a4.49 4.49 0 01-3.397-1.549 4.49 4.49 0 01-3.498-1.306 4.491 4.491 0 01-1.307-3.498A4.49 4.49 0 012.25 12c0-1.357.6-2.573 1.549-3.397a4.49 4.49 0 011.307-3.497 4.49 4.49 0 013.497-1.307zm7.007 6.387a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z" clipRule="evenodd" />
@@ -3018,8 +3017,8 @@ export default function ChatPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
-                          <span className={`text-sm truncate flex items-center gap-1 ${isActive || room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
-                            {room.displayName}
+                          <span className={`text-sm truncate min-w-0 flex items-center gap-1 ${isActive || room.unreadCount > 0 ? "font-semibold text-gray-900" : "font-medium text-gray-700"}`}>
+                            <span className="truncate min-w-0">{room.displayName}</span>
                             {!room.isGroup && (() => {
                               const otherMember = room.members.find((m) => m.userId !== currentUserId);
                               if (otherMember?.userRole === "official_account") {
