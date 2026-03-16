@@ -18,4 +18,4 @@ if (!dbUser || !dbPassword || !dbHost || !dbName || !dbName) {
   throw new Error("Invalid DB env.");
 }
 
-export const connectionString = `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}`;
+export const connectionString = `postgres://${encodeURIComponent(dbUser)}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${dbName}`;
