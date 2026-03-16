@@ -14,14 +14,34 @@ function getTokenFromCookie(): string | null {
  * Drop-in replacement for fetch() that automatically attaches the
  * Authorization: Bearer <token> header so requests work cross-domain.
  * Use this everywhere instead of raw fetch() for backend API calls.
+ * Also handles 403 banned responses by clearing the token and redirecting to login.
  */
-export function fetchWithToken(url: string, options: RequestInit = {}): Promise<Response> {
+export async function fetchWithToken(url: string, options: RequestInit = {}): Promise<Response> {
   const token = getTokenFromCookie();
   const headers = new Headers(options.headers);
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(url, { credentials: 'include', ...options, headers });
+  const response = await fetch(url, { credentials: 'include', ...options, headers });
+
+  // If the server returns 403 with banned: true, force logout immediately
+  if (response.status === 403) {
+    try {
+      const cloned = response.clone();
+      const data = await cloned.json();
+      if (data?.banned === true) {
+        // Clear token cookie
+        document.cookie = 'token=; Max-Age=0; path=/;';
+        localStorage.clear();
+        window.location.href = '/login?reason=banned';
+        // Return the response anyway so callers don't crash
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  return response;
 }
 
 export interface GodStats {

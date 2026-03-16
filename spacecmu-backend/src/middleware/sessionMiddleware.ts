@@ -69,6 +69,11 @@ export const sessionMiddleware = async (
             return res.status(401).json({ message: "Active user not found" });
         }
 
+        // 4b. Reject banned users immediately — force them out of the system
+        if (activeUser.status === "banned") {
+            return res.status(403).json({ message: "Your account has been banned.", banned: true });
+        }
+
         // 5. Update lastActiveAt for the user (async, don't wait)
         dbClient
             .update(usersTable)
@@ -129,6 +134,11 @@ export const optionalSessionMiddleware = async (
 
         const activeUser = await getUserById(session.activeUserId);
         if (!activeUser) return next();
+
+        // Reject banned users even on optional routes
+        if (activeUser.status === "banned") {
+            return res.status(403).json({ message: "Your account has been banned.", banned: true });
+        }
 
         req.session = {
             userId: session.userId,

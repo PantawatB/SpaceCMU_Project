@@ -859,7 +859,9 @@ export default function ProfileMainPage() {
                 </div>
               </div>
               {/* Tabs */}
-              <div className="flex sm:justify-center mt-2  border-gray-200 overflow-x-auto scrollbar-hide">
+              <div className="w-full flex mt-2 border-b border-gray-200 overflow-x-auto scrollbar-hide"
+                style={{ WebkitOverflowScrolling: 'touch' }}
+              >
                 <button
                   onClick={() => handleTabChange("Posts")}
                   className={`px-4 sm:px-6 py-3 font-medium flex items-center gap-2 whitespace-nowrap shrink-0 ${

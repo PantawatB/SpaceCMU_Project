@@ -2,8 +2,26 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import styles from "./TermsCheckbox.module.css";
+
+function BannedBanner() {
+  const searchParams = useSearchParams();
+  const isBanned = searchParams.get("reason") === "banned";
+  if (!isBanned) return null;
+  return (
+    <div className="mb-6 w-full max-w-sm mx-4 bg-red-50 border border-red-200 rounded-2xl px-5 py-4 flex items-start gap-3">
+      <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+      </svg>
+      <div>
+        <p className="text-sm font-semibold text-red-700">บัญชีของคุณถูกระงับ</p>
+        <p className="text-xs text-red-500 mt-0.5">บัญชีนี้ถูก Ban โดยผู้ดูแลระบบ คุณไม่สามารถเข้าใช้งาน SpaceCMU ได้</p>
+      </div>
+    </div>
+  );
+}
 
 export default function HomePage() {
   const [agreed, setAgreed] = useState(false);
@@ -11,6 +29,11 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-white text-gray-800">
+      {/* Banned Banner */}
+      <Suspense fallback={null}>
+        <BannedBanner />
+      </Suspense>
+
       {/* Logo & Title */}
       <div className="flex flex-col items-center mb-2">
         <Image
