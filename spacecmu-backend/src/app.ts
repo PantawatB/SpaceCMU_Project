@@ -30,17 +30,20 @@ const app: Express = express();
 
 
 // Middleware
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+const allowedOrigins = [frontendUrl, "http://localhost:3000", "http://localhost:5173"].filter(Boolean);
+
 app.use(Helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow images to be loaded from different origins
     contentSecurityPolicy: {
         directives: {
             ...Helmet.contentSecurityPolicy.getDefaultDirectives(),
-            "img-src": ["'self'", "data:", "http://localhost:3000", "http://localhost:5173"],
+            "img-src": ["'self'", "data:", ...allowedOrigins],
         },
     },
 }));
 app.use(cors({
-    origin: ["http://localhost:3000", "http://localhost:5173"],
+    origin: allowedOrigins,
     credentials: true
 }));
 app.use(Morgan("dev"));

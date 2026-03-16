@@ -1,5 +1,17 @@
 import type { NextConfig } from "next";
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const backendHostname = (() => {
+  try { return new URL(BACKEND_URL).hostname; } catch { return 'localhost'; }
+})();
+const backendProtocol = BACKEND_URL.startsWith('https') ? 'https' : 'http';
+const backendPort = (() => {
+  try {
+    const p = new URL(BACKEND_URL).port;
+    return p || '';
+  } catch { return '3001'; }
+})();
+
 const nextConfig: NextConfig = {
   output: "standalone",
   /* config options here */
@@ -19,9 +31,9 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
       {
-        protocol: 'http',
-        hostname: 'localhost',
-        port: '3001',
+        protocol: backendProtocol as 'http' | 'https',
+        hostname: backendHostname,
+        port: backendPort,
         pathname: '/uploads/**',
       },
     ],
@@ -30,7 +42,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/cmuEntraIDCallback',
-        destination: 'http://localhost:3001/api/auth/cmu/callback',
+        destination: `${BACKEND_URL}/api/auth/cmu/callback`,
       },
     ];
   },

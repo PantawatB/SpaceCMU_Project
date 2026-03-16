@@ -1752,7 +1752,7 @@ function ReportMediaSlideshow({ urls }: { urls: string[] }) {
   const [showRight, setShowRight] = useState(urls.length > 1);
   const [lightbox, setLightbox] = useState<number | null>(null);
 
-  const BACKEND = "http://localhost:3001";
+  const BACKEND = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
   const toFull = (url: string) => url.startsWith("/uploads/") ? `${BACKEND}${url}` : url;
   const isVideo = (url: string) => /\.(mp4|mov|avi|mkv|webm|m4v)$/i.test(url);
 

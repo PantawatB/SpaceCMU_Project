@@ -8,9 +8,12 @@ const onlineUsers = new Map<string, string>();
 const typingUsers = new Map<string, Set<string>>();
 
 export const initializeSocket = (httpServer: HTTPServer) => {
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const allowedOrigins = [frontendUrl, "http://localhost:3000", "http://localhost:5173"].filter(Boolean);
+
     const io = new SocketIOServer(httpServer, {
         cors: {
-            origin: ["http://localhost:3000", "http://localhost:5173"],
+            origin: allowedOrigins,
             credentials: true
         }
     });
