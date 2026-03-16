@@ -25,6 +25,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import announcementRoutes from "./routes/announcementRoutes.js";
 import godRoutes from "./routes/godRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
+import { callback as cmuCallback } from "./controllers/authController.js";
 
 const app: Express = express();
 
@@ -56,6 +57,9 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.get("/", (req: Request, res: Response) => {
     res.send("SpaceCMU Backend API is running!");
 });
+
+// CMU EntraID OAuth Callback (Microsoft redirects here)
+app.get("/cmuEntraIDCallback", cmuCallback);
 
 // API Routes
 app.use("/api/users", userRoutes);
