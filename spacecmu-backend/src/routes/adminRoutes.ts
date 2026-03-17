@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getDashboardStats, banUser, unbanUser, banPost, unbanPost, createAnnouncement, getActivities, getMyOfficialAccounts, addAdminToMyAccount, removeAdminFromMyAccount, leaveOfficialAccount, transferOwnership } from "../controllers/adminController.js";
 import { sessionMiddleware } from "../middleware/sessionMiddleware.js";
 import { adminMiddleware } from "../middleware/adminMiddleware.js";
+import { godMiddleware } from "../middleware/godMiddleware.js";
 
 const router = Router();
 
@@ -16,10 +17,15 @@ router.post("/my-official-accounts/:id/admins", addAdminToMyAccount);
 router.delete("/my-official-accounts/:id/admins/:adminUserId", removeAdminFromMyAccount);
 router.delete("/my-official-accounts/:id/leave", leaveOfficialAccount);
 router.post("/my-official-accounts/:id/transfer-owner", transferOwnership);
-router.post("/users/:userId/ban", banUser);
-router.post("/users/:userId/unban", unbanUser);
+
+// Ban/unban USER — god only (more powerful than admin)
+router.post("/users/:userId/ban", godMiddleware, banUser);
+router.post("/users/:userId/unban", godMiddleware, unbanUser);
+
+// Ban/unban POST — admin + god
 router.post("/posts/:postId/ban", banPost);
 router.post("/posts/:postId/unban", unbanPost);
+
 router.post("/announcements", createAnnouncement);
 
 export default router;

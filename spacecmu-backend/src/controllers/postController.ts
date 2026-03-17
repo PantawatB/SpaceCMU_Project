@@ -570,7 +570,8 @@ export const deletePost = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "Post not found" });
         }
 
-        if (post[0].userId !== userId) {
+        const isGod = req.activeUser?.role === "god";
+        if (post[0].userId !== userId && !isGod) {
             return res.status(403).json({ message: "Forbidden: You can only delete your own posts" });
         }
 
@@ -583,7 +584,8 @@ export const deletePost = async (req: Request, res: Response) => {
 
         // Log Activity
         await import("../utils/activityLogger.js").then(({ logActivity }) => {
-            logActivity(userId, "Deleted post", `Deleted post ID: ${postId}`, req);
+            const label = isGod && post[0].userId !== userId ? "God deleted post" : "Deleted post";
+            logActivity(userId, label, `Deleted post ID: ${postId}`, req);
         });
     } catch (error) {
         console.error("deletePost Error:", error);
