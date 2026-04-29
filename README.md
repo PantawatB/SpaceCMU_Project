@@ -78,22 +78,22 @@ cd spacecmu-backend
 สร้างไฟล์ `spacecmu-backend/.env` แล้วกำหนดค่าตัวแปรสำคัญ เช่น:
 
 ```env
-PORT=3001
-NODE_ENV=development
-FRONTEND_URL=http://localhost:3000
-JWT_SECRET=your_jwt_secret
+PORT=xxxx
+NODE_ENV=
+FRONTEND_URL=
+JWT_SECRET=
 
-POSTGRES_DB=spacecmu
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_APP_USER=spacecmu_app
-POSTGRES_APP_PASSWORD=spacecmu_app_password
-POSTGRES_PORT=5432
-POSTGRES_HOST=database
+POSTGRES_DB=
+POSTGRES_USER=
+POSTGRES_PASSWORD=
+POSTGRES_APP_USER=
+POSTGRES_APP_PASSWORD=
+POSTGRES_PORT=
+POSTGRES_HOST=
 
-CMU_ENTRAID_CLIENT_ID=your_client_id
-CMU_ENTRAID_CLIENT_SECRET=your_client_secret
-CMU_ENTRAID_REDIRECT_URI=http://localhost:3000/cmuEntraIDCallback
+CMU_ENTRAID_CLIENT_ID=
+CMU_ENTRAID_CLIENT_SECRET=
+CMU_ENTRAID_REDIRECT_URI=/cmuEntraIDCallback
 ```
 
 จากนั้นรัน backend พร้อม PostgreSQL ด้วย Docker Compose:
